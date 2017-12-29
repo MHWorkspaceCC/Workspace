@@ -43,6 +43,14 @@
       "type": "securestring"
     },
 
+    "saUserName": {
+      "type": "string"
+    },
+
+    "saPassword": {
+      "type": "securestring"
+    },
+
     "fileUris": {
       "type": "array",
       "defaultValue": [
@@ -52,9 +60,8 @@
       ]
     },
 
-    "installersStgAcctKey":
-    {
-      "type":  "string" 
+    "installersStgAcctKey": {
+      "type": "string"
     },
 
     "commandToExecute": {
@@ -121,7 +128,7 @@
     "bootDiagStorageAccount": "[concat('stgbootdiag', replace(variables('baseName'), '-', ''))]",
     "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
 
-    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'))]"
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUsername ', parameters('saUsername'), ' -saPassword ', parameters('saPassword'))]"
   },
 
   "resources": [

@@ -1,5 +1,7 @@
 param(
-	[string]$installersStgAcctKey
+	[string]$installersStgAcctKey,
+	[string]$saUsername,
+	[string]$saPassword
 )
 
 Function Write-Log
@@ -12,6 +14,11 @@ Function Write-Log
 
 Try
 {
+	Write-Log "In configure sql server"
+	Write-Log "Installers key: " $installersStgAcctKey
+	Write-Log "saUsername: " $saUsername
+	Write-Log "saPassword: " $saPassword
+
 	Write-Log "Trusting PSGallery"
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -43,18 +50,17 @@ Try
     $secpasswd = ConvertTo-SecureString "Workspace!DB!2017" -AsPlainText -Force
     $loginCred = New-Object System.Management.Automation.PSCredential ("wsapp", $secpasswd)
 
-    $saUsername = "wsadmin"
-    $saPassword = "Workspace!DB!2017" | ConvertTo-SecureString -AsPlainText -Force
-    $saCreds = New-Object -TypeName pscredential -ArgumentList $saUsername, $saPassword
+    $saPasswordSecure = $saPassword | ConvertTo-SecureString -AsPlainText -Force
+    $saCreds = New-Object -TypeName pscredential -ArgumentList $saUsername, $saPasswordSecure
 
-    $saPwd = "Workspace!DB!2017" | ConvertTo-SecureString -AsPlainText -Force
+    $saPwd = $saPasswordSecure
     $saCred = New-Object -TypeName pscredential -ArgumentList "sa", $saPwd
      
 	Write-Log "Starting SQL Server Install"
 	. ./SqlStandaloneDSC
 
 	$dataDisk = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
-	Write-Log "The data disk is " + $dataDisk
+	Write-Log "The data disk drive letter is " $dataDisk
 
 	SqlStandaloneDSC -ConfigurationData SQLConfigurationData.psd1 -LoginCredential $loginCred -SysAdminAccount $saCreds -saCredential $saCred -installDisk $sqlInstallDrive
 	Start-DscConfiguration .\SqlStandaloneDSC -Verbose -wait -Force
@@ -77,7 +83,7 @@ Try
     $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
     $ss.ConnectionContext.LoginSecure = $false
     $ss.ConnectionContext.Login = "sa"
-    $ss.ConnectionContext.Password = "Workspace!DB!2017"
+    $ss.ConnectionContext.Password = $saPassword
     Write-Log $ss.Information.Version
 
 	$mdf_file = "e:\AdventureWorks2012_Data.mdf"
