@@ -46,10 +46,15 @@
     "fileUris": {
       "type": "array",
       "defaultValue": [
-        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/configure-sql-server.ps1",
-        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/SqlConfigurationData.psd1",
-        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/SqlStandaloneDSC.ps1"
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-sql-server.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/SqlConfigurationData.psd1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/SqlStandaloneDSC.ps1"
       ]
+    },
+
+    "installersStgAcctKey":
+    {
+      "type":  "string" 
     },
 
     "commandToExecute": {
@@ -114,7 +119,9 @@
 
     "bootDiagBlobStorageEndpoint": "blob.core.windows.net",
     "bootDiagStorageAccount": "[concat('stgbootdiag', replace(variables('baseName'), '-', ''))]",
-    "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]"
+    "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
+
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'))]"
   },
 
   "resources": [

@@ -252,7 +252,9 @@ function Deploy-VNet{
 
 	Ensure-LoggedIntoAzureAccount
 
+
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "vnet"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -279,6 +281,7 @@ function Deploy-PIPs {
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $resourceCategory -ForegroundColor Green
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "pips"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -301,6 +304,7 @@ function Deploy-NSGs {
 	Ensure-LoggedIntoAzureAccount
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "nsgs"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -325,6 +329,7 @@ function Deploy-VPN{
 	Ensure-LoggedIntoAzureAccount
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "vnet"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -346,6 +351,7 @@ function Deploy-DB{
 		[string]$facility,
 		[string]$environment,
 		[string]$diagnosticStorageAccountKey,
+		[string]$installersStgAcctKey,
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
 		[string]$adminPassword
@@ -355,6 +361,7 @@ function Deploy-DB{
 	Ensure-LoggedIntoAzureAccount
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "db"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -363,6 +370,7 @@ function Deploy-DB{
 		"dataDogApiKey" = $dataDogApiKey
 		"adminUserName" = $adminUserName
 		"adminPassword" = $adminPassword
+		"installersStgAcctKey" = $installersStgAcctKey
 	}
 
 	Execute-Deployment -templateFile "arm-db-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
@@ -388,6 +396,7 @@ function Deploy-Web{
 	Ensure-LoggedIntoAzureAccount
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "web"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -422,6 +431,7 @@ function Deploy-Ftp{
 	Ensure-LoggedIntoAzureAccount
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "ftp"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -451,6 +461,7 @@ function Deploy-Jump{
 	Ensure-LoggedIntoAzureAccount
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "jump"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -480,6 +491,7 @@ function Deploy-Admin{
 	Ensure-LoggedIntoAzureAccount
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "admin"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
 
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
@@ -506,6 +518,8 @@ function Create-KeyVault{
 	Ensure-LoggedIntoAzureAccount
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "svc"
+	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
+
 	$resourcePostfix = Construct-ResourcePostfix -environment $environment -facility $facility
 	$location = Get-FacilityLocation -facility $facility
 
@@ -564,6 +578,7 @@ function Remove-KeyVault{
 	return $keyVault
 }
 
+<#
 function Add-WebSslSelfSignedCertToKeyVault{
 	param(
 		[string]$facility,
@@ -635,6 +650,7 @@ function Add-WebSslCertToKeyVault{
 
 	return $certificate
 }
+#>
 
 function Set-KeyVaultSecret{
 	param(
@@ -719,6 +735,11 @@ function Create-KeyVaultSecrets{
 	$diagStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $diagAcctResourceGroupName -AccountName $diagStorageAccountName
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
 
+	$installersAcctResourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "intallers"
+	$installersStorageAccountName = Construct-StorageAccountName -environment $environment -facility $facility -resourceCategory "intallers"
+	$installersStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
+
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoUrl" -SecretValue $octoUrl
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoApiKey" -SecretValue $octoApiKey
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DataDogApiKey" -SecretValue $dataDogApiKey
@@ -781,6 +802,7 @@ function Bringup-Environment{
 	$adminAdminPassword = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "AdminServerAdminPassword").SecretValueText
 
 	$diagStorageAccountKey = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DiagStorageAccountKey").SecretValueText
+	$installersStgAcctKey = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "InstallersStorageAccountKey").SecretValueText
 
 	$webSslCertificatePR = Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "WebSslCertificate"
 	$webSslCertificateIdPR = $webSslCertificatePR.Id
@@ -811,14 +833,14 @@ function Bringup-Environment{
 	Create-StorageAccount -facility "primary" -environment $environment -resourceCategory "monitor"
 	Create-StorageAccount -facility "dr" -environment $environment -resourceCategory "monitor"
 
-	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword
+	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStgAcctKey
 	Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $vmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey
 	Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
 	Deploy-Jump -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
 	Deploy-Admin -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
 }
 
-function Teardown-EntireEnvironment{
+function Teardown-CoreEnvironment{
 	param(
 		[string]$environment
 	)
@@ -830,20 +852,51 @@ function Teardown-EntireEnvironment{
 	$group1 = @("admin", "jump", "ftp", "web", "db")
 	$group2 = @("vpn", "vnet")
 	$group3 = @("pips", "nsgs")
+	$groups = @($group1, $group2, $group3)
 
-	foreach ($rc in $group1){
-		foreach ($facility in $facilities){
-			#Teardown-ResourceCategory -environment $environment -facility $facility -resourceCategory $rc
+	foreach ($group in $groups){
+		foreach ($rc in $group){
+			foreach ($facility in $facilities){
+				Teardown-ResourceCategory -environment $environment -facility $facility -resourceCategory $rc
+			}
 		}
 	}
 
-	foreach ($rc in $group2){
+	Write-Host "Out: " $MyInvocation.MyCommand $environment -ForegroundColor Green
+}
+
+function Teardown-DiagnosticsInEnvironment{
+	param(
+		[string]$environment
+	)
+	Write-Host "In: " $MyInvocation.MyCommand $environment -ForegroundColor Green
+
+	Ensure-LoggedIntoAzureAccount
+
+	$facilities = @("primary", "dr")
+	$group1 = @("bootdiag", "monitor")
+
+	foreach ($rc in $group1){
 		foreach ($facility in $facilities){
 			Teardown-ResourceCategory -environment $environment -facility $facility -resourceCategory $rc
 		}
 	}
 
-	foreach ($rc in $group3){
+	Write-Host "Out: " $MyInvocation.MyCommand $environment -ForegroundColor Green
+}
+
+function Teardown-SvcInEnvironment{
+	param(
+		[string]$environment
+	)
+	Write-Host "In: " $MyInvocation.MyCommand $environment -ForegroundColor Green
+
+	Ensure-LoggedIntoAzureAccount
+
+	$facilities = @("primary", "dr")
+	$group1 = @("svc")
+
+	foreach ($rc in $group1){
 		foreach ($facility in $facilities){
 			Teardown-ResourceCategory -environment $environment -facility $facility -resourceCategory $rc
 		}
@@ -881,40 +934,6 @@ function Teardown-ResourceCategory{
 	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility $resourceCategory -ForegroundColor Green
 }
 
-function Teardown-EntireEnvironmentWithinFacility{
-	param(
-		[string]$environment,
-		[string]$facility
-	)
-	Write-Host "In: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
-
-	Ensure-LoggedIntoAzureAccount
-
-	$resourceCategoriesInOrder = @("admin", "web", "db", "ftp", "jump", "bootdiag", "monitor", "vpn", "vnet", "nsgs", "pips")
-	# note, skipped files and svc
-
-	foreach ($resourceCategory in $resourceCategoriesInOrder){
-		$resourceGroupName = Construct-ResourceGroupName -facility $facility -environment $environment -resourceCategory $resourceCategory
-		Write-Host $resourceGroupName -ForegroundColor Blue
-
-		Write-Host "Getting resource group: " + $resourceGroupName
-		$rg = Get-AzureRmResourceGroup -Name $resourceGroupName -ErrorVariable rgNotPresent -ErrorAction SilentlyContinue
-
-		if (!$rg)
-		{
-			Write-Host "Resource group did not exist: " + $resourceGroupName
-		}
-		else
-		{
-			Write-Host "Deleting resource group: " + $resourceGroupName
-			Remove-AzureRmResourceGroup -Name $resourceGroupName -Force | Out-Null
-			Write-Host "Deleted resource group: " + $resourceGroupName
-		}
-	}
-
-	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
-}
-
 function Create-AzureFilesItems{
 	param(
 		[string]$environment,
@@ -929,7 +948,7 @@ function Create-AzureFilesItems{
 	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
 }
 
-function Create-AzureFilesItems{
+function Create-AzureFilesShare{
 	param(
 		[string]$environment,
 		[string]$facility
@@ -948,6 +967,20 @@ function Create-AzureFilesItems{
 	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
 }
 
+function Create-ServicesEntities{
+	param(
+		[string]$environment,
+		[string]$facility
+	)
+	Write-Host "In: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
+
+	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "svc"
+	Ensure-ResourceGroup -facility $facility
+
+	Create-KeyVault -facility $facility -environment $environment
+	Create-KeyVaultSecrets -facility $facility -environment $environment
+}
+
 
 <#
 Export-ModuleMember -Function Teardown-EntireRegionAndFacility
@@ -963,7 +996,7 @@ Bringup-EnvironmentAndFacility -environment "prod" -facility "primary" `
 #>
 
 #Bringup-Environment -environment "prod" 
-Teardown-EntireEnvironment -environment "prod"
+#Teardown-EntireEnvironment -environment "prod"
 					
 #Add-CertificateToKV -facility "primary" -environment "prod" -pfxFile "workspace.pfx" -password "workspace" -secretName "foo"
 

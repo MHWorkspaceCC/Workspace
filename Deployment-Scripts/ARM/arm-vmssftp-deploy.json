@@ -42,7 +42,7 @@
     "fileUris": {
       "type": "array",
       "defaultValue": [
-        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/configure-ftp-server.ps1"
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-ftp-server.ps1"
       ]
     },
     "commandToExecute": {
@@ -51,6 +51,10 @@
     },
 
     "diagStorageAccountKey": {
+      "type": "string"
+    },
+
+    "vmCustomData": {
       "type": "string"
     }
   },
@@ -93,6 +97,7 @@
     "wadcfgxend": "\"><MetricAggregation scheduledTransferPeriod=\"PT1H\"/><MetricAggregation scheduledTransferPeriod=\"PT1M\"/></Metrics></DiagnosticMonitorConfiguration></WadCfg>",
 
     "dataDogApiKey": "[parameters('dataDogApiKey')]",
+    "vmCustomData": "[parameters('vmCustomData')]",
 
     "diagnosticsStorageAccountName": "[concat('stgmonitor', replace(variables('baseName'), '-', ''))]",
     "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
@@ -246,6 +251,7 @@
             "computerNamePrefix": "[variables('computerNamePrefix')]",
             "adminUsername": "[variables('adminUsername')]",
             "adminPassword": "[variables('adminPassword')]",
+            "customData": "[variables('vmCustomData')]",
             "windowsConfiguration": {
               "provisionVMAgent": true,
               "enableAutomaticUpdates": true

@@ -41,8 +41,21 @@
 
     "adminPassword": {
       "type": "securestring"
-    }
+    },
 
+    "fileUris": {
+      "type": "array",
+      "defaultValue": [
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-jump-server.ps1"
+      ]
+    },
+    "commandToExecute": {
+      "type": "string",
+      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-jump-server.ps1"
+    },
+    "vmCustomData": {
+      "type": "string"
+    }
   },
 
   "variables": {
@@ -88,13 +101,18 @@
     "wadmetricsresourceid": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name , '/providers/', 'Microsoft.Compute/virtualMachines/')]",
     "wadcfgxend": "\"><MetricAggregation scheduledTransferPeriod=\"PT1H\"/><MetricAggregation scheduledTransferPeriod=\"PT1M\"/></Metrics></DiagnosticMonitorConfiguration></WadCfg>",
 
+    "vmCustomData": "[parameters('vmCustomData')]",
+
     "diagnosticsStorageAccountName": "[concat('stgmonitor', replace(variables('baseName'), '-', ''))]",
     "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
     "diagnosticsStorageAccountEndPoint": "https://core.windows.net",
 
     "bootDiagBlobStorageEndpoint": "blob.core.windows.net",
     "bootDiagStorageAccount": "[concat('stgbootdiag', replace(variables('baseName'), '-', ''))]",
-    "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]"
+    "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
+
+    "fileUris": "[parameters('fileUris')]",
+    "commandToExecute": "[parameters('commandToExecute')]"
   },
 
   "resources": [
@@ -158,6 +176,7 @@
           "computerName": "[variables('computerName')]",
           "adminUsername": "[variables('adminUserName')]",
           "adminPassword": "[variables('adminPassword')]",
+          "customData": "[variables('vmCustomData')]",
           "windowsConfiguration": {
             "provisionVMAgent": true,
             "enableAutomaticUpdates": false
@@ -193,10 +212,8 @@
             "typeHandlerVersion": "1.9",
             "autoUpgradeMinorVersion": true,
             "settings": {
-              "fileUris": [
-                "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/configure-jump-server.ps1"
-              ],
-              "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File configure-jump-server.ps1"
+              "fileUris": "[variables('fileUris')]",
+              "commandToExecute": "[variables('commandToExecute')]"
             }
           }
         },

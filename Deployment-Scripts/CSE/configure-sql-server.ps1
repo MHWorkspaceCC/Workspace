@@ -1,6 +1,6 @@
-#
-# configure_sql_server.ps1
-#
+param(
+	[string]$installersStgAcctKey
+)
 
 Function Write-Log
 {
@@ -24,7 +24,7 @@ Try
 
 	Write-Log "Starting configuration"
 
-	$storageAccountKey = "KRihdvk4dDFQkOloPqpk0P5DtnpNOr13Hh9TfBywjyjcE7wSgLSgNud8JnEzTZI4ZAbKnytoFiLfI0kJZ4z4gQ=="
+	$storageAccountKey = $installersStgAcctKey
 	$storageAccountName = "stginstallerswspdpr"
 	$containerName = "sqlserver"
 	$sqlInstallBlobName = "en_sql_server_2016_enterprise_with_service_pack_1_x64_dvd_9542382.iso"
