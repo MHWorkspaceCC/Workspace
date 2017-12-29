@@ -1,0 +1,378 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "sb",
+      "allowedValues": [
+        "sb",
+        "dv",
+        "qa",
+        "pd"
+      ],
+      "metadata": {
+        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
+      }
+    },
+    "facility": {
+      "type": "string",
+      "defaultValue": "pr",
+      "allowedValues": [
+        "pr",
+        "dr"
+      ],
+      "metadata": {
+        "description": "The location: 'pr' == westus, 'dr' == eastus"
+      }
+    },
+
+    "fileUris": {
+      "type": "array",
+      "defaultValue": [
+        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/Install-OctopusDSC.ps1",
+        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/install-and-configure-iis.ps1",
+        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/configure-file-share.ps1",
+        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/install-web-app-with-octo-dsc.ps1",
+        "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/configure-web-server.ps1"
+      ]
+    },
+    "commandToExecute": {
+      "type": "string",
+      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-web-server.ps1"
+    },
+
+    "sslCertificateStore": {
+      "type": "string",
+      "defaultValue": "MyCerts"
+    },
+
+    "diagStorageAccountKey": {
+      "type": "string"
+    },
+
+    "dataDogApiKey": {
+      "type": "string"
+    },
+
+    "octoApiKey": {
+      "type": "string"
+    },
+
+    "octoUrl": {
+      "type": "string"
+    },
+
+    "adminUserName": {
+      "type": "string"
+    },
+
+    "adminPassword": {
+      "type": "securestring"
+    },
+
+    "sslCertificateUrl": {
+      "type": "string"
+    },
+
+    "fileShareKey": {
+      "type":  "string" 
+    },
+
+    "vmCustomData": {
+        "type": "string"
+      }
+    },
+
+  "variables": {
+    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
+    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
+    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+    "webRgName": "[concat('rg-web', variables('baseName'))]",
+    "vmssPrefix": "vmss-web",
+    "vmssName": "[concat(variables('vmssPrefix'), variables('baseName'))]",
+    "computerNamePrefix": "wvmss",
+    "adminUserName": "[parameters('adminUserName')]",
+    "adminPassword": "[parameters('adminPassword')]",
+    "kvName": "[concat('kv-svc', variables('baseName'))]",
+    "kvRgName": "[concat('rg-svc', variables('baseName'))]",
+    "sourceVaultId": "[resourceId(variables('kvRgName'), 'Microsoft.KeyVault/vaults', variables('kvName'))]",
+    "nicName": "[concat('nic-', variables('vmssName'))]",
+    "ipConfigName": "[concat('ipconfig-', variables('vmssName'))]",
+
+    "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
+    "vnetName": "[concat('vn1-vnet', variables('baseName'))]",
+    "subnetName": "[concat('sn-web', variables('baseName'))]",
+    "subnetId": "[concat(resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName')), '/subnets/', variables('subnetName'))]",
+
+    "loadBalancerName": "[concat('lb-web', variables('baseName'))]",
+    "backendAddressPoolName": "LB-Backend",
+    "backendAddressPoolId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/backendAddressPools/', variables('backendAddressPoolName'))]",
+    "inboundNatPoolsId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/inboundNatPools/RDP')]",
+    "lbFrontEndIpConfigName": "LB-Frontend",
+    "lbPipName": "[concat('pip-web', variables('baseName'))]",
+    "lbPipId": "[resourceId(concat('rg-pips', variables('baseName')), 'Microsoft.Network/publicIPAddresses', variables('lbPipName'))]",
+    "lbProbeId": "[concat(resourceId('Microsoft.Network/loadBalancers', 'lb-web-wspdpr'), '/probes/HealthProbe')]",
+    "frontEndIpConfigId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/frontendIPConfigurations/', variables('lbFrontEndIpConfigName'))]",
+
+    "wadlogs": "<WadCfg> <DiagnosticMonitorConfiguration overallQuotaInMB=\"4096\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2010/10/DiagnosticsConfiguration\"> <DiagnosticInfrastructureLogs scheduledTransferLogLevelFilter=\"Error\"/> <WindowsEventLog scheduledTransferPeriod=\"PT1M\" > <DataSource name=\"Application!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"Security!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"System!*[System[(Level = 1 or Level = 2)]]\" /></WindowsEventLog>",
+    "wadperfcounters1": "<PerformanceCounters scheduledTransferPeriod=\"PT1M\"><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% Processor Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU utilization\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% Privileged Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU privileged time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% User Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU user time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor Information(_Total)\\Processor Frequency\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"CPU frequency\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\System\\Processes\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Processes\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Process(_Total)\\Thread Count\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Threads\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Process(_Total)\\Handle Count\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Handles\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\% Committed Bytes In Use\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Memory usage\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Available Bytes\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory available\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Committed Bytes\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory committed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Commit Limit\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory commit limit\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active time\" locale=\"en-us\"/></PerformanceCounterConfiguration>",
+    "wadperfcounters2": "<PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Read Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active read time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Write Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active write time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Transfers/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Reads/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk read operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Writes/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk write operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk read speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk write speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\LogicalDisk(_Total)\\% Free Space\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk free space (percentage)\" locale=\"en-us\"/></PerformanceCounterConfiguration></PerformanceCounters>",
+    "wadcfgxstart": "[concat(variables('wadlogs'), variables('wadperfcounters1'), variables('wadperfcounters2'), '<Metrics resourceId=\"')]",
+    "wadmetricsresourceid": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name , '/providers/', 'Microsoft.Compute/virtualMachines/')]",
+    "wadcfgxend": "\"><MetricAggregation scheduledTransferPeriod=\"PT1H\"/><MetricAggregation scheduledTransferPeriod=\"PT1M\"/></Metrics></DiagnosticMonitorConfiguration></WadCfg>",
+
+    "dataDogApiKey": "[parameters('dataDogApiKey')]",
+
+    "diagnosticsStorageAccountName": "[concat('stgmonitor', replace(variables('baseName'), '-', ''))]",
+    "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
+    "diagnosticsStorageAccountEndPoint": "https://core.windows.net",
+
+    "bootDiagBlobStorageEndpoint": "blob.core.windows.net",
+    "bootDiagStorageAccount": "[concat('stgbootdiag', replace(variables('baseName'), '-', ''))]",
+    "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
+
+    "octoUrl": "[parameters('octoUrl')]",
+    "octoApiKey": "[parameters('octoApiKey')]",
+
+    "sslCertificateUrl": "[parameters('sslCertificateUrl')]",
+
+    "vmCustomData": "[parameters('vmCustomData')]",
+
+    "fileShareKey":  "[parameters('fileShareKey')]",
+
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -octoUrl ', variables('octoUrl'), ' -octoApiKey ', variables('octoApiKey'), ' -fileShareKey ', variables('fileShareKey'))]"
+
+  },
+  "resources": [
+
+    {
+      "type": "Microsoft.Network/loadBalancers",
+      "name": "[variables('loadBalancerName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[variables('location')]",
+      "scale": null,
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "name": "[variables('lbFrontEndIpConfigName')]",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[variables('lbPipId')]"
+              }
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "[variables('backendAddressPoolName')]",
+            "properties": {
+            }
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "webserver",
+            "properties": {
+              "frontendIPConfiguration": { "id": "[variables('frontEndIpConfigId')]" },
+              "frontendPort": 443,
+              "backendPort": 443,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 15,
+              "protocol": "Tcp",
+              "loadDistribution": "Default",
+              "backendAddressPool": { "id": "[variables('backendAddressPoolId')]" },
+              "probe": { "id": "[variables('lbProbeId')]" }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "HealthProbe",
+            "properties": {
+              "protocol": "Tcp",
+              "port": 443,
+              "intervalInSeconds": 15,
+              "numberOfProbes": 2
+            }
+          }
+        ],
+
+        "inboundNatPools": [
+          {
+            "name": "RDP",
+            "properties": {
+              "frontendPortRangeStart": 53380,
+              "frontendPortRangeEnd": 53390,
+              "backendPort": 3389,
+              "protocol": "Tcp",
+              "frontendIPConfiguration": { "id": "[variables('frontEndIpConfigId')]" }
+            }
+          }
+        ]
+      },
+      "dependsOn": []
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "sku": {
+        "name": "Standard_DS1_v2",
+        "tier": "Standard",
+        "capacity": 1
+      },
+      "name": "[variables('vmssName')]",
+      "apiVersion": "2017-03-30",
+      "location": "[variables('location')]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "singlePlacementGroup": true,
+        "upgradePolicy": {
+          "mode": "Automatic"
+        },
+        "virtualMachineProfile": {
+          "osProfile": {
+            "computerNamePrefix": "[variables('computerNamePrefix')]",
+            "adminUsername": "[variables('adminUserName')]",
+            "adminPassword": "[variables('adminPassword')]",
+            "customData": "[variables('vmCustomData')]",
+            "windowsConfiguration": {
+              "provisionVMAgent": true,
+              "enableAutomaticUpdates": true
+            },
+            "secrets": [
+              {
+                "sourceVault": {
+                  "id": "[variables('sourceVaultId')]"
+                },
+                "vaultCertificates": [
+                  {
+                    "certificateUrl": "[variables('sslCertificateUrl')]",
+                    "certificateStore": "[parameters('sslCertificateStore')]"
+                  }
+                ]
+              }
+            ]
+          },
+          "storageProfile": {
+            "osDisk": {
+              "createOption": "FromImage",
+              "caching": "None",
+              "managedDisk": {
+                "storageAccountType": "Premium_LRS"
+              }
+            },
+            "imageReference": {
+              "publisher": "MicrosoftWindowsServer",
+              "offer": "WindowsServer",
+              "sku": "2016-Datacenter",
+              "version": "latest"
+            }
+          },
+          "diagnosticsProfile": {
+            "bootDiagnostics": {
+              "enabled": true,
+              "storageUri": "[variables('bootDiagStorageUrl')]"
+            }
+          },
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "[variables('nicName')]",
+                "properties": {
+                  "primary": true,
+                  "enableAcceleratedNetworking": false,
+                  "dnsSettings": {
+                    "dnsServers": []
+                  },
+                  "ipConfigurations": [
+                    {
+                      "name": "[variables('ipConfigName')]",
+                      "properties": {
+                        "primary": false,
+                        "subnet": {
+                          "id": "[variables('subnetId')]"
+                        },
+                        "privateIPAddressVersion": "IPv4",
+                        "loadBalancerBackendAddressPools": [
+                          {
+                            "id": "[variables('backendAddressPoolId')]"
+                          }
+                        ],
+                        "loadBalancerInboundNatPools": [
+                          {
+                            "id": "[variables('inboundNatPoolsId')]"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "extensionProfile": {
+            "extensions": [
+              {
+                "name": "ConfigureWebVMSS",
+                "properties": {
+                  "publisher": "Microsoft.Compute",
+                  "type": "CustomScriptExtension",
+                  "typeHandlerVersion": "1.9",
+                  "autoUpgradeMinorVersion": false,
+                  "settings": {
+                    "fileUris": "[parameters('fileUris')]",
+                    "commandToExecute": "[variables('commandToExecute')]"
+                  }
+                }
+              },
+              {
+                "name": "[concat(variables('vmssName'), '-DataDogAgent')]",
+                "location": "[variables('location')]",
+                "properties": {
+                  "publisher": "Datadog.Agent",
+                  "type": "DatadogWindowsAgent",
+                  "typeHandlerVersion": "0.4",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "api_key": "[variables('dataDogApiKey')]"
+                  }
+                }
+              },
+              {
+                "name": "[concat(variables('vmssName'), '-IaaSDiagnostics')]",
+                "properties": {
+                  "publisher": "Microsoft.Azure.Diagnostics",
+                  "type": "IaaSDiagnostics",
+                  "typeHandlerVersion": "1.11",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "xmlCfg": "[base64(concat(variables('wadcfgxstart'), variables('wadmetricsresourceid'), variables('vmssName'), variables('wadcfgxend')))]",
+                    "storageAccount": "[variables('diagnosticsStorageAccountName')]"
+                  },
+                  "protectedSettings": {
+                    "storageAccountName": "[variables('diagnosticsStorageAccountName')]",
+                    "storageAccountKey": "[variables('diagnosticsStorageAccountKey')]",
+                    "storageAccountEndPoint": "[variables('diagnosticsStorageAccountEndPoint')]"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "overprovision": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"
+      ]
+    }
+
+
+
+
+  ],
+
+  "outputs": {
+  }
+}

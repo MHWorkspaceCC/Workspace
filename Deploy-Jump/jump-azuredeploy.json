@@ -1,0 +1,242 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "sb",
+      "allowedValues": [
+        "sb",
+        "dv",
+        "qa",
+        "pd"
+      ],
+      "metadata": {
+        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
+      }
+    },
+    "facility": {
+      "type": "string",
+      "defaultValue": "pri",
+      "allowedValues": [
+        "pr",
+        "dr"
+      ],
+      "metadata": {
+        "description": "The location: 'pri' == westus, 'dr' == eastus"
+      }
+    }
+  },
+
+  "variables": {
+    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
+    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
+    "baseName": "[concat('-ws-', variables('environmentFacility'))]",
+
+    "jumpBaseName": "[concat('jump', variables('baseName'))]",
+    "stgAcctName": "[concat('stg', replace(variables('jumpBaseName'), '-', ''))]",
+    "jumpSaSkuName": "Standard_LRS",
+
+    "jumpBoxName": "[concat('j1-', variables('jumpBaseName'))]",
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "osDiskName": "[concat('osdisk-', variables('jumpBoxName'))]",
+    "vmSize": "Standard_D1_v2",
+    "dbAdminUserName": "wsadmin",
+    "dbAdminPassword": "Workspace!Jump!2017",
+    "windowsOsVersion": "2016-Datacenter",
+
+    "computerName": "jump1",
+    "vnetName": "[concat('vn1-vnet', variables('baseName'))]",
+    "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
+    "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+    "jumpSnName": "[concat('sn-', variables('jumpBaseName'))]",
+    "subnetRef": "[concat(variables('vnetID'), '/subnets/', variables('jumpSnName'))]",
+
+    "storageAccountContainerName": "vhds",
+    "jumpNicName": "[concat('nic1-', variables('jumpBaseName'))]",
+
+    "jumpPipName": "[concat('pip-', variables('jumpBaseName'))]"
+  },
+
+  "resources": [
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('jumpPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "pip-jump-ws-pd-pri"
+        }
+      },
+      "dependsOn": []
+    },
+
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('jumpNicName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": { "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('jumpPipName'))]" },
+              "subnet": { "id": "[variables('subnetRef')]" },
+              "primary": true,
+              "privateIPAddressVersion": "IPv4"
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": [],
+          "appliedDnsServers": []
+        },
+        "enableAcceleratedNetworking": false,
+        "enableIPForwarding": false,
+        "primary": true,
+        "virtualMachine": {
+          "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('jumpBoxName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses/', variables('jumpPipName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('stgAcctName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "[variables('jumpSaSkuName')]",
+        "tier": "Standard"
+      },
+      "kind": "Storage",
+      "properties": {
+        "encryption": {
+          "keySource": "Microsoft.Storage",
+          "services": {
+            "blob": { "enabled": true },
+            "file": { "enabled": true }
+          }
+        },
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Allow",
+          "ipRules": [],
+          "virtualNetworkRules": []
+        },
+        "supportsHttpsTrafficOnly": false
+      }
+    },
+
+
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('jumpBoxName')]",
+      "apiVersion": "2017-03-30",
+      "location": "[resourceGroup().location]",
+
+      "properties": {
+        "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('windowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "osType": "Windows",
+            "name": "[variables('osDiskName')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+          "dataDisks": []
+        },
+        "osProfile": {
+          "computerName": "[variables('computerName')]",
+          "adminUsername": "[variables('dbAdminUserName')]",
+          "adminPassword": "[variables('dbAdminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": false
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('jumpNicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[concat('https', '://', variables('stgAcctName'), '.blob.core.windows.net', '/')]"
+          }
+        }
+      },
+      "resources": [
+        {
+          "type": "extensions",
+          "name": "config-server",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[variables('jumpBoxName')]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.9",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "fileUris": [
+                "https://raw.githubusercontent.com/mheydt/deploy-vmss/master/Deploy-Vmss/CSE/configure-jump-server.ps1"
+              ],
+              "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File configure-jump-server.ps1"
+            }
+          }
+        }
+      ],
+
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces/', variables('jumpNicName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts/', variables('stgAcctName'))]"
+      ]
+    }
+  ],
+
+  "outputs": {
+    "dbStgAcctName": {
+      "type": "string",
+      "value": "[variables('stgAcctName')]"
+    },
+    "dbSaSkuName": {
+      "type": "string",
+      "value": "[variables('jumpSaSkuName')]"
+    },
+    "dbPipName": {
+      "type": "string",
+      "value": "[variables('jumpPipName')]"
+    },
+    "dbNicName": {
+      "type": "string",
+      "value": "[variables('jumpNicName')]"
+    },
+    "subnetRef": {
+      "type": "string",
+      "value": "[variables('subnetRef')]"
+    }
+  }
+}

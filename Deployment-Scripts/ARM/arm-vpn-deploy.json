@@ -1,0 +1,282 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "pd",
+      "allowedValues": [
+        "sb",
+        "dv",
+        "qa",
+        "pd"
+      ],
+      "metadata": {
+        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
+      }
+    },
+    "facility": {
+      "type": "string",
+      "defaultValue": "pr",
+      "allowedValues": [
+        "pr",
+        "dr"
+      ],
+      "metadata": {
+        "description": "The location: 'pr' == westus, 'dr' == eastus"
+      }
+    },
+    "westVnetCidrPrefix": {
+      "type": "string"
+    },
+    "eastVnetCidrPrefix": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "thisFacility": "[parameters('facility')]",
+    "thatFacility": "[if(equals(variables('thisFacility'), 'pr'), 'dr', 'pr')]",
+    "thisLocation": "[if(equals(variables('thisFacility'), 'pr'), 'westus', 'eastus')]",
+    "thatLocation": "[if(equals(variables('thisFacility'), 'pr'), 'eastus', 'westus')]",
+    "thisEF": "[concat(parameters('environment'), variables('thisFacility'))]",
+    "thatEF": "[concat(parameters('environment'), variables('thatFacility'))]",
+    "thisAddressPrefix": "[if(equals(parameters('facility'), 'pr'), parameters('westVnetCidrPrefix'), parameters('eastVnetCidrPrefix'))]",
+    "thatAddressPrefix": "[if(equals(parameters('facility'), 'pr'), parameters('eastVnetCidrPrefix'), parameters('westVnetCidrPrefix'))]",
+    "thisVnetCIDR": "[concat(variables('thisAddressPrefix'), '0.0/16')]",
+    "thatVnetCIDR": "[concat(variables('thatAddressPrefix'), '0.0/16')]",
+    "thisBaseName": "[concat('-ws', variables('thisEF'))]",
+    "thatBaseName": "[concat('-ws', variables('thatEF'))]",
+    "thisGatewayName": "[concat('vng-vpn', variables('thisBaseName'))]",
+    "thatGatewayName": "[concat('vng-vpn', variables('thatBaseName'))]",
+    "thisVpnConnectionName": "[concat('conn-vpn', variables('thisBaseName'))]",
+    "thatVpnConnectionName": "[concat('conn-vpn', variables('thatBaseName'))]",
+    "thisVnetRg": "[concat('rg-vnet', variables('thisBaseName'))]",
+    "thatVnetRg": "[concat('rg-vnet', variables('thatBaseName'))]",
+    "thisVnetName": "[concat('vn1-vnet', variables('thisBaseName'))]",
+    "thisSubnetName": "[concat('sn-vpn', variables('thisBaseName'))]",
+    "thatVnetName": "[concat('vn1-vnet', variables('thatBaseName'))]",
+    "thatSubnetName": "[concat('sn-vpn', variables('thatBaseName'))]",
+    "thisPipName": "[concat('pip-vpn', variables('thisBaseName'))]",
+    "thatPipName": "[concat('pip-vpn', variables('thatBaseName'))]",
+    "thisBgpAddress": "[concat(variables('thisAddressPrefix'), '100.254')]",
+    "thatBgpAddress": "[concat(variables('thatAddressPrefix'), '100.254')]",
+    "thisPipRgName": "[concat('rg-pips', variables('thisBaseName'))]",
+    "thatPipRgName": "[concat('rg-pips', variables('thatBaseName'))]",
+    "thisVnetRgName": "[concat('rg-vnet', variables('thisBaseName'))]",
+    "thatVnetRgName": "[concat('rg-vnet', variables('thatBaseName'))]",
+    "sharedKey": "workspace",
+
+    "sharedState": {
+      "thisFacility": "[variables('thisFacility')]",
+      "thatFacility": "[variables('thatFacility')]",
+      "thisLocation": "[variables('thisLocation')]",
+      "thatLocation": "[variables('thatLocation')]",
+      "thisVnetRgName": "[variables('thisVnetRgName')]",
+      "thatVnetRgName": "[variables('thatVnetRgName')]",
+      "thisGatewayName": "[variables('thisGatewayName')]",
+      "thatGatewayName": "[variables('thatGatewayName')]",
+      "thisPipRgName": "[variables('thisPipRgName')]",
+      "thatPipRgName": "[variables('thatPipRgName')]",
+      "thisPipName": "[variables('thisPipName')]",
+      "thatPipName": "[variables('thatPipName')]",
+      "thisVnetName": "[variables('thisVnetName')]",
+      "thatVnetName": "[variables('thatVnetName')]",
+      "thisBgpAddress": "[variables('thisBgpAddress')]",
+      "thatBgpAddress": "[variables('thatBgpAddress')]",
+      "thisVpnConnectionName": "[variables('thisVpnConnectionName')]",
+      "thatVpnConnectionName": "[variables('thatVpnConnectionName')]",
+      "sharedKey": "[variables('sharedKey')]"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworkGateways",
+      "name": "[variables('sharedState').thisGatewayName]",
+      "apiVersion": "2017-06-01",
+      "location": "[variables('sharedState').thisLocation]",
+      "scale": null,
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "default",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId(variables('sharedState').thisPipRgName, 'Microsoft.Network/publicIPAddresses', variables('sharedState').thisPipName)]"
+              },
+              "subnet": {
+                "id": "[resourceId(variables('sharedState').thisVnetRgName, 'Microsoft.Network/virtualNetworks/subnets', variables('sharedState').thisVnetName, 'GatewaySubnet')]"
+              }
+            }
+          }
+        ],
+        "sku": {
+          "name": "VpnGw1",
+          "tier": "VpnGw1",
+          "capacity": 2
+        },
+        "gatewayType": "Vpn",
+        "vpnType": "RouteBased",
+        "enableBgp": false,
+        "activeActive": false,
+        "vpnClientConfiguration": {
+          "vpnClientProtocols": [
+            "SSTP",
+            "IkeV2"
+          ],
+          "vpnClientRootCertificates": [],
+          "vpnClientRevokedCertificates": []
+        },
+        "bgpSettings": {
+          "asn": 65515,
+          "bgpPeeringAddress": "[variables('sharedState').thisBgpAddress]",
+          "peerWeight": 0
+        }
+      },
+      "dependsOn": [
+      ]
+    },
+
+    {
+      "apiVersion": "2017-05-10",
+      "name": "thatGatewayNestedTemplate",
+      "type": "Microsoft.Resources/deployments",
+      "resourceGroup": "[variables('sharedState').thatVnetRgName]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "variables": {},
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworkGateways",
+              "name": "[variables('sharedState').thatGatewayName]",
+              "location": "[variables('sharedState').thatLocation]",
+              "apiVersion": "2017-06-01",
+              "scale": null,
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "default",
+                    "properties": {
+                      "privateIPAllocationMethod": "Dynamic",
+                      "publicIPAddress": {
+                        "id": "[resourceId(variables('sharedState').thatPipRgName, 'Microsoft.Network/publicIPAddresses', variables('sharedState').thatPipName)]"
+                      },
+                      "subnet": {
+                        "id": "[resourceId(variables('sharedState').thatVnetRgName, 'Microsoft.Network/virtualNetworks/subnets', variables('sharedState').thatVnetName, 'GatewaySubnet')]"
+                      }
+                    }
+                  }
+                ],
+                "sku": {
+                  "name": "VpnGw1",
+                  "tier": "VpnGw1",
+                  "capacity": 2
+                },
+                "gatewayType": "Vpn",
+                "vpnType": "RouteBased",
+                "enableBgp": false,
+                "activeActive": false,
+                "vpnClientConfiguration": {
+                  "vpnClientProtocols": [
+                    "SSTP",
+                    "IkeV2"
+                  ],
+                  "vpnClientRootCertificates": [],
+                  "vpnClientRevokedCertificates": []
+                },
+                "bgpSettings": {
+                  "asn": 65515,
+                  "bgpPeeringAddress": "[variables('sharedState').thatBgpAddress]",
+                  "peerWeight": 0
+                }
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+      ]
+    },
+
+    {
+      "type": "Microsoft.Network/connections",
+      "name": "[variables('sharedState').thisVpnConnectionName]",
+      "apiVersion": "2017-06-01",
+      "location": "[variables('sharedState').thisLocation]",
+      "scale": null,
+      "properties": {
+        "virtualNetworkGateway1": {
+          "id": "[resourceId(variables('sharedState').thisVnetRgName, 'Microsoft.Network/virtualNetworkGateways', variables('sharedState').thisGatewayName)]",
+          "properties": {}
+        },
+        "virtualNetworkGateway2": {
+          "id": "[resourceId(variables('sharedState').thatVnetRgName, 'Microsoft.Network/virtualNetworkGateways', variables('sharedState').thatGatewayName)]",
+          "properties": {}
+        },
+        "connectionType": "Vnet2Vnet",
+        "routingWeight": 0,
+        "enableBgp": false,
+        "usePolicyBasedTrafficSelectors": false,
+        "ipsecPolicies": [],
+        "sharedKey": "[variables('sharedState').sharedKey]"
+      },
+      "dependsOn": [
+        "[variables('sharedState').thisGatewayName]",
+        "thatGatewayNestedTemplate"
+      ]
+    },
+
+    {
+      "name": "thatVpnConnectionTemplate",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "resourceGroup": "[variables('sharedState').thatVnetRgName]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "variables": {},
+          "resources": [
+            {
+              "type": "Microsoft.Network/connections",
+              "name": "[variables('sharedState').thatVpnConnectionName]",
+              "apiVersion": "2017-06-01",
+              "location": "[variables('sharedState').thatLocation]",
+              "scale": null,
+              "properties": {
+                "virtualNetworkGateway1": {
+                  "id": "[resourceId(variables('sharedState').thatVnetRgName, 'Microsoft.Network/virtualNetworkGateways', variables('sharedState').thatGatewayName)]",
+                  "properties": {}
+                },
+                "virtualNetworkGateway2": {
+                  "id": "[resourceId(variables('sharedState').thisVnetRgName, 'Microsoft.Network/virtualNetworkGateways', variables('sharedState').thisGatewayName)]",
+                  "properties": {}
+                },
+                "connectionType": "Vnet2Vnet",
+                "routingWeight": 0,
+                "enableBgp": false,
+                "usePolicyBasedTrafficSelectors": false,
+                "ipsecPolicies": [],
+                "sharedKey": "[variables('sharedState').sharedKey]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[variables('sharedState').thisGatewayName]",
+        "thatGatewayNestedTemplate"
+      ]
+    }
+
+
+
+  ],
+  "outputs": {
+    "sharedState": { "type": "object", "value": "[variables('sharedState')]" }
+  }
+}

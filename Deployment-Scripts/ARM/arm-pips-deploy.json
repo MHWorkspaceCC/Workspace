@@ -1,0 +1,149 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "sb",
+      "allowedValues": [
+        "sb",
+        "dv",
+        "qa",
+        "pd"
+      ],
+      "metadata": {
+        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
+      }
+    },
+    "facility": {
+      "type": "string",
+      "defaultValue": "pr",
+      "allowedValues": [
+        "pr",
+        "dr"
+      ],
+      "metadata": {
+        "description": "The location: 'pr' == westus, 'dr' == eastus"
+      }
+    }
+  },
+
+  "variables": {
+    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
+    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
+    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+
+    "jumpBaseName": "[concat('jump', variables('baseName'))]",
+    "jumpPipName": "[concat('pip-', variables('jumpBaseName'))]",
+
+    "ftpBaseName": "[concat('ftp', variables('baseName'))]",
+    "ftpPipName": "[concat('pip-', variables('ftpBaseName'))]",
+
+    "webBaseName": "[concat('web', variables('baseName'))]",
+    "webPipName": "[concat('pip-', variables('webBaseName'))]",
+
+    "adminBaseName": "[concat('admin', variables('baseName'))]",
+    "adminPipName": "[concat('pip-', variables('adminBaseName'))]",
+
+    "dbBaseName": "[concat('db', variables('baseName'))]",
+    "dbPipName": "[concat('pip-', variables('dbBaseName'))]",
+
+    "vpnBaseName": "[concat('vpn', variables('baseName'))]",
+    "vpnPipName": "[concat('pip-', variables('vpnBaseName'))]"
+  },
+
+  "resources": [
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('webPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('webPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('ftpPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('ftpPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('jumpPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('jumpPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('adminPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('adminPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('dbPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('dbPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('vpnPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('vpnPipName')]"
+        }
+      },
+      "dependsOn": []
+    }
+  ],
+  "outputs": {
+  }
+}

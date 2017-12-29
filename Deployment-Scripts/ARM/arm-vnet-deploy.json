@@ -1,0 +1,278 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "sb",
+      "allowedValues": [
+        "sb",
+        "dv",
+        "qa",
+        "pd"
+      ],
+      "metadata": {
+        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
+      }
+    },
+    "facility": {
+      "type": "string",
+      "defaultValue": "pr",
+      "allowedValues": [
+        "pr",
+        "dr"
+      ],
+      "metadata": {
+        "description": "The location: 'pr' == westus, 'dr' == eastus"
+      }
+    },
+    "westVnetCidrPrefix": {
+      "type": "string",
+      "defaultValue": "10.200."
+    },
+    "eastVnetCidrPrefix": {
+      "type": "string",
+      "defaultValue": "10.201."
+    }
+  },
+
+  "variables": {
+    "vnName": "vn1",
+    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
+    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
+    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+    "vnetName": "[concat(variables('vnName'), '-vnet', variables('baseName'))]",
+
+    "addressPrefix": "[if(equals(parameters('facility'), 'pr'), parameters('westVnetCidrPrefix'), parameters('eastVnetCidrPrefix'))]",
+    "vnetCIDR": "[concat(variables('addressPrefix'), '0.0/16')]",
+
+    "defaultCIDR": "[concat(variables('addressPrefix'), '0.0/24')]",
+    "webCIDR": "[concat(variables('addressPrefix'), '1.0/24')]",
+    "ftpCIDR": "[concat(variables('addressPrefix'), '2.0/24')]",
+    "jumpCIDR": "[concat(variables('addressPrefix'), '3.0/24')]",
+    "adminCIDR": "[concat(variables('addressPrefix'), '4.0/24')]",
+    "dbCIDR": "[concat(variables('addressPrefix'), '5.0/24')]",
+    "vpnCIDR": "[concat(variables('addressPrefix'), '100.0/24')]",
+    "svcCIDR": "[concat(variables('addressPrefix'), '254.0/24')]",
+
+    "defaultSnName": "default",
+    "webSnName": "[concat('sn-web', variables('baseName'))]",
+    "ftpSnName": "[concat('sn-ftp', variables('baseName'))]",
+    "jumpSnName": "[concat('sn-jump', variables('baseName'))]",
+    "adminSnName": "[concat('sn-admin', variables('baseName'))]",
+    "dbSnName": "[concat('sn-db', variables('baseName'))]",
+    "vpnSnName": "[concat('sn-vpn', variables('baseName'))]",
+    "svcSnName": "[concat('sn-svc', variables('baseName'))]",
+
+    "dbNsgName": "[concat('nsg-db', variables('baseName'))]",
+    "webNsgName": "[concat('nsg-web', variables('baseName'))]",
+    "ftpNsgName": "[concat('nsg-ftp', variables('baseName'))]",
+    "jumpNsgName": "[concat('nsg-jump', variables('baseName'))]",
+    "adminNsgName": "[concat('nsg-admin', variables('baseName'))]",
+    "svcNsgName": "[concat('nsg-svc', variables('baseName'))]",
+    "vpnNsgName": "[concat('nsg-vpn', variables('baseName'))]",
+
+    "nsgRg":  "[concat('rg-nsgs', variables('baseName'))]"
+  },
+
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('vnetName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vnetCIDR')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "default",
+            "properties": {
+              "addressPrefix": "[variables('defaultCIDR')]"
+            }
+          },
+          {
+            "name": "[variables('webSnName')]",
+            "properties": {
+              "addressPrefix": "[variables('webCIDR')]"
+            }
+          },
+          {
+            "name": "[variables('ftpSnName')]",
+            "properties": {
+              "addressPrefix": "[variables('ftpCIDR')]"
+            }
+          },
+          {
+            "name": "[variables('jumpSnName')]",
+            "properties": {
+              "addressPrefix": "[variables('jumpCIDR')]"
+            }
+          },
+          {
+            "name": "[variables('adminSnName')]",
+            "properties": {
+              "addressPrefix": "[variables('adminCIDR')]"
+            }
+          },
+          {
+            "name": "[variables('dbSnName')]",
+            "properties": {
+              "addressPrefix": "[variables('dbCIDR')]"
+            }
+          },
+          {
+            "name": "GatewaySubnet",
+            "properties": {
+              "addressPrefix": "[variables('vpnCIDR')]"
+            }
+          },
+          {
+            "name": "[variables('svcSnName')]",
+            "properties": {
+              "addressPrefix": "[variables('svcCIDR')]"
+            }
+          }
+
+        ],
+        "virtualNetworkPeerings": []
+      },
+      "dependsOn": []
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(variables('vnetName'), '/', variables('defaultSnName'))]",
+      "apiVersion": "2017-06-01",
+      "scale": null,
+      "properties": {
+        "addressPrefix": "[variables('defaultCIDR')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(variables('vNetName'), '/', variables('webSnName'))]",
+      "apiVersion": "2017-06-01",
+      "scale": null,
+      "properties": {
+        "addressPrefix": "[variables('webCIDR')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId(variables('nsgRg'), 'Microsoft.Network/networkSecurityGroups', variables('webNsgName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('defaultSnName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(variables('vNetName'), '/', variables('ftpSnName'))]",
+      "apiVersion": "2017-06-01",
+      "scale": null,
+      "properties": {
+        "addressPrefix": "[variables('ftpCIDR')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId(variables('nsgRg'), 'Microsoft.Network/networkSecurityGroups', variables('ftpNsgName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('webSnName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(variables('vNetName'), '/', variables('jumpSnName'))]",
+      "apiVersion": "2017-06-01",
+      "scale": null,
+      "properties": {
+        "addressPrefix": "[variables('jumpCIDR')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId(variables('nsgRg'), 'Microsoft.Network/networkSecurityGroups', variables('jumpNsgName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('ftpSnName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(variables('vNetName'), '/', variables('adminSnName'))]",
+      "apiVersion": "2017-06-01",
+      "scale": null,
+      "properties": {
+        "addressPrefix": "[variables('adminCIDR')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId(variables('nsgRg'), 'Microsoft.Network/networkSecurityGroups', variables('adminNsgName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('jumpSnName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(variables('vNetName'), '/', variables('dbSnName'))]",
+      "apiVersion": "2017-06-01",
+      "scale": null,
+      "properties": {
+        "addressPrefix": "[variables('dbCIDR')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId(variables('nsgRg'), 'Microsoft.Network/networkSecurityGroups', variables('dbNsgName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('adminSnName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(variables('vNetName'), '/GatewaySubnet')]",
+      "apiVersion": "2017-06-01",
+      "scale": null,
+      "properties": {
+        "addressPrefix": "[variables('vpnCIDR')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('dbSnName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(variables('vNetName'), '/', variables('svcSnName'))]",
+      "apiVersion": "2017-06-01",
+      "scale": null,
+      "properties": {
+        "addressPrefix": "[variables('svcCIDR')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId(variables('nsgRg'), 'Microsoft.Network/networkSecurityGroups', variables('svcNsgName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), 'GatewaySubnet')]"
+      ]
+    }
+  ],
+  "outputs": {
+  }
+}
