@@ -1,5 +1,6 @@
 param(
-	[string]$fileShareKey
+	[string]$fileShareKey,
+	[string]$fileStgAcctName
 )
 
 function Write-Log
@@ -13,7 +14,7 @@ function Write-Log
 Write-Log "Starting installation of IIS"
 
 Write-Log "Creating local user to access AZF"
-$username = "stgfiles1wspdpr"
+$username = $fileStgAcctName
 $password = ConvertTo-SecureString -String $fileShareKey -AsPlainText -Force
 New-LocalUser -Name $username -Password $password -PasswordNeverExpires -UserMayNotChangePassword -AccountNeverExpires
 Write-Log('User created')

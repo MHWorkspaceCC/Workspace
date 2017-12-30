@@ -886,7 +886,7 @@ function Create-Core{
 
 	$fileStgAcctNamePR = Construct-StorageAccountName -facility "primary" -environment $environment -resourceCategory "files"
 	$fileStgAcctNameDR = Construct-StorageAccountName -facility "primary" -environment $environment -resourceCategory "files"
-	$fileShareName = "workspace=file-storage"
+	$fileShareName = "workspace-file-storage"
 
 	#Ensure-AllResourceGroups -environment $environment -facility "primary" 
 	#Ensure-AllResourceGroups -environment $environment -facility "dr" 

@@ -30,7 +30,7 @@ Write-Log "Installing OctopusDSC..."
 . .\Install-OctopusDSC.ps1
 
 Write-Log "Installing and configuring IIS"
-. .\install-and-configure-iis.ps1 -fileShareKey $fileShareKey
+. .\install-and-configure-iis.ps1 -fileShareKey $fileShareKey -fileStgAcctName $fileStgAcctName
 
 Write-Log "Configuring file shares"
 . .\configure-file-share.ps1 -fileShareKey $fileShareKey -fileShareName $fileShareName -fileStgAcctName $fileStgAcctName

@@ -147,10 +147,11 @@
 
     "vmCustomData": "[parameters('vmCustomData')]",
 
-    "fileShareKey":  "[parameters('fileShareKey')]",
+    "fileShareKey": "[parameters('fileShareKey')]",
+    "fileShareName": "[parameters('fileShareName')]",
+    "fileStgAcctName": "[parameters('fileStgAcctName')]",
 
-    "commandToExecute": "[concat(parameters('commandToExecute'), ' -octoUrl ', variables('octoUrl'), ' -octoApiKey ', variables('octoApiKey'), ' -fileShareKey ', variables('fileShareKey'))]"
-
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -octoUrl ', variables('octoUrl'), ' -octoApiKey ', variables('octoApiKey'), ' -fileShareKey ', variables('fileShareKey'), ' -fileShareName ', variables('fileShareName'), ' -fileStgAcctName ', variables('fileStgAcctName'))]"
   },
   "resources": [
 
