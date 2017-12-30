@@ -421,7 +421,9 @@ function Deploy-Web{
 		[string]$octoUrl,
 		[string]$octoApiKey,
 		[string]$vmCustomData,
-		[string]$fileShareKey
+		[string]$fileShareKey,
+		[string]$fileStgAcctName,
+		[string]$fileShareName
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
@@ -443,6 +445,8 @@ function Deploy-Web{
 		"octoApiKey" = $octoApiKey
 		"vmCustomData" = $vmCustomData
 		"fileShareKey" = $fileShareKey
+		"fileStgAcctName" = $fileStgAcctName
+		"fileShareName" = $fileShareName
 	}
 
 	Execute-Deployment -templateFile "arm-vmssweb-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
@@ -792,15 +796,15 @@ function Create-KeyVaultSecrets{
 	$diagStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $diagAcctResourceGroupName -AccountName $diagStorageAccountName
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
 
-	$installersAcctResourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "intallers"
-	$installersStorageAccountName = Construct-StorageAccountName -environment $environment -facility $facility -resourceCategory "intallers"
+	$installersAcctResourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "installers"
+	$installersStorageAccountName = Construct-StorageAccountName -environment $environment -facility $facility -resourceCategory "installers"
 	$installersStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
 
 	$fileShareAcctResourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "files"
 	$fileShareStorageAccountName = Construct-StorageAccountName -environment $environment -facility $facility -resourceCategory "files"
 	$fileShareStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey" -SecretValue $fileShareStgAcctKeys.Value[0]
 
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoUrl" -SecretValue $octoUrl
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoApiKey" -SecretValue $octoApiKey
@@ -818,6 +822,16 @@ function Build-KeyVault{
 	
 	Create-KeyVault -environment $environment -facility $facility
 	Create-KeyVaultSecrets -environment $environment -facility $facility
+}
+
+function Rebuild-KeyVault{
+	param(
+		[string]$facility,
+		[string]$environment
+	)
+	
+	Delete-KeyVault -environment $environment -facility $facility
+	Build-KeyVault -environment $environment -facility $facility
 }
 
 function Create-Core{
@@ -870,6 +884,10 @@ function Create-Core{
 	$dbVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($dbVmCustomData)
 	$dbVmCustomDataB64 = [System.Convert]::ToBase64String($dbVmCustomDataBytes)
 
+	$fileStgAcctNamePR = Construct-StorageAccountName -facility "primary" -environment $environment -resourceCategory "files"
+	$fileStgAcctNameDR = Construct-StorageAccountName -facility "primary" -environment $environment -resourceCategory "files"
+	$fileShareName = "workspace=file-storage"
+
 	#Ensure-AllResourceGroups -environment $environment -facility "primary" 
 	#Ensure-AllResourceGroups -environment $environment -facility "dr" 
 
@@ -888,8 +906,8 @@ function Create-Core{
 	#Ensure-StorageAccount -facility "primary" -environment $environment -resourceCategory "monitor"
 	#Ensure-StorageAccount -facility "dr" -environment $environment -resourceCategory "monitor"
 
-	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword
-	#Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey
+	#Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword
+	Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
 	#Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
 	#Deploy-Jump -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
 	#Deploy-Admin -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
@@ -1159,6 +1177,7 @@ function Create-AzureFilesShareInFacility{
 
 #Create-AzureFilesEntitiesInFacility -environment "prod" -facility "primary"
 #Create-ServicesEntities -environment "prod" -facility "primary"
+#Remove-KeyVault -environment "prod" -facility "primary"
 #Build-KeyVault -environment "prod" -facility "primary"
 Create-Core -environment "prod" -vnetPrimaryCidrPrefix "10.1." -vnetDrCidrPrefix "10.2."
 #Create-DiagnosticsInEnvironment -environment "prod"

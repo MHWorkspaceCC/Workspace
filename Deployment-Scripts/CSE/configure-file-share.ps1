@@ -1,10 +1,10 @@
 param(
+	[string]$fileStgAcctName,
+	[string]$fileShareName,
 	[string]$fileShareKey
 )
 
 $symDirPath = "c:\server\workspace\client"
-$stgAcctName = "stgfileswspdpr"
-$fileShareName = "workspace-file-storage"
 $symDirFolderName = "files"
 $filesMountDrive = "Z"
 
@@ -17,8 +17,11 @@ Function Write-Log
 	Write-Host $logstring
 }
 
-Write-Log "Starting map of AZF"
-Write-Log "Fileshare key: " $fileShareKey
+Write-Log("Starting map of AZF")
+Write-Log("File share key: " + $fileShareKey)
+Write-Log("File share name: " + $fileShareName)
+Write-Log("File share stg acct name: " + $fileStgAcctName)
+
 Try
 {
 	$acctKey = ConvertTo-SecureString -String $fileShareKey -AsPlainText -Force
@@ -26,9 +29,9 @@ Try
 
 	Write-Log "Mapping drive"
 	Write-Log $filesMountDrive
-	Write-Log "\\$($stgAcctName).file.core.windows.net\$($fileShareName)"
+	Write-Log "\\$($fileStgAcctName).file.core.windows.net\$($fileShareName)"
     Write-Log $filesMountDrive
-	New-PSDrive -Name $filesMountDrive -PSProvider FileSystem -Root "\\$($stgAcctName).file.core.windows.net\$($fileShareName)" -Credential $credential -Persist -Scope Global
+	New-PSDrive -Name $filesMountDrive -PSProvider FileSystem -Root "\\$($fileStgAcctName).file.core.windows.net\$($fileShareName)" -Credential $credential -Persist -Scope Global
     Write-Log "mapped drive"
 
     Write-Log "Creating sym link"
@@ -38,7 +41,7 @@ Try
 	Write-Log "Created sym link"
 
     Write-Log "storing credentials"
-	cmdkey /add:$stgAcctName.file.core.windows.net /user:AZURE\$stgAcctName /pass:$key
+	cmdkey /add:$fileStgAcctName.file.core.windows.net /user:AZURE\$fileStgAcctName /pass:$fileShareKey
     Write-Log "stored credentials"
 }
 Catch

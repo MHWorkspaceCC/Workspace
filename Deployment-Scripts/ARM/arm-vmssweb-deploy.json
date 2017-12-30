@@ -76,7 +76,15 @@
     },
 
     "fileShareKey": {
-      "type":  "string" 
+      "type": "string"
+    },
+
+    "fileShareName": {
+      "type": "string"
+    },
+
+    "fileStgAcctName": {
+      "type": "string" 
     },
 
     "vmCustomData": {
