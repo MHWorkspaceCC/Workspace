@@ -14,22 +14,22 @@ Function Write-Log
 
 Try
 {
-	Write-Log "In configure sql server"
-	Write-Log "Installers key: " $installersStgAcctKey
-	Write-Log "saUsername: " $saUsername
-	Write-Log "saPassword: " $saPassword
+	Write-Log("In configure sql server")
+	Write-Log("Installers key: " + $installersStgAcctKey)
+	Write-Log("saUsername: " + $saUsername)
+	Write-Log("saPassword: " + $saPassword)
 
-	Write-Log "Trusting PSGallery"
+	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-	Write-Log "Installing AzureRM, xSqlServer, and SqlServer"
+	Write-Log("Installing AzureRM, xSqlServer, and SqlServer")
 	Install-Module -Name AzureRM -Repository PSGallery
 	Install-Module -Name xSqlServer -Repository PSGallery
 	Install-Module -Name SqlServer -Repository PSGallery
 
 	Import-Module SqlServer
 
-	Write-Log "Starting configuration"
+	Write-Log("Starting configuration")
 
 	$storageAccountKey = $installersStgAcctKey
 	$storageAccountName = "stginstallerswspdpr"
@@ -45,9 +45,9 @@ Try
 	Mount-DiskImage -ImagePath d:\sqlserver.iso 
 	$sqlInstallDrive = (Get-DiskImage -ImagePath "d:\sqlserver.iso" | Get-Volume).DriveLetter
 
-	Write-Log "Mounted sql server media on " + $sqlInstallDrive
+	Write-Log("Mounted sql server media on " + $sqlInstallDrive)
 	
-    $secpasswd = ConvertTo-SecureString "Workspace!DB!2017" -AsPlainText -Force
+    $secpasswd = ConvertTo-SecureString $saPassword -AsPlainText -Force
     $loginCred = New-Object System.Management.Automation.PSCredential ("wsapp", $secpasswd)
 
     $saPasswordSecure = $saPassword | ConvertTo-SecureString -AsPlainText -Force
@@ -56,30 +56,30 @@ Try
     $saPwd = $saPasswordSecure
     $saCred = New-Object -TypeName pscredential -ArgumentList "sa", $saPwd
      
-	Write-Log "Starting SQL Server Install"
+	Write-Log("Starting SQL Server Install")
 	. ./SqlStandaloneDSC
 
 	$dataDisk = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
-	Write-Log "The data disk drive letter is " $dataDisk
+	Write-Log("The data disk drive letter is " + $dataDisk)
 
 	SqlStandaloneDSC -ConfigurationData SQLConfigurationData.psd1 -LoginCredential $loginCred -SysAdminAccount $saCreds -saCredential $saCred -installDisk $sqlInstallDrive
 	Start-DscConfiguration .\SqlStandaloneDSC -Verbose -wait -Force
 
-	Write-Log "Installed SQL Server"
+	Write-Log("Installed SQL Server")
 
-	Write-Log "Installing SSMS"
+	Write-Log("Installing SSMS")
 	Start-Process "d:\SSMS-Setup-ENU.exe" "/install /quiet /norestart /log d:\ssms-log.txt" -Wait
-	Write-Log "Installed SSMS"
+	Write-Log("Installed SSMS")
 
-	Write-Log "Cleaning up"
+	Write-Log("Cleaning up")
 	Dismount-DiskImage -ImagePath d:\sqlserver.iso
-	Write-Log "Cleaned up"
+	Write-Log("Cleaned up")
 	Remove-Item -Path $destinationSqlIso
 	Remove-Item -Path $destinationSSMS
     Remove-Item -Path d:\log*.txt
     Remove-Item -Path d:\ssms-*.txt
 
-    Write-Log "Attaching database"
+    Write-Log("Attaching database")
     $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
     $ss.ConnectionContext.LoginSecure = $false
     $ss.ConnectionContext.Login = "sa"
@@ -91,24 +91,24 @@ Try
 	$ldfs = $ss.EnumDetachedLogFiles($mdf_file)
 
 	$files = New-Object System.Collections.Specialized.StringCollection
-    Write-Log "Enumerating mdfs"
+    Write-Log("Enumerating mdfs")
 	ForEach-Object -InputObject $mdfs {
-        Write-Log $_
+        Write-Log($_)
 		$files.Add($_)
 	}
     Write-Log "Enumerating ldfs"
 	ForEach-Object -InputObject $ldfs {
-        Write-Log $_
+        Write-Log($_)
 		$files.Add($_)
 	}
 	$ss.AttachDatabase("AdventureWorks", $files)
 
 	$db = $ss.Databases['AdventureWorks']
-    Write-Log $db
-    Write-log $db.Users
+    Write-Log($db)
+    Write-log($db.Users)
 
     $wsAppLogin = $ss.Logins['wsapp']
-    Write-Log $wsAppLogin
+    Write-Log($wsAppLogin)
 
 	Try
 	{
@@ -122,16 +122,16 @@ Try
 	}
 	Catch
 	{
-		Write-Log "DB Exception"
-		Write-Log $_.Exception.Message
-		Write-Log $_.Exception.InnerException
+		Write-Log("DB Exception")
+		Write-Log($_.Exception.Message)
+		Write-Log($_.Exception.InnerException)
 	}
 
-	Write-Log "All done!"
+	Write-Log("All done!")
 }
 Catch
 {
-	Write-Log "Exception"
-	Write-Log $_.Exception.Message
-	Write-Log $_.Exception.InnerException
+	Write-Log("Exception")
+	Write-Log($_.Exception.Message)
+	Write-Log($_.Exception.InnerException)
 }

@@ -379,7 +379,10 @@ function Deploy-DB{
 		[string]$installersStgAcctKey,
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
-		[string]$adminPassword
+		[string]$adminPassword,
+		[string]$saUserName,
+		[string]$saPassword,
+		[string]$vmCustomData
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey $dbAdminUserName -ForegroundColor Green
 
@@ -396,6 +399,9 @@ function Deploy-DB{
 		"adminUserName" = $adminUserName
 		"adminPassword" = $adminPassword
 		"installersStgAcctKey" = $installersStgAcctKey
+		"saUserName" = $saUserName
+		"saPassword" = $saPassword
+		"vmCustomData" = $vmCustomData
 	}
 
 	Execute-Deployment -templateFile "arm-db-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
@@ -834,7 +840,7 @@ function Create-Core{
 	$keyVaultNameDR = "kv-svc-" + $resourcePostfixDR
 
 	$dbAdminUserName = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DbServerAdminName").SecretValueText
-	$dbAdminPassword = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNameDR -Name "DbServerAdminPassword").SecretValueText
+	$dbAdminPassword = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DbServerAdminPassword").SecretValueText
 	$webAdminUserName = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "WebVmssServerAdminName").SecretValueText
 	$webAdminPassword = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "WebVmssServerAdminPassword").SecretValueText
 	$ftpAdminUserName = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "FtpVmssServerAdminName").SecretValueText
@@ -857,19 +863,21 @@ function Create-Core{
 	$octoUrl = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "OctoUrl").SecretValueText
 	$dataDogApiKey = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DataDogApiKey").SecretValueText
 	$webVmCustomData = "{'octpApiKey': '" + $octoApiKey + "', 'octoUrl': " + $octoUrl + "', 'fileShareKey': '" + $fileShareStorageAccountKey + "'}"
-	$dbVmCustomData = "{'installersStgAcctKey': '" + $fileShareStorageAccountKey + "', 'dbSaUsername': '" + $dbSaUserName + "', 'dbSaPassword': '" + $dbSaPassword + "'}"
+	$dbVmCustomData = "{'installersStgAcctKey': '" + $fileShareStorageAccountKey + "', 'dbSaUserName': '" + $dbSaUserName + "', 'dbSaPassword': '" + $dbSaPassword + "'}"
 
-	$vmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($vmCustomData)
-	$vmCustomDataB64 = [System.Convert]::ToBase64String($vmCustomDataBytes)
+	$webVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($webVmCustomData)
+	$webVmCustomDataB64 = [System.Convert]::ToBase64String($webVmCustomDataBytes)
+	$dbVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($dbVmCustomData)
+	$dbVmCustomDataB64 = [System.Convert]::ToBase64String($dbVmCustomDataBytes)
 
 	#Ensure-AllResourceGroups -environment $environment -facility "primary" 
 	#Ensure-AllResourceGroups -environment $environment -facility "dr" 
 
-	Deploy-NSGs -facility "primary" -environment $environment
+	#Deploy-NSGs -facility "primary" -environment $environment
 	#Deploy-NSGs -facility "dr"      -environment $environment
-	Deploy-PIPs -facility "primary" -environment $environment
+	#Deploy-PIPs -facility "primary" -environment $environment
 	#Deploy-PIPs -facility "dr"      -environment $environment
-	Deploy-VNet -facility "primary" -environment $environment -westVnetCidrPrefix $vnetPrimaryCidrPrefix -eastVnetCidrPrefix $vnetDrCidrPrefix
+	#Deploy-VNet -facility "primary" -environment $environment -westVnetCidrPrefix $vnetPrimaryCidrPrefix -eastVnetCidrPrefix $vnetDrCidrPrefix
 	#Deploy-VNet -facility "dr"      -environment $environment -westVnetCidrPrefix $vnetPrimaryCidrPrefix -eastVnetCidrPrefix $vnetDrCidrPrefix
 	
 	#Deploy-VPN -facility "primary" -environment $environment -westVnetCidrPrefix $vnetPrimaryCidrPrefix -eastVnetCidrPrefix $vnetDrCidrPrefix
@@ -880,7 +888,7 @@ function Create-Core{
 	#Ensure-StorageAccount -facility "primary" -environment $environment -resourceCategory "monitor"
 	#Ensure-StorageAccount -facility "dr" -environment $environment -resourceCategory "monitor"
 
-	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStgAcctKey -vmCustomData $dbVmCustomDataB64 
+	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword
 	#Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey
 	#Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
 	#Deploy-Jump -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
@@ -1151,6 +1159,7 @@ function Create-AzureFilesShareInFacility{
 
 #Create-AzureFilesEntitiesInFacility -environment "prod" -facility "primary"
 #Create-ServicesEntities -environment "prod" -facility "primary"
+#Build-KeyVault -environment "prod" -facility "primary"
 Create-Core -environment "prod" -vnetPrimaryCidrPrefix "10.1." -vnetDrCidrPrefix "10.2."
 #Create-DiagnosticsInEnvironment -environment "prod"
 #Teardown-DiagnosticsInEnvironment -environment "prod"
