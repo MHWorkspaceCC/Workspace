@@ -50,6 +50,7 @@
     <Compile Include="CSE\configure-file-share.ps1" />
     <Compile Include="CSE\configure-ftp-server.ps1" />
     <Compile Include="CSE\configure-jump-server.ps1" />
+    <Compile Include="CSE\configure-sql-server-new.ps1" />
     <Compile Include="CSE\configure-sql-server.ps1" />
     <Compile Include="CSE\configure-web-server.ps1" />
     <Compile Include="CSE\install-and-configure-iis.ps1" />
