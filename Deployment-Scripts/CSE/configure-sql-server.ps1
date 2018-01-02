@@ -63,7 +63,7 @@ Try
 	$sqlInstallDrive = (Get-DiskImage -ImagePath "d:\sqlserver.iso" | Get-Volume).DriveLetter
 
 	Write-Log("Mounted sql server media on " + $sqlInstallDrive)
-#>	
+		
     $loginPwdSecure = ConvertTo-SecureString $loginPassword -AsPlainText -Force
     $loginCred = New-Object System.Management.Automation.PSCredential ($loginUsername, $loginPwdSecure)
 
@@ -72,7 +72,7 @@ Try
 
     $saPwd = $sysAcctPasswordSecure
     $saCred = New-Object -TypeName pscredential -ArgumentList "sa", $saPwd
-    <#
+    
 	Write-Log("Starting SQL Server Install")
 	. ./SqlStandaloneDSC
 
@@ -95,13 +95,13 @@ Try
 	Remove-Item -Path $destinationSSMS
     Remove-Item -Path d:\log*.txt
     Remove-Item -Path d:\ssms-*.txt
-    #>
+    
     Write-Log("Attaching database")
     $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
     $ss.ConnectionContext.LoginSecure = $false
     $ss.ConnectionContext.Login = "sa"
     $ss.ConnectionContext.Password = $saPassword
-    Write-Log $ss.Information.Version
+    Write-Log($ss.Information.Version)
 
 	$mdfs = $ss.EnumDetachedDatabaseFiles($databaseMdfFile)
 	$ldfs = $ss.EnumDetachedLogFiles($databaseMdfFile)
