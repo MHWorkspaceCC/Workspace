@@ -1,0 +1,249 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "sb",
+      "allowedValues": [
+        "sb",
+        "dv",
+        "qa",
+        "pd"
+      ],
+      "metadata": {
+        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
+      }
+    },
+    "facility": {
+      "type": "string",
+      "defaultValue": "pr",
+      "allowedValues": [
+        "pr",
+        "dr"
+      ],
+      "metadata": {
+        "description": "The location: 'pr' == westus, 'dr' == eastus"
+      }
+    },
+
+    "adminUserName": {
+      "type": "string",
+      "defaultValue": "wsadmin"
+    },
+
+    "adminPassword": {
+      "type": "securestring",
+      "defaultValue": "Workspace!DbDiskInit!2018"
+    },
+
+    "fileUris": {
+      "type": "array",
+      "defaultValue": [
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure_db_disk_init_vm.ps1"
+      ]
+    },
+
+    "commandToExecute": {
+      "type": "string",
+      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File null.ps1"
+    },
+
+    "dataDiskSku": {
+      "type": "string",
+      "defaultValue": "Standard_LRS"
+    },
+
+    "dataDiskSizeInGB": {
+      "type": "int",
+      "defaultValue": 32
+    },
+
+    "databaseServerId": {
+      "type": "string"
+    },
+    "diskName": {
+      "type": "string"
+    }
+
+  },
+
+  "variables": {
+    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
+    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
+    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+    "vmBaseName": "[concat('svc' , variables('baseName'))]",
+
+    "vmSkuName": "Standard_LRS",
+    "vmSize": "Standard_D1_v2",
+    "windowsOsVersion": "2016-Datacenter",
+
+    "vmName": "[concat('dbdi-', variables('vmBaseName'))]",
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "osDiskName": "[concat('osdisk-', variables('vmName'))]",
+    "adminUserName": "[parameters('adminUserName')]",
+    "adminPassword": "[parameters('adminPassword')]",
+
+    "vnetName": "[concat('vn1-vnet', variables('baseName'))]",
+    "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
+    "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+    "subnetName": "[concat('sn-', variables('vmBaseName'))]",
+    "subnetRef": "[concat(variables('vnetID'), '/subnets/', variables('subnetName'))]",
+
+    "storageAccountContainerName": "vhds",
+    "nicName": "[concat('nic1-', variables('vmBaseName'))]",
+
+    "disksRg": "[concat('rg-disks', variables('baseName'))]",
+    "dataDiskName": "[concat(parameters('diskName'), '-', parameters('databaseServerId'), '-db', variables('baseName'))]",
+    "dataDiskSku": "[parameters('dataDiskSku')]",
+
+    "vmPipName": "[concat('pip-dbdi', variables('vmBaseName'))]"
+  },
+
+  "resources": [
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('vmPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('vmPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "apiVersion": "2017-05-10",
+      "name": "[variables('dataDiskName')]",
+      "type": "Microsoft.Resources/deployments",
+      "resourceGroup": "[variables('disksRg')]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "variables": {},
+          "resources": [
+            {
+              "type": "Microsoft.Compute/disks",
+              "name": "[variables('dataDiskName')]",
+              "apiVersion": "2017-03-30",
+              "location": "[resourceGroup().location]",
+              "sku": {
+                "name": "[variables('dataDiskSku')]"
+              },
+              "properties": {
+                "creationData": {
+                  "createOption": "Empty"
+                },
+                "diskSizeGB": "[parameters('dataDiskSizeInGB')]"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[variables('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": { "id": "[variables('vmPipId')]" },
+              "subnet": { "id": "[variables('subnetRef')]" },
+              "primary": true,
+              "privateIPAddressVersion": "IPv4"
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": [],
+          "appliedDnsServers": []
+        },
+        "enableAcceleratedNetworking": false,
+        "enableIPForwarding": false,
+        "primary": true,
+        "virtualMachine": {
+          "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmPipName'))]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('vmName')]",
+      "apiVersion": "2017-03-30",
+      "location": "[variables('location')]",
+
+      "properties": {
+        "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('windowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "osType": "Windows",
+            "name": "[variables('osDiskName')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+          "dataDisks": [
+            {
+              "lun": 0,
+              "createOption": "Attach",
+              "managedDisk": {
+                "id": "[resourceId(variables('disksRg'), 'Microsoft.Compute/disks', variables('dataDiskName'))]"
+              }
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[variables('computerName')]",
+          "adminUsername": "[variables('adminUserName')]",
+          "adminPassword": "[variables('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": false
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+      ],
+
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces/', variables('nicName'))]",
+        "[resourceId(variables('disksRg'), 'Microsoft.Compute/disks', variables('dataDiskName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmPipName'))]"
+      ]
+    }
+  ],
+
+
+  "outputs": {
+  }
+}
+

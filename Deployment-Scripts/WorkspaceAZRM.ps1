@@ -382,7 +382,9 @@ function Deploy-DB{
 		[string]$adminPassword,
 		[string]$saUserName,
 		[string]$saPassword,
-		[string]$vmCustomData
+		[string]$vmCustomData,
+		[string]$loginUsername,
+		[string]$loginPassword
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey $dbAdminUserName -ForegroundColor Green
 
@@ -402,6 +404,8 @@ function Deploy-DB{
 		"saUserName" = $saUserName
 		"saPassword" = $saPassword
 		"vmCustomData" = $vmCustomData
+		"loginUsername" = $loginUsername
+		"loginPassword" = $loginPassword
 	}
 
 	Execute-Deployment -templateFile "arm-db-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
@@ -544,10 +548,16 @@ function Deploy-Admin{
 	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 }
 
-function Deploy-DatabaseDisk{
+function Deploy-DatabaseDiskViaInitVM{
 	param(
 		[string]$facility,
-		[string]$environment
+		[string]$environment,
+		[string]$databaseServerId="sql1",
+		[string]$diskName="data1",
+		[string]$dataDiskSku="Standard_LRS",
+		[int]$dataDiskSizeInGB=32,
+		[string]$adminUserName="wsadmin",
+		[string]$adminPassword="Workspace!DbDiskInit!2018"
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
 
@@ -559,9 +569,15 @@ function Deploy-DatabaseDisk{
 	$parameters = @{
 		"environment" = $environmentsPostfixCodeMap[$environment]
 		"facility" = $facilitiesPostfixCodeMap[$facility]
+		"databaseServerId" = $databaseServerId
+		"diskName" = $diskName
+		"dataDiskSku" = $dataDiskSku
+		"dataDiskSizeInGB" = $dataDiskSizeInGB
+		"adminUserName" = $adminUserName
+		"adminPassword" = $adminPassword
 	}
 
-	Execute-Deployment -templateFile "arm-db-disks-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
+	Execute-Deployment -templateFile "arm-db-disk-init-vm-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 }
@@ -906,8 +922,8 @@ function Create-Core{
 	#Ensure-StorageAccount -facility "primary" -environment $environment -resourceCategory "monitor"
 	#Ensure-StorageAccount -facility "dr" -environment $environment -resourceCategory "monitor"
 
-	#Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword
-	Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
+	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword
+	#Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
 	#Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
 	#Deploy-Jump -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
 	#Deploy-Admin -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
@@ -1179,11 +1195,11 @@ function Create-AzureFilesShareInFacility{
 #Create-ServicesEntities -environment "prod" -facility "primary"
 #Remove-KeyVault -environment "prod" -facility "primary"
 #Build-KeyVault -environment "prod" -facility "primary"
-Create-Core -environment "prod" -vnetPrimaryCidrPrefix "10.1." -vnetDrCidrPrefix "10.2."
+#Create-Core -environment "prod" -vnetPrimaryCidrPrefix "10.1." -vnetDrCidrPrefix "10.2."
 #Create-DiagnosticsInEnvironment -environment "prod"
 #Teardown-DiagnosticsInEnvironment -environment "prod"
 #Teardown-SvcInEnvironment -environment "prod"
-
+Deploy-DatabaseDiskViaInitVM -facility "primary" -environment "prod" -databaseServerId "sql1" -diskName "data2"
 <#
 Export-ModuleMember -Function Teardown-EntireRegionAndFacility
 #>

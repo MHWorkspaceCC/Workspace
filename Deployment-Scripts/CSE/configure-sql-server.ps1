@@ -1,7 +1,17 @@
 param(
 	[string]$installersStgAcctKey,
-	[string]$saUsername,
-	[string]$saPassword
+	[string]$saUsername = "wsadmin",
+	[string]$saPassword = "Workspace!DB!2017",
+	[string]$loginUsername = "wsapp",
+	[string]$loginPassword = "Workspace!DB!2017",
+	[string]$storageAccountName = "stginstallerswspdpr",
+	[string]$containerName = "sqlserver",
+	[string]$sqlInstallBlobName = "en_sql_server_2016_enterprise_with_service_pack_1_x64_dvd_9542382.iso",
+	[string]$ssmsInstallBlobName = "SSMS-Setup-ENU.exe",
+	[string]$destinationSqlIso = "d:\sqlserver.iso",
+	[string]$destinationSSMS = "d:\SSMS-Setup-ENU.exe",
+	[string]$databaseName = "AdventureWorks",
+	[string]$databaseMdfFile = "e:\AdventureWorks2012_Data.mdf"
 )
 
 Function Write-Log
@@ -18,6 +28,8 @@ Try
 	Write-Log("Installers key: " + $installersStgAcctKey)
 	Write-Log("saUsername: " + $saUsername)
 	Write-Log("saPassword: " + $saPassword)
+	Write-Log("loginUsername: " + $loginUsername)
+	Write-Log("loginPassword: " + $loginPassword)
 
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
@@ -32,9 +44,6 @@ Try
 	Write-Log("Starting configuration")
 
 	$storageAccountKey = $installersStgAcctKey
-	$storageAccountName = "stginstallerswspdpr"
-	$containerName = "sqlserver"
-	$sqlInstallBlobName = "en_sql_server_2016_enterprise_with_service_pack_1_x64_dvd_9542382.iso"
 	$ssmsInstallBlobName = "SSMS-Setup-ENU.exe"
 	$destinationSqlIso = "d:\sqlserver.iso"
 	$destinationSSMS = "d:\SSMS-Setup-ENU.exe"
@@ -47,11 +56,11 @@ Try
 
 	Write-Log("Mounted sql server media on " + $sqlInstallDrive)
 	
-    $secpasswd = ConvertTo-SecureString $saPassword -AsPlainText -Force
-    $loginCred = New-Object System.Management.Automation.PSCredential ("wsapp", $secpasswd)
+    $loginPwdSecure = ConvertTo-SecureString $loginPassword -AsPlainText -Force
+    $loginCred = New-Object System.Management.Automation.PSCredential ($loginUsername, $loginPwdSecure)
 
-    $saPasswordSecure = $saPassword | ConvertTo-SecureString -AsPlainText -Force
-    $saCreds = New-Object -TypeName pscredential -ArgumentList $saUsername, $saPasswordSecure
+    $sysAcctPasswordSecure = $saPassword | ConvertTo-SecureString -AsPlainText -Force
+    $sysAcctCreds = New-Object -TypeName pscredential -ArgumentList $saUsername, $saPasswordSecure
 
     $saPwd = $saPasswordSecure
     $saCred = New-Object -TypeName pscredential -ArgumentList "sa", $saPwd
@@ -62,13 +71,13 @@ Try
 	$dataDisk = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 	Write-Log("The data disk drive letter is " + $dataDisk)
 
-	SqlStandaloneDSC -ConfigurationData SQLConfigurationData.psd1 -LoginCredential $loginCred -SysAdminAccount $saCreds -saCredential $saCred -installDisk $sqlInstallDrive
+	SqlStandaloneDSC -ConfigurationData SQLConfigurationData.psd1 -LoginCredential $loginCred -SysAdminAccount $saCreds -saCredential $sysAcctCreds -installDisk $sqlInstallDrive
 	Start-DscConfiguration .\SqlStandaloneDSC -Verbose -wait -Force
 
 	Write-Log("Installed SQL Server")
 
 	Write-Log("Installing SSMS")
-	Start-Process "d:\SSMS-Setup-ENU.exe" "/install /quiet /norestart /log d:\ssms-log.txt" -Wait
+	Start-Process $destinationSSMS "/install /quiet /norestart /log d:\ssms-log.txt" -Wait
 	Write-Log("Installed SSMS")
 
 	Write-Log("Cleaning up")
@@ -86,9 +95,8 @@ Try
     $ss.ConnectionContext.Password = $saPassword
     Write-Log $ss.Information.Version
 
-	$mdf_file = "e:\AdventureWorks2012_Data.mdf"
-	$mdfs = $ss.EnumDetachedDatabaseFiles($mdf_file)
-	$ldfs = $ss.EnumDetachedLogFiles($mdf_file)
+	$mdfs = $ss.EnumDetachedDatabaseFiles($databaseMdfFile)
+	$ldfs = $ss.EnumDetachedLogFiles($databaseMdfFile)
 
 	$files = New-Object System.Collections.Specialized.StringCollection
     Write-Log("Enumerating mdfs")
@@ -101,21 +109,28 @@ Try
         Write-Log($_)
 		$files.Add($_)
 	}
-	$ss.AttachDatabase("AdventureWorks", $files)
+	$ss.AttachDatabase($databaseName, $files)
+	Write-Log("Attached database")
 
-	$db = $ss.Databases['AdventureWorks']
+	Write-Log("Checking database info")
+	$db = $ss.Databases[$databaseName]
+	Write-Log("The database is:")
     Write-Log($db)
+	Write-Log("Database users:")
     Write-log($db.Users)
 
-    $wsAppLogin = $ss.Logins['wsapp']
-    Write-Log($wsAppLogin)
+	Write-Log("Getting the login for :" + $loginUsername)
+    $wsAppLogin = $ss.Logins[$loginUsername]
+    Write-Log("Database login is: " + $wsAppLogin)
 
 	Try
 	{
-		$dbusername = 'wsapp'
-		$dbuser = New-Object "Microsoft.SqlServer.Management.Smo.User" $db, $dbusername
-		$dbuser.Login = 'wsapp'
+		Write-Log("Creating a login for: " + $loginUsername)
+		$dbuser = New-Object "Microsoft.SqlServer.Management.Smo.User" $db, $loginUsername
+		$dbuser.Login = $loginUsername
+		Write-Log("Calling create")
 		$dbuser.Create()
+		Write-Log("Created, adding user to roles")
 
 		$db.Roles["db_datareader"].AddMember($dbuser.Name)
 		$db.Roles["db_datawriter"].AddMember($dbuser.Name)

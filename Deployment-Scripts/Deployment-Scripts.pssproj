@@ -28,6 +28,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="ARM\arm-admin-deploy.json" />
+    <Content Include="ARM\arm-db-disk-init-vm-deploy.json" />
     <Content Include="ARM\arm-db-disks-deploy.json" />
     <Content Include="ARM\arm-nsgs-deploy.json" />
     <Content Include="ARM\arm-stgaccount-deploy.json" />
@@ -45,6 +46,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CSE\configure-admin-server.ps1" />
+    <Compile Include="CSE\configure-db-disk-init-vm.ps1" />
     <Compile Include="CSE\configure-file-share.ps1" />
     <Compile Include="CSE\configure-ftp-server.ps1" />
     <Compile Include="CSE\configure-jump-server.ps1" />
@@ -56,6 +58,7 @@
     <Compile Include="CSE\install-sqlserverdsc.ps1" />
     <Compile Include="CSE\install-sqlserverwithdsc.ps1" />
     <Compile Include="CSE\install-web-app-with-octo-dsc.ps1" />
+    <Compile Include="CSE\null.ps1" />
     <Compile Include="CSE\OctopusServerDSC.ps1" />
     <Compile Include="CSE\SqlConfigurationData.psd1" />
     <Compile Include="CSE\SqlStandaloneDSC.ps1" />
