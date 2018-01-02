@@ -11,7 +11,7 @@ param(
 	[string]$destinationSqlIso = "d:\sqlserver.iso",
 	[string]$destinationSSMS = "d:\SSMS-Setup-ENU.exe",
 	[string]$databaseName = "AdventureWorks",
-	[string]$databaseMdfFile = "e:\AdventureWorks2012_Data.mdf"
+	[string]$databaseMdfFile = "e:\AdventureWorks2012_Data.mdf" 
 )
 
 Function Write-Log
