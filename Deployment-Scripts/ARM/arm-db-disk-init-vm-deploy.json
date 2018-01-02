@@ -46,7 +46,7 @@
 
     "commandToExecute": {
       "type": "string",
-      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File null.ps1"
+      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure_db_disk_init_vm.ps1"
     },
 
     "dataDiskSku": {
@@ -78,6 +78,7 @@
     "vmSize": "Standard_D1_v2",
     "windowsOsVersion": "2016-Datacenter",
 
+    "computername": "dbdiskinitvm", 
     "vmName": "[concat('dbdi-', variables('vmBaseName'))]",
     "imagePublisher": "MicrosoftWindowsServer",
     "imageOffer": "WindowsServer",
@@ -98,28 +99,13 @@
     "dataDiskName": "[concat(parameters('diskName'), '-', parameters('databaseServerId'), '-db', variables('baseName'))]",
     "dataDiskSku": "[parameters('dataDiskSku')]",
 
-    "vmPipName": "[concat('pip-dbdi', variables('vmBaseName'))]"
+    "vmPipName": "[concat('pip-dbdi-', variables('vmBaseName'))]"
   },
 
   "resources": [
     {
-      "apiVersion": "2017-06-01",
-      "type": "Microsoft.Network/publicIPAddresses",
-      "name": "[variables('vmPipName')]",
-      "location": "[resourceGroup().location]",
-      "properties": {
-        "publicIPAddressVersion": "IPv4",
-        "publicIPAllocationMethod": "Dynamic",
-        "idleTimeoutInMinutes": 4,
-        "dnsSettings": {
-          "domainNameLabel": "[variables('vmPipName')]"
-        }
-      },
-      "dependsOn": []
-    },
-    {
       "apiVersion": "2017-05-10",
-      "name": "[variables('dataDiskName')]",
+      "name": "diskdeployment",
       "type": "Microsoft.Resources/deployments",
       "resourceGroup": "[variables('disksRg')]",
       "properties": {
@@ -148,6 +134,23 @@
         }
       }
     },
+
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('vmPipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('vmPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+
     {
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('nicName')]",
@@ -159,7 +162,7 @@
             "name": "ipconfig1",
             "properties": {
               "privateIPAllocationMethod": "Dynamic",
-              "publicIPAddress": { "id": "[variables('vmPipId')]" },
+              "publicIPAddress": { "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmPipName'))]" },
               "subnet": { "id": "[variables('subnetRef')]" },
               "primary": true,
               "privateIPAddressVersion": "IPv4"
@@ -236,7 +239,7 @@
 
       "dependsOn": [
         "[resourceId('Microsoft.Network/networkInterfaces/', variables('nicName'))]",
-        "[resourceId(variables('disksRg'), 'Microsoft.Compute/disks', variables('dataDiskName'))]",
+        "[resourceId(variables('disksRg'), 'Microsoft.Resources/deployments', 'diskdeployment')]",
         "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmPipName'))]"
       ]
     }

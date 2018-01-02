@@ -51,6 +51,14 @@
       "type": "securestring"
     },
 
+    "loginUserName": {
+      "type": "string"
+    },
+
+    "loginPassword": {
+      "type": "securestring"
+    },
+
     "fileUris": {
       "type": "array",
       "defaultValue": [
@@ -134,7 +142,7 @@
     "bootDiagStorageAccount": "[concat('stgbootdiag', replace(variables('baseName'), '-', ''))]",
     "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
 
-    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUsername ', parameters('saUsername'), ' -saPassword ', parameters('saPassword'))]"
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUsername ', parameters('saUsername'), ' -saPassword ', parameters('saPassword'), '-loginUsername ', parameters('loginUsername'), ' -loginPassword ', parameters('loginPassword'))]"
   },
 
   "resources": [

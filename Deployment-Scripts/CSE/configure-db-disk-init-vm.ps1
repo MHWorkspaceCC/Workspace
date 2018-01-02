@@ -11,10 +11,14 @@ Function Write-Log
 
 Try
 {
-	Write-Log("In configure db disk init server")
+	Write-Log("Starting initialization of disk")
 
-	$dataDisk = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
-	Write-Log("The data disk drive letter is " + $dataDisk)
+	 Get-Disk | `
+		Where partitionstyle -eq 'raw' | `
+		Initialize-Disk -PartitionStyle MBR -PassThru | `
+		New-Partition -AssignDriveLetter -UseMaximumSize | `
+		Format-Volume -FileSystem NTFS -NewFileSystemLabel "WorkspaceDB" -Confirm:$false | 
+		Write-Log
 
 	Write-Log("All done!")
 }
