@@ -36,6 +36,43 @@ $resourceCategories = @(
 	"vnet"
 	)
 
+
+$environmentsInfo = @{
+	"validCodes" = "pdtsqc"
+	"codeNameMap" = @{
+		"p" = "Production"
+		"d" = "Development"
+		"t" = "Test"
+		"s" = "Staging"
+		"q" = "QA"
+		"c" = "Canary"
+	}
+	"ciderValue" = @{
+		"p" = 0 -shl 4
+		"d" = 1 -shl 4 
+		"t" = 2 -shl 4
+		"s" = 3 -shl 4
+		"q" = 4 -shl 4
+		"c" = 5 -shl 4
+	}
+}
+
+$facilityInfo = @{
+	"validCodes" = "pd"
+	"codeNameMap" = @{
+		"p" = "Primary"
+		"d" = "Disaster Recovery"
+	}
+	"ciderValue" = @{
+		"p" = 0 -shl 2
+		"d" = 1 -shl 2 
+	}
+	"locationMap" = @{
+		"p" = "westus"
+		"d" = "eastus"
+	}
+}
+
 function Construct-ResourcePostfix{
 	param(
 		[string]$environment,
@@ -456,6 +493,70 @@ function Deploy-Web{
 	Execute-Deployment -templateFile "arm-vmssweb-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+}
+
+function Check-EnvironmentCode{
+	param([string]$environmentCode)
+
+	if ($environmentCode.Length -ne 2){
+		throw "Environment code length must be two characters"
+	}
+	$code = $environmentCode[0]
+	if (!$environmentsInfo['validCodes'] -contains $code){
+		throw "Invalid environment code.  Must be one of: " + $environmentsInfo['validCodes']
+	}
+
+	$instanceNumber = $environmentCode[1]
+	if (!"0123456789" -contains $instanceNumber){
+		throw "Instance number must be in 0123456789.  Given was: " + $instanceNumber
+	}
+
+	$environmentConfig = @{
+		"code" = $environmentCode
+		"instanceId" = $instanceNumber
+		"name" = $environmentsInfo['codeNameMap'][$code]
+		"ciderValue" = $environmentsInfo['ciderValue'][$code]
+	}
+
+	return $environmentConfig
+}
+
+function Check-FacilityCode{
+	param([string]$facilityCode)
+
+	if ($facilityCode.Length -ne 1){
+		throw "Environment code length must be exactly one character"
+	}
+
+	$code = $facilityCode[0]
+	if (!$facilityInfo['validCodes'] -contains $code){
+		throw "Invalid facility code.  Must be one of: " + $facilityInfo['validCodes']
+	}
+
+	$facilityConfig = @{
+		"code" = $facilityCode
+		"name" = $facilityCode['codeNameMap'][$code]
+		"ciderValue" = $facilityInfo['ciderValue'][$code]
+		"location" = $facilityInfo['locationMap'][$code]
+	}
+
+	return $facilityConfig
+}
+
+Check-EnvironmentAndFacility{
+	param(
+		[string]$environmentCode,
+		[string]$facilityCode
+	)
+
+	$environmentConfig = Check-EnvironmentCode -environmentCode $environmentCode
+	$facilityConfig = Check-EnvironmentCode -environmentCode $facilityCode
+
+	return @{
+		"environmentConfig" = $environmentConfig
+		"facilityConfig" = $facilityConfig
+		"ciderPrefix" = "10." + ($environmentConfig['cidrValue'] + $facilityConfig['cidrValue')
+	}
 }
 
 function Deploy-Ftp{
@@ -928,7 +1029,7 @@ function Create-Core{
 	#Ensure-StorageAccount -facility "dr" -environment $environment -resourceCategory "diag"
 
 	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
-	#Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
+	Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
 	#Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
 	#Deploy-Jump -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
 	#Deploy-Admin -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword

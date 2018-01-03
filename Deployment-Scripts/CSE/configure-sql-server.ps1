@@ -1,6 +1,6 @@
- param(
-	[string]$installersStgAcctKey,
-	[string]$saUsername = "wsadmin",
+  param(
+	[string]$installersStgAcctKey = "KRihdvk4dDFQkOloPqpk0P5DtnpNOr13Hh9TfBywjyjcE7wSgLSgNud8JnEzTZI4ZAbKnytoFiLfI0kJZ4z4gQ==",
+	[string]$saUserName = "wsadmin",
 	[string]$saPassword = "Workspace!DB!2017",
 	[string]$loginUserName = "wsapp",
 	[string]$loginPassword = "Workspace!DB!2017",
@@ -51,12 +51,11 @@ Try
 
 	Write-Log("Starting configuration")
 
-	$storageAccountKey = $installersStgAcctKey
 	$ssmsInstallBlobName = "SSMS-Setup-ENU.exe"
 	$destinationSqlIso = "d:\sqlserver.iso"
 	$destinationSSMS = "d:\SSMS-Setup-ENU.exe"
 
-	$storageContext = New-AzureStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageAccountKey
+	$storageContext = New-AzureStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $installersStgAcctKey
 	Get-AzureStorageBlobContent -Blob $sqlInstallBlobName -Container $containerName -Destination $destinationSqlIso -Context $storageContext
 	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
 	Mount-DiskImage -ImagePath d:\sqlserver.iso 
@@ -64,22 +63,26 @@ Try
 
 	Write-Log("Mounted sql server media on " + $sqlInstallDrive)
 		
+    Write-Log("Creating credentials for app login")
     $loginPwdSecure = ConvertTo-SecureString $loginPassword -AsPlainText -Force
-    $loginCred = New-Object System.Management.Automation.PSCredential ($loginUsername, $loginPwdSecure)
+    $loginCred = New-Object System.Management.Automation.PSCredential ($loginUserName, $loginPwdSecure)
 
+    Write-Log("Creating credentials for sys account")
     $sysAcctPasswordSecure = $saPassword | ConvertTo-SecureString -AsPlainText -Force
-    $sysAcctCreds = New-Object -TypeName pscredential -ArgumentList $saUsername, $saPasswordSecure
+    $sysAcctCreds = New-Object -TypeName pscredential -ArgumentList $saUserName, $sysAcctPasswordSecure
 
-    $saPwd = $sysAcctPasswordSecure
-    $saCred = New-Object -TypeName pscredential -ArgumentList "sa", $saPwd
+    Write-Log("Creating credentials for sa")
+    $saCred = New-Object -TypeName pscredential -ArgumentList "sa", $sysAcctPasswordSecure
     
-	Write-Log("Starting SQL Server Install")
-	. ./SqlStandaloneDSC
-
 	$dataDisk = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 	Write-Log("The data disk drive letter is " + $dataDisk)
 
+	Write-Log("Sourcing SqlStandaloneDSC")
+	. ./SqlStandaloneDSC
+	
+	Write-Log("Configuring SQLServer DSC")
 	SqlStandaloneDSC -ConfigurationData SQLConfigurationData.psd1 -LoginCredential $loginCred -SysAdminAccount $saCreds -saCredential $sysAcctCreds -installDisk $sqlInstallDrive
+	Write-Log("Starting SQL Server Install")
 	Start-DscConfiguration .\SqlStandaloneDSC -Verbose -wait -Force
 
 	Write-Log("Installed SQL Server")
@@ -138,20 +141,20 @@ Try
 	Write-Log("Creating login")
 	$login = New-Object "Microsoft.SqlServer.Management.Smo.Login" $ss, $loginUsername
 	$login.LoginType = [Microsoft.SqlServer.Management.Smo.LoginType]::SqlLogin
-	$loginUsername.PasswordExpirationEnabled = $false
+	$login.PasswordExpirationEnabled = $false
 	$securePwd = ConvertTo-SecureString $loginPassword -AsPlainText -Force
 	$login.Create($securePwd)
 
 	Write-Host("Configuring database user")
-	if ($db.Users.Contains($loginUsername))
+	if ($db.Users.Contains($loginUserName))
 	{
 		Write-Host "User exists, dropping"
-		$ss.Users[$loginUsername].Drop()
+		$db.Users[$loginUserName].Drop()
 	}
 
 	Write-Log("Creating user")
-	$dbuser = New-Object "Microsoft.SqlServer.Management.Smo.User" db, $loginUsername
-	$dbuser.Login = $loginUsername
+	$dbuser = New-Object "Microsoft.SqlServer.Management.Smo.User" $db, $loginUserName
+	$dbuser.Login = $loginUserName
 	$dbuser.Create()
 
 	$db.Roles['db_datareader'].AddMember($dbuser.Name)
@@ -165,3 +168,4 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
