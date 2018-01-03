@@ -99,7 +99,7 @@
     "dataDogApiKey": "[parameters('dataDogApiKey')]",
     "vmCustomData": "[parameters('vmCustomData')]",
 
-    "diagnosticsStorageAccountName": "[concat('stgmonitor', replace(variables('baseName'), '-', ''))]",
+    "diagnosticsStorageAccountName": "[concat('stgdiag', replace(variables('baseName'), '-', ''))]",
     "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
     "diagnosticsStorageAccountEndPoint": "https://core.windows.net",
 

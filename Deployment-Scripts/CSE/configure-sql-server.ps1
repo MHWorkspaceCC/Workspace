@@ -2,7 +2,7 @@
 	[string]$installersStgAcctKey,
 	[string]$saUsername = "wsadmin",
 	[string]$saPassword = "Workspace!DB!2017",
-	[string]$loginUsername = "wsapp",
+	[string]$loginUserName = "wsapp",
 	[string]$loginPassword = "Workspace!DB!2017",
 	[string]$storageAccountName = "stginstallerswspdpr",
 	[string]$containerName = "sqlserver",

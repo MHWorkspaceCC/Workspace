@@ -383,7 +383,7 @@ function Deploy-DB{
 		[string]$saUserName,
 		[string]$saPassword,
 		[string]$vmCustomData,
-		[string]$loginUsername,
+		[string]$loginUserName,
 		[string]$loginPassword
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey $dbAdminUserName -ForegroundColor Green
@@ -404,7 +404,7 @@ function Deploy-DB{
 		"saUserName" = $saUserName
 		"saPassword" = $saPassword
 		"vmCustomData" = $vmCustomData
-		"loginUsername" = $loginUsername
+		"loginUserName" = $loginUserName
 		"loginPassword" = $loginPassword
 	}
 
@@ -804,8 +804,11 @@ function Create-KeyVaultSecrets{
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "JumpServerAdminPassword" -SecretValue "Workspace!Jump!2018"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "AdminServerAdminName" -SecretValue "wsadmin"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "AdminServerAdminPassword" -SecretValue "Workspace!Admin!2018"
+
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaUserName" -SecretValue "wsadmin"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaPassword" -SecretValue "Workspace!DB!2017"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName" -SecretValue "wsapp"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword" -SecretValue "Workspace!DB!2017"
 	
 	$diagAcctResourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "diag"
 	$diagStorageAccountName = Construct-StorageAccountName -environment $environment -facility $facility -resourceCategory "diag"
@@ -846,7 +849,7 @@ function Rebuild-KeyVault{
 		[string]$environment
 	)
 	
-	Delete-KeyVault -environment $environment -facility $facility
+	Remove-KeyVault -environment $environment -facility $facility
 	Build-KeyVault -environment $environment -facility $facility
 }
 
@@ -881,6 +884,8 @@ function Create-Core{
 	$adminAdminPassword = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "AdminServerAdminPassword").SecretValueText
 	$dbSaUserName = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DbSaUserName").SecretValueText
 	$dbSaPassword = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DbSaPassword").SecretValueText
+	$dbLoginUserName = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DbLoginUserName").SecretValueText
+	$dbLoginPassword = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DbLoginPassword").SecretValueText
 
 	$diagStorageAccountKey = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "DiagStorageAccountKey").SecretValueText
 	$installersStorageAccountKey = $(Get-AzureKeyVaultSecret -VaultName $keyVaultNamePR -Name "InstallersStorageAccountKey").SecretValueText
@@ -919,10 +924,10 @@ function Create-Core{
 	# need to make sure we have these storage accounts
 	#Ensure-StorageAccount -facility "primary" -environment $environment -resourceCategory "bootdiag"
 	#Ensure-StorageAccount -facility "dr" -environment $environment -resourceCategory "bootdiag"
-	#Ensure-StorageAccount -facility "primary" -environment $environment -resourceCategory "monitor"
-	#Ensure-StorageAccount -facility "dr" -environment $environment -resourceCategory "monitor"
+	#Ensure-StorageAccount -facility "primary" -environment $environment -resourceCategory "diag"
+	#Ensure-StorageAccount -facility "dr" -environment $environment -resourceCategory "diag"
 
-	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword
+	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
 	#Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
 	#Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
 	#Deploy-Jump -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
@@ -1022,7 +1027,7 @@ function Teardown-DiagnosticsEntitiesInFacility{
 
 	Ensure-LoggedIntoAzureAccount
 
-	$group1 = @("bootdiag", "monitor")
+	$group1 = @("bootdiag", "diag")
 
 	foreach ($rc in $group1){
 		Teardown-ResourceCategory -environment $environment -facility $facility -resourceCategory $rc
@@ -1195,11 +1200,12 @@ function Create-AzureFilesShareInFacility{
 #Create-ServicesEntities -environment "prod" -facility "primary"
 #Remove-KeyVault -environment "prod" -facility "primary"
 #Build-KeyVault -environment "prod" -facility "primary"
-#Create-Core -environment "prod" -vnetPrimaryCidrPrefix "10.1." -vnetDrCidrPrefix "10.2."
+#Rebuild-KeyVault -environment "prod" -facility "primary"
+Create-Core -environment "prod" -vnetPrimaryCidrPrefix "10.1." -vnetDrCidrPrefix "10.2."
 #Create-DiagnosticsInEnvironment -environment "prod"
 #Teardown-DiagnosticsInEnvironment -environment "prod"
 #Teardown-SvcInEnvironment -environment "prod"
-Deploy-DatabaseDiskViaInitVM -facility "primary" -environment "prod" -databaseServerId "sql1" -diskName "data2"
+#Deploy-DatabaseDiskViaInitVM -facility "primary" -environment "prod" -databaseServerId "sql1" -diskName "data2"
 <#
 Export-ModuleMember -Function Teardown-EntireRegionAndFacility
 #>

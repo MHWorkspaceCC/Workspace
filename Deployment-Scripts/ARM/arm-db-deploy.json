@@ -134,7 +134,7 @@
 
     "vmCustomData": "[parameters('vmCustomData')]",
 
-    "diagnosticsStorageAccountName": "[concat('stgmonitor', replace(variables('baseName'), '-', ''))]",
+    "diagnosticsStorageAccountName": "[concat('stgdiag', replace(variables('baseName'), '-', ''))]",
     "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
     "diagnosticsStorageAccountEndPoint": "https://core.windows.net",
 
@@ -142,7 +142,7 @@
     "bootDiagStorageAccount": "[concat('stgbootdiag', replace(variables('baseName'), '-', ''))]",
     "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
 
-    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUsername ', parameters('saUsername'), ' -saPassword ', parameters('saPassword'), '-loginUsername ', parameters('loginUsername'), ' -loginPassword ', parameters('loginPassword'))]"
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUsername ', parameters('saUsername'), ' -saPassword ', parameters('saPassword'), ' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'))]"
   },
 
   "resources": [
