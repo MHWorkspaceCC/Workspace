@@ -40,46 +40,60 @@ $resourceCategories = @(
 $environmentsInfo = @{
 	"validCodes" = "pdtsqc"
 	"codeNameMap" = @{
-		"p" = "Production"
-		"d" = "Development"
-		"t" = "Test"
-		"s" = "Staging"
-		"q" = "QA"
-		"c" = "Canary"
+		p = "Production"
+		d = "Development"
+		t = "Test"
+		s = "Staging"
+		q = "QA"
+		c = "Canary"
 	}
-	"ciderValue" = @{
-		"p" = 0 -shl 4
-		"d" = 1 -shl 4 
-		"t" = 2 -shl 4
-		"s" = 3 -shl 4
-		"q" = 4 -shl 4
-		"c" = 5 -shl 4
+	"cidrValues" = @{
+		p = 0 -shl 5
+		d = 1 -shl 5 
+		t = 2 -shl 5
+		s = 3 -shl 5
+		q = 4 -shl 5
+		c = 5 -shl 5
 	}
 }
 
 $facilityInfo = @{
 	"validCodes" = "pd"
 	"codeNameMap" = @{
-		"p" = "Primary"
-		"d" = "Disaster Recovery"
+		p = "Primary"
+		d = "Disaster Recovery"
 	}
-	"ciderValue" = @{
-		"p" = 0 -shl 2
-		"d" = 1 -shl 2 
+	"cidrValues" = @{
+		p = 0 
+		d = 1 
 	}
 	"locationMap" = @{
-		"p" = "westus"
-		"d" = "eastus"
+		p = "westus"
+		d = "eastus"
 	}
 }
 
-function Construct-ResourcePostfix{
-	param(
-		[string]$environment,
-		[string]$facility
-	)
+$wsAcctInfo = @{
+	"profileFile" = "workspace.json"
+	"subscriptionName" = "WS Test"
+	"subscriptionCode" = "ws"
+}
 
-	return "ws" + $environmentsPostfixCodeMap[$environment] + $facilitiesPostfixCodeMap[$facility]
+$mhAcctInfo = @{
+	"profileFile" = "heydt.json"
+	"subscriptionName" = "Visual Studio Enterprise"
+	"subscriptionCode" = "mh"
+}
+
+$loginAccounts = @{
+	$wsAcctInfo['subscriptionCode'] = $wsAcctInfo
+	$mhAcctInfo['subscriptionCode'] = $mhAcctInfo
+}
+
+$loginAccount = $loginAccounts['mh']
+
+Class Context{
+	[string]
 }
 
 function Ensure-LoggedIntoAzureAccount{
@@ -91,19 +105,29 @@ function Ensure-LoggedIntoAzureAccount{
 
 function Login-AzureAccount{
 	if (!$loggedIn){
-		$profileFile = $currentDir + "\Deployment-Scripts\" + "azureprofile.json"
+		$profileFile = $currentDir + "\Deployment-Scripts\" + $loginAccount['profileFile']
 
 		Write-Host "Logging into azure account"
 		Import-AzureRmContext -Path $profileFile | Out-Null
 		Write-Host "Successfully logged in using saved profile file" -ForegroundColor Green
 
 		Write-Host "Setting subscription..."
-		$subscriptionName = "Visual Studio Enterprise"
-		Get-AzureRmSubscription –SubscriptionName $subscriptionName | Select-AzureRmSubscription  | Out-Null
-		Write-Host "Set Azure Subscription for session complete"  -ForegroundColor Green
+		Get-AzureRmSubscription –SubscriptionName $loginAccount['subscriptionName'] | Select-AzureRmSubscription  | Out-Null
+		Write-Host "Set Azure Subscription for session complete" -ForegroundColor Green
 
 		$global:loggedIn = $true
 	}
+}
+
+
+
+function Construct-ResourcePostfix{
+	param(
+		[string]$environment,
+		[string]$facility
+	)
+
+	return "ws" + $environmentsPostfixCodeMap[$environment] + $facilitiesPostfixCodeMap[$facility]
 }
 
 function Get-FacilityLocation{
@@ -501,21 +525,25 @@ function Check-EnvironmentCode{
 	if ($environmentCode.Length -ne 2){
 		throw "Environment code length must be two characters"
 	}
-	$code = $environmentCode[0]
+	$code = $environmentCode.Substring(0,1)
 	if (!$environmentsInfo['validCodes'] -contains $code){
 		throw "Invalid environment code.  Must be one of: " + $environmentsInfo['validCodes']
 	}
 
-	$instanceNumber = $environmentCode[1]
-	if (!"0123456789" -contains $instanceNumber){
+	$instanceNumber = $environmentCode.Substring(1, 1)
+	if (!$environmentsInfo['validCodes'] -contains $instanceNumber){
 		throw "Instance number must be in 0123456789.  Given was: " + $instanceNumber
 	}
+	$cidr1 = $environmentsInfo['cidrValues'][$code] 
+	$cidr2 = [int]$instanceNumber
+	$ciderValue = $cidr1 + ($cidr2 -shl 2)
 
 	$environmentConfig = @{
 		"code" = $environmentCode
 		"instanceId" = $instanceNumber
+		"environment" = $code
 		"name" = $environmentsInfo['codeNameMap'][$code]
-		"ciderValue" = $environmentsInfo['ciderValue'][$code]
+		"cidrValue" = $ciderValue
 	}
 
 	return $environmentConfig
@@ -528,35 +556,41 @@ function Check-FacilityCode{
 		throw "Environment code length must be exactly one character"
 	}
 
-	$code = $facilityCode[0]
 	if (!$facilityInfo['validCodes'] -contains $code){
 		throw "Invalid facility code.  Must be one of: " + $facilityInfo['validCodes']
 	}
 
 	$facilityConfig = @{
 		"code" = $facilityCode
-		"name" = $facilityCode['codeNameMap'][$code]
-		"ciderValue" = $facilityInfo['ciderValue'][$code]
-		"location" = $facilityInfo['locationMap'][$code]
+		"name" = $facilityInfo['codeNameMap'][$facilityCode]
+		"cidrValue" = $facilityInfo['cidrValues'][$facilityCode]
+		"location" = $facilityInfo['locationMap'][$facilityCode]
 	}
 
 	return $facilityConfig
 }
 
-Check-EnvironmentAndFacility{
+function Check-EnvironmentAndFacility{
 	param(
 		[string]$environmentCode,
 		[string]$facilityCode
 	)
 
 	$environmentConfig = Check-EnvironmentCode -environmentCode $environmentCode
-	$facilityConfig = Check-EnvironmentCode -environmentCode $facilityCode
+	$facilityConfig = Check-FacilityCode -facilityCode $facilityCode
+	$cidr1 = $environmentConfig['cidrValue'] 
+	$cidr2 = $facilityConfig['cidrValue']
+	$cidr = $cidr1 + $cidr2
 
-	return @{
+	Write-Host $([Convert]::ToString($cidr, 2))
+
+	$result = @{
 		"environmentConfig" = $environmentConfig
 		"facilityConfig" = $facilityConfig
-		"ciderPrefix" = "10." + ($environmentConfig['cidrValue'] + $facilityConfig['cidrValue')
+		"cidrPrefix" = "10." + $cidr + "."
 	}
+
+	return $result
 }
 
 function Deploy-Ftp{
@@ -923,7 +957,7 @@ function Create-KeyVaultSecrets{
 
 	$fileShareAcctResourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "files"
 	$fileShareStorageAccountName = Construct-StorageAccountName -environment $environment -facility $facility -resourceCategory "files"
-	$fileShareStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
+	$fileShareStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $fileShareAcctResourceGroupName -AccountName $fileShareStorageAccountName
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey" -SecretValue $fileShareStgAcctKeys.Value[0]
 
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoUrl" -SecretValue $octoUrl
@@ -1028,7 +1062,7 @@ function Create-Core{
 	#Ensure-StorageAccount -facility "primary" -environment $environment -resourceCategory "diag"
 	#Ensure-StorageAccount -facility "dr" -environment $environment -resourceCategory "diag"
 
-	Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
+	#Deploy-DB -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
 	Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
 	#Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
 	#Deploy-Jump -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
@@ -1302,7 +1336,7 @@ function Create-AzureFilesShareInFacility{
 #Remove-KeyVault -environment "prod" -facility "primary"
 #Build-KeyVault -environment "prod" -facility "primary"
 #Rebuild-KeyVault -environment "prod" -facility "primary"
-Create-Core -environment "prod" -vnetPrimaryCidrPrefix "10.1." -vnetDrCidrPrefix "10.2."
+#Create-Core -environment "prod" -vnetPrimaryCidrPrefix "10.1." -vnetDrCidrPrefix "10.2."
 #Create-DiagnosticsInEnvironment -environment "prod"
 #Teardown-DiagnosticsInEnvironment -environment "prod"
 #Teardown-SvcInEnvironment -environment "prod"
@@ -1319,3 +1353,25 @@ Export-ModuleMember -Function Teardown-EntireRegionAndFacility
 #Add-CertificateToKV -facility "primary" -environment "prod" -pfxFile "workspace.pfx" -password "workspace" -secretName "foo"
 
 #Create-KeyVaultSecrets -facility "primary" -environment "prod"
+
+Class AzureResource
+{
+	[string]$Subscription
+	[string]$ResourceType
+	[string]$ResourceId
+	[string]$ResourceGroup
+	[string]$Location
+	[string]$Name
+	[string]$ServiceName
+	[string]$VNet
+	[string]$Subnet
+	[string]$Size
+	[string]$Status
+}
+
+function Get-AllAzureResources{
+	Ensure-LoggedIntoAzureAccount
+	Get-AzureRmResource
+}
+
+Get-AllAzureResources

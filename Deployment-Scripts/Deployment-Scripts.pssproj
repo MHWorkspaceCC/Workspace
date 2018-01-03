@@ -38,10 +38,11 @@
     <Content Include="ARM\arm-vpn-deploy-backup.json" />
     <Content Include="ARM\arm-vpn-deploy.json" />
     <Content Include="ARM\arm-vmssweb-deploy.json" />
-    <Content Include="azureprofile.json" />
+    <Content Include="heydt.json" />
     <Content Include="ARM\arm-db-deploy.json" />
     <Content Include="ARM\arm-jump-deploy.json" />
     <Content Include="ARM\arm-vnet-deploy.json" />
+    <Content Include="workspace.json" />
     <Content Include="workspace.pfx" />
   </ItemGroup>
   <ItemGroup>
