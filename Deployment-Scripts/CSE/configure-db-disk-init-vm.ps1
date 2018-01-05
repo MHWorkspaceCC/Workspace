@@ -1,4 +1,4 @@
- param(
+  param(
 )
 
 Function Write-Log
@@ -42,7 +42,7 @@ Try
 
     wget http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=msftdbprodsamples -Body $downloadParams -UseBasicParsing -OutFile $($dataDisk + "av.zip")
 
-    Unzip $($dataDisk + ":\av.zip") $dataDisk
+    Unzip $($dataDisk + "av.zip") $dataDisk
     Remove-Item -Path $($dataDisk + "av.zip")
 
     $files = Get-ChildItem $dataDisk
@@ -65,3 +65,4 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 

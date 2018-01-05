@@ -1553,9 +1553,9 @@ function Create-BaseEntities{
 
 	Ensure-LoggedIntoAzureAccount
 
-	#Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $usePeer
-	Create-DiagnosticsEntities -ctx $ctx -usePeer $usePeer
-	Create-AzureFilesEntities -ctx $ctx -usePeer $usePeer
+	Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $usePeer
+	#Create-DiagnosticsEntities -ctx $ctx -usePeer $usePeer
+	#Create-AzureFilesEntities -ctx $ctx -usePeer $usePeer
 	#Create-ServicesEntities -ctx $ctx -usePeer $usePeer
 
 	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
@@ -1623,8 +1623,8 @@ function Create-AzureFilesShare{
 }
 
 $ctx = Login-WorkspacePrimaryProd
-Create-All -ctx $ctx
-#Create-Base -ctx $ctx
+#Create-All -ctx $ctx
+Create-Base -ctx $ctx
 #Deploy-VPN -ctx $ctx
 
 #Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $false
