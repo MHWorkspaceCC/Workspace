@@ -55,12 +55,16 @@ Try
 	$destinationSqlIso = "d:\sqlserver.iso"
 	$destinationSSMS = "d:\SSMS-Setup-ENU.exe"
 
+	Write-Log("Starting copy of installer files")
 	$storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
+	Write-Log("Starting copy of SQL Server ISO")
 	Get-AzureStorageBlobContent -Blob $sqlInstallBlobName -Container $containerName -Destination $destinationSqlIso -Context $storageContext
+	Write-Log("Starting copy of SSMS installer")
 	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
+
+	Write-Log("Mounting SQL Server ISO")
 	Mount-DiskImage -ImagePath d:\sqlserver.iso 
 	$sqlInstallDrive = (Get-DiskImage -ImagePath "d:\sqlserver.iso" | Get-Volume).DriveLetter
-
 	Write-Log("Mounted sql server media on " + $sqlInstallDrive)
 		
     Write-Log("Creating credentials for app login")
