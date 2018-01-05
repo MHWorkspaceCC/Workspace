@@ -2,29 +2,8 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "environment": {
-      "type": "string",
-      "defaultValue": "sb",
-      "allowedValues": [
-        "sb",
-        "dv",
-        "qa",
-        "pd"
-      ],
-      "metadata": {
-        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
-      }
-    },
-    "facility": {
-      "type": "string",
-      "defaultValue": "pr",
-      "allowedValues": [
-        "pr",
-        "dr"
-      ],
-      "metadata": {
-        "description": "The location: 'pr' == westus, 'dr' == eastus"
-      }
+    "resourceNamePostfix": {
+      "type": "string"
     },
 
     "adminUserName": {
@@ -62,40 +41,41 @@
     "databaseServerId": {
       "type": "string"
     },
+
     "diskName": {
       "type": "string"
-    }
+    },
 
+    "diskResourceGroupName": {
+      "type": "string"
+    }
   },
 
   "variables": {
-    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
-    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
-    "baseName": "[concat('-ws', variables('environmentFacility'))]",
-    "vmBaseName": "[concat('svc' , variables('baseName'))]",
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
+    "vmBaseName": "[concat('dbdi', variables('baseName'))]",
 
     "vmSkuName": "Standard_LRS",
     "vmSize": "Standard_D1_v2",
     "windowsOsVersion": "2016-Datacenter",
 
-    "computername": "dbdiskinitvm", 
-    "vmName": "[concat('dbdi-', variables('vmBaseName'))]",
+    "computername": "dbdiskinitvm",
+    "vmName": "[concat('vm-', variables('vmBaseName'))]",
     "imagePublisher": "MicrosoftWindowsServer",
     "imageOffer": "WindowsServer",
     "osDiskName": "[concat('osdisk-', variables('vmName'))]",
     "adminUserName": "[parameters('adminUserName')]",
     "adminPassword": "[parameters('adminPassword')]",
 
-    "vnetName": "[concat('vn1-vnet', variables('baseName'))]",
-    "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
-    "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
-    "subnetName": "[concat('sn-', variables('vmBaseName'))]",
+    "vnetName": "[concat('dbdi-vnet', variables('baseName'))]",
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+    "subnetName": "sn-dbdi",
     "subnetRef": "[concat(variables('vnetID'), '/subnets/', variables('subnetName'))]",
 
     "storageAccountContainerName": "vhds",
     "nicName": "[concat('nic1-', variables('vmBaseName'))]",
 
-    "disksRg": "[concat('rg-disks', variables('baseName'))]",
+    "disksRg": "[parameters('diskResourceGroupName')]",
     "dataDiskName": "[concat(parameters('diskName'), '-', parameters('databaseServerId'), '-db', variables('baseName'))]",
     "dataDiskSku": "[parameters('dataDiskSku')]",
 
@@ -104,8 +84,23 @@
 
   "resources": [
     {
+      "apiVersion": "2016-03-30",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('vnetName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "addressSpace": { "addressPrefixes": [ "10.254.0.0/16" ] },
+        "subnets": [
+          {
+            "name": "sn-dbdi",
+            "properties": { "addressPrefix": "10.254.0.0/24" }
+          }
+        ]
+      }
+    },
+    {
       "apiVersion": "2017-05-10",
-      "name": "diskdeployment",
+      "name": "diskDeployment",
       "type": "Microsoft.Resources/deployments",
       "resourceGroup": "[variables('disksRg')]",
       "properties": {
@@ -155,7 +150,7 @@
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('nicName')]",
       "apiVersion": "2017-06-01",
-      "location": "[variables('location')]",
+      "location": "[resourceGroup().location]",
       "properties": {
         "ipConfigurations": [
           {
@@ -181,7 +176,8 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmPipName'))]"
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmPipName'))]",
+        "[variables('vnetID')]"
       ]
     },
 
@@ -189,7 +185,7 @@
       "type": "Microsoft.Compute/virtualMachines",
       "name": "[variables('vmName')]",
       "apiVersion": "2017-03-30",
-      "location": "[variables('location')]",
+      "location": "[resourceGroup().location]",
 
       "properties": {
         "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
@@ -235,12 +231,32 @@
         }
       },
       "resources": [
+        {
+          "type": "extensions",
+          "name": "config-server",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[variables('vmName')]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.9",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "fileUris": "[parameters('fileUris')]",
+              "commandToExecute": "[parameters('commandToExecute')]"
+            }
+          }
+        }
       ],
 
       "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces/', variables('nicName'))]",
-        "[resourceId(variables('disksRg'), 'Microsoft.Resources/deployments', 'diskdeployment')]",
-        "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmPipName'))]"
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmPipName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+        "diskDeployment"
       ]
     }
   ],

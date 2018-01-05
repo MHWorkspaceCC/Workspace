@@ -2,36 +2,13 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "environment": {
-      "type": "string",
-      "defaultValue": "sb",
-      "allowedValues": [
-        "sb",
-        "dv",
-        "qa",
-        "pd"
-      ],
-      "metadata": {
-        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
-      }
-    },
-    "facility": {
-      "type": "string",
-      "defaultValue": "pr",
-      "allowedValues": [
-        "pr",
-        "dr"
-      ],
-      "metadata": {
-        "description": "The location: 'pr' == westus, 'dr' == eastus"
-      }
+    "resourceNamePostfix": {
+      "type": "string"
     }
   },
 
   "variables": {
-    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
-    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
-    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
 
     "jumpBaseName": "[concat('jump', variables('baseName'))]",
     "jumpPipName": "[concat('pip-', variables('jumpBaseName'))]",

@@ -2,46 +2,18 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "environment": {
-      "type": "string",
-      "defaultValue": "sb",
-      "allowedValues": [
-        "sb",
-        "dv",
-        "qa",
-        "pd"
-      ],
-      "metadata": {
-        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
-      }
+    "vnetCidrPrefix": {
+      "type": "string"
     },
-    "facility": {
-      "type": "string",
-      "defaultValue": "pr",
-      "allowedValues": [
-        "pr",
-        "dr"
-      ],
-      "metadata": {
-        "description": "The location: 'pr' == westus, 'dr' == eastus"
-      }
-    },
-    "westVnetCidrPrefix": {
-      "type": "string",
-      "defaultValue": "10.200."
-    },
-    "eastVnetCidrPrefix": {
-      "type": "string",
-      "defaultValue": "10.201."
-    }
+    "resourceNamePostfix": {
+      "type": "string"
+    } 
   },
 
   "variables": {
-    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
-    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
-    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
 
-    "addressPrefix": "[if(equals(parameters('facility'), 'pr'), parameters('westVnetCidrPrefix'), parameters('eastVnetCidrPrefix'))]",
+    "addressPrefix": "[parameters('vnetCidrPrefix')]",
     "vnetCIDR": "[concat(variables('addressPrefix'), '0.0/16')]",
 
     "defaultCIDR": "[concat(variables('addressPrefix'), '0.0/24')]",
@@ -59,7 +31,7 @@
     "jumpNsgName": "[concat('nsg-jump', variables('baseName'))]",
     "adminNsgName": "[concat('nsg-admin', variables('baseName'))]",
     "svcNsgName": "[concat('nsg-svc', variables('baseName'))]",
-    "vpnNsgName": "[concat('nsg-vpn', variables('baseName'))]",
+    "vpnNsgName": "[concat('nsg-vpn', variables('baseName'))]"
   },
 
   "resources": [
