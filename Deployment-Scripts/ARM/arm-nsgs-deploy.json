@@ -23,14 +23,12 @@
     "adminCIDR": "[concat(variables('addressPrefix'), '4.0/24')]",
     "dbCIDR": "[concat(variables('addressPrefix'), '5.0/24')]",
     "vpnCIDR": "[concat(variables('addressPrefix'), '100.0/24')]",
-    "svcCIDR": "[concat(variables('addressPrefix'), '254.0/24')]",
 
     "dbNsgName": "[concat('nsg-db', variables('baseName'))]",
     "webNsgName": "[concat('nsg-web', variables('baseName'))]",
     "ftpNsgName": "[concat('nsg-ftp', variables('baseName'))]",
     "jumpNsgName": "[concat('nsg-jump', variables('baseName'))]",
     "adminNsgName": "[concat('nsg-admin', variables('baseName'))]",
-    "svcNsgName": "[concat('nsg-svc', variables('baseName'))]",
     "vpnNsgName": "[concat('nsg-vpn', variables('baseName'))]"
   },
 
@@ -995,180 +993,7 @@
       },
 
       "dependsOn": []
-    },
-
-    {
-      "type": "Microsoft.Network/networkSecurityGroups",
-      "name": "[variables('svcNsgName')]",
-      "apiVersion": "2017-06-01",
-      "location": "[resourceGroup().location]",
-      "scale": null,
-      "properties": {
-        "securityRules": [
-          {
-            "name": "default-allow-rdp",
-            "properties": {
-              "protocol": "TCP",
-              "sourcePortRange": "*",
-              "destinationPortRange": "3389",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "*",
-              "access": "Allow",
-              "priority": 100,
-              "direction": "Inbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          },
-          {
-            "name": "HTTP_FROM_INTERNET",
-            "properties": {
-              "protocol": "TCP",
-              "sourcePortRange": "*",
-              "destinationPortRange": "80",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "[variables('svcCIDR')]",
-              "access": "Allow",
-              "priority": 1000,
-              "direction": "Inbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          },
-          {
-            "name": "HTTPS_FROM_INTERNET",
-            "properties": {
-              "protocol": "TCP",
-              "sourcePortRange": "*",
-              "destinationPortRange": "443",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "[variables('svcCIDR')]",
-              "access": "Allow",
-              "priority": 1002,
-              "direction": "Inbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          },
-
-          {
-            "name": "RDP_FROM_JUMP",
-            "properties": {
-              "protocol": "TCP",
-              "sourcePortRange": "3389",
-              "destinationPortRange": "3389",
-              "sourceAddressPrefix": "[variables('jumpCIDR')]",
-              "destinationAddressPrefix": "*",
-              "access": "Allow",
-              "priority": 1100,
-              "direction": "Inbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          }
-        ],
-        "defaultSecurityRules": [
-          {
-            "name": "AllowVnetInBound",
-            "properties": {
-              "description": "Allow inbound traffic from all VMs in VNET",
-              "protocol": "*",
-              "sourcePortRange": "*",
-              "destinationPortRange": "*",
-              "sourceAddressPrefix": "VirtualNetwork",
-              "destinationAddressPrefix": "VirtualNetwork",
-              "access": "Allow",
-              "priority": 65000,
-              "direction": "Inbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          },
-          {
-            "name": "AllowAzureLoadBalancerInBound",
-            "properties": {
-              "description": "Allow inbound traffic from azure load balancer",
-              "protocol": "*",
-              "sourcePortRange": "*",
-              "destinationPortRange": "*",
-              "sourceAddressPrefix": "AzureLoadBalancer",
-              "destinationAddressPrefix": "*",
-              "access": "Allow",
-              "priority": 65001,
-              "direction": "Inbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          },
-          {
-            "name": "DenyAllInBound",
-            "properties": {
-              "description": "Deny all inbound traffic",
-              "protocol": "*",
-              "sourcePortRange": "*",
-              "destinationPortRange": "*",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "*",
-              "access": "Deny",
-              "priority": 65500,
-              "direction": "Inbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          },
-          {
-            "name": "AllowVnetOutBound",
-            "properties": {
-              "description": "Allow outbound traffic from all VMs to all VMs in VNET",
-              "protocol": "*",
-              "sourcePortRange": "*",
-              "destinationPortRange": "*",
-              "sourceAddressPrefix": "VirtualNetwork",
-              "destinationAddressPrefix": "VirtualNetwork",
-              "access": "Allow",
-              "priority": 65000,
-              "direction": "Outbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          },
-          {
-            "name": "AllowInternetOutBound",
-            "properties": {
-              "description": "Allow outbound traffic from all VMs to Internet",
-              "protocol": "*",
-              "sourcePortRange": "*",
-              "destinationPortRange": "*",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "Internet",
-              "access": "Allow",
-              "priority": 65001,
-              "direction": "Outbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          },
-          {
-            "name": "DenyAllOutBound",
-            "properties": {
-              "description": "Deny all outbound traffic",
-              "protocol": "*",
-              "sourcePortRange": "*",
-              "destinationPortRange": "*",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "*",
-              "access": "Deny",
-              "priority": 65500,
-              "direction": "Outbound",
-              "sourceAddressPrefixes": [],
-              "destinationAddressPrefixes": []
-            }
-          }
-        ]
-      },
-
-      "dependsOn": []
-    },
+    }
   ],
   "outputs": {
   }

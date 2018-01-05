@@ -3,58 +3,68 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "environment": {
-      "type": "string",
-      "defaultValue": "pd",
-      "allowedValues": [
-        "sb",
-        "dv",
-        "qa",
-        "pd"
-      ],
-      "metadata": {
-        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
-      }
-    },
-    "facility": {
-      "type": "string",
-      "defaultValue": "pr",
-      "allowedValues": [
-        "pr",
-        "dr"
-      ],
-      "metadata": {
-        "description": "The location: 'pr' == westus, 'dr' == eastus"
-      }
-    },
-    "westVnetCidrPrefix": {
       "type": "string"
     },
-    "eastVnetCidrPrefix": {
+    "environmentCode": {
+      "type": "string"
+    },
+    "facility": {
+      "type": "string"
+    },
+    "peerFacility": {
+      "type": "string"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "subscriptionCode": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "resourceNamePostfix": {
+      "type": "string"
+    },
+    "peerResourceNamePostfix": {
+      "type": "string"
+    },
+    "mainVnetCidrPrefix": {
+      "type": "string"
+    },
+    "peerVnetCidrPrefix": {
+      "type": "string"
+    },
+    "mainLocation": {
+      "type": "string"
+    },
+    "peerLocation": {
+      "type": "string"
+    },
+    "sharedKey": {
       "type": "string"
     }
   },
   "variables": {
     "thisFacility": "[parameters('facility')]",
-    "thatFacility": "[if(equals(variables('thisFacility'), 'pr'), 'dr', 'pr')]",
-    "thisLocation": "[if(equals(variables('thisFacility'), 'pr'), 'westus', 'eastus')]",
-    "thatLocation": "[if(equals(variables('thisFacility'), 'pr'), 'eastus', 'westus')]",
-    "thisEF": "[concat(parameters('environment'), variables('thisFacility'))]",
-    "thatEF": "[concat(parameters('environment'), variables('thatFacility'))]",
-    "thisAddressPrefix": "[if(equals(parameters('facility'), 'pr'), parameters('westVnetCidrPrefix'), parameters('eastVnetCidrPrefix'))]",
-    "thatAddressPrefix": "[if(equals(parameters('facility'), 'pr'), parameters('eastVnetCidrPrefix'), parameters('westVnetCidrPrefix'))]",
+    "thatFacility": "[parameters('peerFacility')]",
+    "thisLocation": "[parameters('mainLocation')]",
+    "thatLocation": "[parameters('peerLocation')]",
+    "thisAddressPrefix": "[parameters('mainVnetCidrPrefix')]",
+    "thatAddressPrefix": "[parameters('peerVnetCidrPrefix')]",
     "thisVnetCIDR": "[concat(variables('thisAddressPrefix'), '0.0/16')]",
     "thatVnetCIDR": "[concat(variables('thatAddressPrefix'), '0.0/16')]",
-    "thisBaseName": "[concat('-ws', variables('thisEF'))]",
-    "thatBaseName": "[concat('-ws', variables('thatEF'))]",
+    "thisBaseName": "[concat('-', parameters('resourceNamePostfix'))]",
+    "thatBaseName": "[concat('-', parameters('peerResourceNamePostfix'))]",
     "thisGatewayName": "[concat('vng-vpn', variables('thisBaseName'))]",
     "thatGatewayName": "[concat('vng-vpn', variables('thatBaseName'))]",
     "thisVpnConnectionName": "[concat('conn-vpn', variables('thisBaseName'))]",
     "thatVpnConnectionName": "[concat('conn-vpn', variables('thatBaseName'))]",
     "thisVnetRg": "[concat('rg-vnet', variables('thisBaseName'))]",
     "thatVnetRg": "[concat('rg-vnet', variables('thatBaseName'))]",
-    "thisVnetName": "[concat('vn1-vnet', variables('thisBaseName'))]",
+    "thisVnetName": "[concat(parameters('environmentCode'), '-vnet', variables('thisBaseName'))]",
     "thisSubnetName": "[concat('sn-vpn', variables('thisBaseName'))]",
-    "thatVnetName": "[concat('vn1-vnet', variables('thatBaseName'))]",
+    "thatVnetName": "[concat(parameters('environmentCode'), '-vnet', variables('thatBaseName'))]",
     "thatSubnetName": "[concat('sn-vpn', variables('thatBaseName'))]",
     "thisPipName": "[concat('pip-vpn', variables('thisBaseName'))]",
     "thatPipName": "[concat('pip-vpn', variables('thatBaseName'))]",
@@ -64,13 +74,13 @@
     "thatPipRgName": "[concat('rg-pips', variables('thatBaseName'))]",
     "thisVnetRgName": "[concat('rg-vnet', variables('thisBaseName'))]",
     "thatVnetRgName": "[concat('rg-vnet', variables('thatBaseName'))]",
-    "sharedKey": "workspace",
+    "sharedKey": "[parameters('sharedKey')]",
 
     "sharedState": {
-      "thisFacility": "[variables('thisFacility')]",
-      "thatFacility": "[variables('thatFacility')]",
-      "thisLocation": "[variables('thisLocation')]",
-      "thatLocation": "[variables('thatLocation')]",
+      "thisFacility": "[parameters('facility')]",
+      "thatFacility": "[parameters('peerFacility')]",
+      "thisLocation": "[parameters('mainLocation')]",
+      "thatLocation": "[parameters('peerLocation')]",
       "thisVnetRgName": "[variables('thisVnetRgName')]",
       "thatVnetRgName": "[variables('thatVnetRgName')]",
       "thisGatewayName": "[variables('thisGatewayName')]",
@@ -93,7 +103,17 @@
       "type": "Microsoft.Network/virtualNetworkGateways",
       "name": "[variables('sharedState').thisGatewayName]",
       "apiVersion": "2017-06-01",
-      "location": "[variables('sharedState').thisLocation]",
+      "location": "[parameters('mainLocation')]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "VpnGateway",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('mainLocation')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]"
+      },
       "scale": null,
       "properties": {
         "ipConfigurations": [
@@ -155,6 +175,16 @@
               "location": "[variables('sharedState').thatLocation]",
               "apiVersion": "2017-06-01",
               "scale": null,
+              "tags": {
+                "Role": "[parameters('role')]",
+                "ResourceType": "VpnGateway",
+                "Environment": "[parameters('environment')]",
+                "EnvironmentCode": "[parameters('environmentCode')]",
+                "Facility": "[parameters('peerFacility')]",
+                "Location": "[parameters('peerLocation')]",
+                "Instance": "[parameters('instance')]",
+                "ResourceNamePostfix": "[parameters('peerResourceNamePostfix')]"
+              },
               "properties": {
                 "ipConfigurations": [
                   {
@@ -205,8 +235,18 @@
       "type": "Microsoft.Network/connections",
       "name": "[variables('sharedState').thisVpnConnectionName]",
       "apiVersion": "2017-06-01",
-      "location": "[variables('sharedState').thisLocation]",
+      "location": "[parameters('mainLocation')]",
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "VpnConnection",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('mainLocation')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]"
+      },
       "properties": {
         "virtualNetworkGateway1": {
           "id": "[resourceId(variables('sharedState').thisVnetRgName, 'Microsoft.Network/virtualNetworkGateways', variables('sharedState').thisGatewayName)]",
@@ -247,6 +287,16 @@
               "apiVersion": "2017-06-01",
               "location": "[variables('sharedState').thatLocation]",
               "scale": null,
+              "tags": {
+                "Role": "[parameters('role')]",
+                "ResourceType": "VpnConnection",
+                "Environment": "[parameters('environment')]",
+                "EnvironmentCode": "[parameters('environmentCode')]",
+                "Facility": "[parameters('peerFacility')]",
+                "Location": "[parameters('peerLocation')]",
+                "Instance": "[parameters('instance')]",
+                "ResourceNamePostfix": "[parameters('peerResourceNamePostfix')]"
+              },
               "properties": {
                 "virtualNetworkGateway1": {
                   "id": "[resourceId(variables('sharedState').thatVnetRgName, 'Microsoft.Network/virtualNetworkGateways', variables('sharedState').thatGatewayName)]",
@@ -272,9 +322,6 @@
         "thatGatewayNestedTemplate"
       ]
     }
-
-
-
   ],
   "outputs": {
     "sharedState": { "type": "object", "value": "[variables('sharedState')]" }

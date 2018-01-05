@@ -19,13 +19,13 @@
     "fileUris": {
       "type": "array",
       "defaultValue": [
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure_db_disk_init_vm.ps1"
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-db-disk-init-vm.ps1"
       ]
     },
 
     "commandToExecute": {
       "type": "string",
-      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure_db_disk_init_vm.ps1"
+      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-db-disk-init-vm.ps1"
     },
 
     "dataDiskSku": {
@@ -261,8 +261,15 @@
     }
   ],
 
-
   "outputs": {
+    "vmName": {
+      "type": "string",
+      "value": "[variables('vmName')]"
+    },
+    "dataDiskName": {
+      "type": "string",
+      "value": "[variables('dataDiskName')]"
+    }
   }
 }
 

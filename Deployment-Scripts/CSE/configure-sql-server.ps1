@@ -1,10 +1,10 @@
   param(
 	[string]$installersStgAcctKey = "KRihdvk4dDFQkOloPqpk0P5DtnpNOr13Hh9TfBywjyjcE7wSgLSgNud8JnEzTZI4ZAbKnytoFiLfI0kJZ4z4gQ==",
+	[string]$installersStgAcctName = "stginstallerswsp0d",
 	[string]$saUserName = "wsadmin",
 	[string]$saPassword = "Workspace!DB!2017",
 	[string]$loginUserName = "wsapp",
 	[string]$loginPassword = "Workspace!DB!2017",
-	[string]$storageAccountName = "stginstallerswspdpr",
 	[string]$containerName = "sqlserver",
 	[string]$sqlInstallBlobName = "en_sql_server_2016_enterprise_with_service_pack_1_x64_dvd_9542382.iso",
 	[string]$ssmsInstallBlobName = "SSMS-Setup-ENU.exe",
@@ -30,7 +30,7 @@ Try
 	Write-Log("saPassword: " + $saPassword)
 	Write-Log("loginUsername: " + $loginUsername)
 	Write-Log("loginPassword: " + $loginPassword)
-	Write-Log("storageAccountName: " + $storageAccountName)
+	Write-Log("installersStgAcctName: " + $installersStgAcctName)
 	Write-Log("sqlInstallBlobName: " + $sqlInstallBlobName)
 	Write-Log("containerName: " + $containerName)
 	Write-Log("ssmsInstallBlobName: " + $ssmsInstallBlobName)
@@ -55,7 +55,7 @@ Try
 	$destinationSqlIso = "d:\sqlserver.iso"
 	$destinationSSMS = "d:\SSMS-Setup-ENU.exe"
 
-	$storageContext = New-AzureStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $installersStgAcctKey
+	$storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
 	Get-AzureStorageBlobContent -Blob $sqlInstallBlobName -Container $containerName -Destination $destinationSqlIso -Context $storageContext
 	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
 	Mount-DiskImage -ImagePath d:\sqlserver.iso 

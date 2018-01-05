@@ -3,29 +3,31 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "environment": {
-      "type": "string",
-      "defaultValue": "sb",
-      "allowedValues": [
-        "sb",
-        "dv",
-        "qa",
-        "pd"
-      ],
-      "metadata": {
-        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
-      }
+      "type": "string"
+    },
+    "environmentCode": {
+      "type": "string"
+    },
+    "subscriptionCode": {
+      "type": "string"
     },
     "facility": {
-      "type": "string",
-      "defaultValue": "pr",
-      "allowedValues": [
-        "pr",
-        "dr"
-      ],
-      "metadata": {
-        "description": "The location: 'pr' == westus, 'dr' == eastus"
-      }
+      "type": "string"
     },
+    "instance": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "resourceNamePostfix": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+
+
 
     "dataDogApiKey": {
       "type": "string"
@@ -59,9 +61,8 @@
     }
   },
   "variables": {
-    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
-    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
-    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+    "location": "[parameters('location')]",
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
     "ftpRgName": "[concat('rg-ftp', variables('baseName'))]",
     "vmssPrefix": "vmss-ftp",
     "vmssName": "[concat(variables('vmssPrefix'), variables('baseName'))]",

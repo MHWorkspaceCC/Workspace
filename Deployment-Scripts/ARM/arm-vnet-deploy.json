@@ -28,7 +28,6 @@
     "adminCIDR": "[concat(variables('addressPrefix'), '4.0/24')]",
     "dbCIDR": "[concat(variables('addressPrefix'), '5.0/24')]",
     "vpnCIDR": "[concat(variables('addressPrefix'), '100.0/24')]",
-    "svcCIDR": "[concat(variables('addressPrefix'), '254.0/24')]",
 
     "defaultSnName": "default",
     "webSnName": "[concat('sn-web', variables('baseName'))]",
@@ -37,14 +36,12 @@
     "adminSnName": "[concat('sn-admin', variables('baseName'))]",
     "dbSnName": "[concat('sn-db', variables('baseName'))]",
     "vpnSnName": "[concat('sn-vpn', variables('baseName'))]",
-    "svcSnName": "[concat('sn-svc', variables('baseName'))]",
 
     "dbNsgName": "[concat('nsg-db', variables('baseName'))]",
     "webNsgName": "[concat('nsg-web', variables('baseName'))]",
     "ftpNsgName": "[concat('nsg-ftp', variables('baseName'))]",
     "jumpNsgName": "[concat('nsg-jump', variables('baseName'))]",
     "adminNsgName": "[concat('nsg-admin', variables('baseName'))]",
-    "svcNsgName": "[concat('nsg-svc', variables('baseName'))]",
     "vpnNsgName": "[concat('nsg-vpn', variables('baseName'))]",
 
     "nsgRg": "[concat('rg-nsgs', variables('baseName'))]"
@@ -104,12 +101,6 @@
             "name": "GatewaySubnet",
             "properties": {
               "addressPrefix": "[variables('vpnCIDR')]"
-            }
-          },
-          {
-            "name": "[variables('svcSnName')]",
-            "properties": {
-              "addressPrefix": "[variables('svcCIDR')]"
             }
           }
 
@@ -228,23 +219,6 @@
       "dependsOn": [
         "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
         "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('dbSnName'))]"
-      ]
-    },
-
-    {
-      "type": "Microsoft.Network/virtualNetworks/subnets",
-      "name": "[concat(variables('vNetName'), '/', variables('svcSnName'))]",
-      "apiVersion": "2017-06-01",
-      "scale": null,
-      "properties": {
-        "addressPrefix": "[variables('svcCIDR')]",
-        "networkSecurityGroup": {
-          "id": "[resourceId(variables('nsgRg'), 'Microsoft.Network/networkSecurityGroups', variables('svcNsgName'))]"
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
-        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), 'GatewaySubnet')]"
       ]
     }
   ],

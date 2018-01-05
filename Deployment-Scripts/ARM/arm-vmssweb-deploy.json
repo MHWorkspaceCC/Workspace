@@ -3,28 +3,28 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "environment": {
-      "type": "string",
-      "defaultValue": "sb",
-      "allowedValues": [
-        "sb",
-        "dv",
-        "qa",
-        "pd"
-      ],
-      "metadata": {
-        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
-      }
+      "type": "string"
+    },
+    "environmentCode": {
+      "type": "string"
+    },
+    "subscriptionCode": {
+      "type": "string"
     },
     "facility": {
-      "type": "string",
-      "defaultValue": "pr",
-      "allowedValues": [
-        "pr",
-        "dr"
-      ],
-      "metadata": {
-        "description": "The location: 'pr' == westus, 'dr' == eastus"
-      }
+      "type": "string"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "resourceNamePostfix": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
     },
 
     "fileUris": {
@@ -84,18 +84,21 @@
     },
 
     "fileStgAcctName": {
-      "type": "string" 
+      "type": "string"
+    },
+
+    "webVmSku": {
+      "type": "string"
     },
 
     "vmCustomData": {
-        "type": "string"
-      }
-    },
+      "type": "string"
+    }
+  },
 
   "variables": {
-    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
-    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
-    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+    "location": "[parameters('location')]",
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
     "webRgName": "[concat('rg-web', variables('baseName'))]",
     "vmssPrefix": "vmss-web",
     "vmssName": "[concat(variables('vmssPrefix'), variables('baseName'))]",
@@ -109,7 +112,7 @@
     "ipConfigName": "[concat('ipconfig-', variables('vmssName'))]",
 
     "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
-    "vnetName": "[concat('vn1-vnet', variables('baseName'))]",
+    "vnetName": "[concat(parameters('environmentCode'), '-vnet', variables('baseName'))]",
     "subnetName": "[concat('sn-web', variables('baseName'))]",
     "subnetId": "[concat(resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName')), '/subnets/', variables('subnetName'))]",
 
@@ -161,6 +164,17 @@
       "apiVersion": "2017-06-01",
       "location": "[variables('location')]",
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "LB",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "frontendIPConfigurations": [
           {
@@ -226,7 +240,7 @@
     {
       "type": "Microsoft.Compute/virtualMachineScaleSets",
       "sku": {
-        "name": "Standard_DS1_v2",
+        "name": "[parameters('webVmSku')]",
         "tier": "Standard",
         "capacity": 1
       },
@@ -235,12 +249,35 @@
       "location": "[variables('location')]",
       "tags": {},
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "VMSS",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "singlePlacementGroup": true,
         "upgradePolicy": {
           "mode": "Automatic"
         },
         "virtualMachineProfile": {
+          "tags": {
+            "Role": "[parameters('role')]",
+            "ResourceType": "WEBVM",
+            "Environment": "[parameters('environment')]",
+            "EnvironmentCode": "[parameters('environmentCode')]",
+            "Facility": "[parameters('facility')]",
+            "Location": "[parameters('location')]",
+            "Instance": "[parameters('instance')]",
+            "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+            "SubscriptionCode": "[parameters('subscriptionCode')]"
+          },
+
           "osProfile": {
             "computerNamePrefix": "[variables('computerNamePrefix')]",
             "adminUsername": "[variables('adminUserName')]",
