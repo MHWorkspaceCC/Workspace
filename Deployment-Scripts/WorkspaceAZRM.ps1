@@ -473,8 +473,9 @@ function Execute-Deployment{
 
 	$templateFile = $currentDir + "\Deployment-Scripts\ARM\" + $templateFile
 	
-	New-AzureRmResourceGroupDeployment `
-		-Name ((Get-ChildItem $templateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm')) `
+	$name = ((Get-ChildItem $templateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm'))
+	$result = New-AzureRmResourceGroupDeployment `
+		-Name $name `
 		-ResourceGroupName $resourceGroupName `
 		-TemplateFile $templateFile `
 		-TemplateParameterObject $parameters `
@@ -488,6 +489,8 @@ function Execute-Deployment{
 	}
 
 	Write-Host "Out: " $MyInvocation.MyCommand $templateFile $resourceGroupName -ForegroundColor Green
+
+	return $name
 }
 <#
 function Construct-ResourceGroupName{
@@ -735,8 +738,8 @@ function Deploy-DB{
 
 function Deploy-Web{
 	param(
-		[string]$environment,
-		[string]$facility,
+		[Context]$ctx,
+		[bool]$usePeer=$false,
 		[string]$diagnosticStorageAccountKey,
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
@@ -747,14 +750,14 @@ function Deploy-Web{
 		[string]$vmCustomData,
 		[string]$fileShareKey,
 		[string]$fileStgAcctName,
-		[string]$fileShareName
+		[string]$fileShareName,
+		[string]$scaleSetCapacity = "2"
 	)
-	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
 	Ensure-LoggedIntoAzureAccount
 
-	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "web"
-	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
+	Ensure-ResourceGroup -ctx $ctx -category "web"
 
 	$parameters = @{
 		"environmentCode" = $ctx.environmentCode
@@ -762,7 +765,7 @@ function Deploy-Web{
 		"instance" = $ctx.environmentInstance
 		"facility" = $ctx.facilityCode
 		"subscriptionCode" = $ctx.subscriptionCode
-		"Role" = "DB"
+		"Role" = "WEB"
 		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
 		"location" = $ctx.location
 
@@ -779,11 +782,13 @@ function Deploy-Web{
 		"fileStgAcctName" = $fileStgAcctName
 		"fileShareName" = $fileShareName
 		"webVmSku" = "Standard_DS1_v2"
+		"scaleSetCapacity" = $scaleSetCapacity
 	}
 
+	$resourceGroupName = $ctx.GetResourceGroupName("web", $usePeer) 
 	Execute-Deployment -templateFile "arm-vmssweb-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
-	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 }
 
 <#
@@ -870,32 +875,40 @@ function Deploy-Ftp{
 
 function Deploy-Jump{
 	param(
-		[string]$facility,
-		[string]$environment,
+		[Context]$ctx,
+		[bool]$usePeer=$false,
 		[string]$diagnosticStorageAccountKey,
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
 		[string]$adminPassword
 	)
-	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
 	Ensure-LoggedIntoAzureAccount
 
-	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "jump"
-	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
+	Ensure-ResourceGroup -ctx $ctx -category "jump"
 
 	$parameters = @{
-		"environment" = $environmentsPostfixCodeMap[$environment]
-		"facility" = $facilitiesPostfixCodeMap[$facility]
+		"environmentCode" = $ctx.environmentCode
+		"environment" = $ctx.environment
+		"instance" = $ctx.environmentInstance
+		"facility" = $ctx.facilityCode
+		"subscriptionCode" = $ctx.subscriptionCode
+		"Role" = "JUMP"
+		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
+		"location" = $ctx.location
+		
+		"vmCustomData" = ""
 		"diagStorageAccountKey" = $diagnosticStorageAccountKey
 		"dataDogApiKey" = $dataDogApiKey
 		"adminUserName" = $adminUserName
 		"adminPassword" = $adminPassword
 	}
 
+	$resourceGroupName = $ctx.GetResourceGroupName("jump", $usePeer)
 	Execute-Deployment -templateFile "arm-jump-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
-	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 }
 
 function Deploy-Admin{
@@ -960,9 +973,10 @@ function Deploy-DatabaseDiskViaInitVM{
 	}
 
 	$deployResourceGroupName = $ctx.GetResourceGroupName("dbdi", $usePeer)
-	Execute-Deployment -templateFile "arm-db-disk-init-vm-deploy.json" -resourceGroup $deployResourceGroupName -parameters $parameters
+	$deploymentName = Execute-Deployment -templateFile "arm-db-disk-init-vm-deploy.json" -resourceGroup $deployResourceGroupName -parameters $parameters
 
-	$outputs = (Get-AzureRmResourceGroupDeployment -ResourceGroupName $deployResourceGroupName | Select -Last 1).Outputs
+	$deployment = Get-AzureRmResourceGroupDeployment -ResourceGroupName $deployResourceGroupName -Name $deploymentName
+	$outputs = $deployment.Outputs
 
 	$vmName = $outputs["vmName"].Value
 	$dataDiskName = $outputs["dataDiskName"].Value
@@ -1027,22 +1041,22 @@ function Get-KeyVault{
 
 function Remove-KeyVault{
 	param(
-		[string]$facility,
-		[string]$environment
+		[Context]$ctx,
+		[bool]$usePeer = $false
 	)
 
-	Write-Host "In: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) -ForegroundColor Green
 
 	Ensure-LoggedIntoAzureAccount
 
-	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "svc"
-	$resourcePostfix = Construct-ResourcePostfix -environment $environment -facility $facility
+	$resourceGroupName = $ctx.GetResourceGroupName("svc", $usePeer)
+	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
 	$keyVaultName = "kv-svc-" + $resourcePostfix
-	$location = Get-FacilityLocation -facility $facility
+	$location = $ctx.GetLocation($usePeer)
 
 	$keyVault = Remove-AzureRmKeyVault -Force -VaultName $keyVaultName -Location $location -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
 
-	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) -ForegroundColor Green
 	return $keyVault
 }
 
@@ -1148,6 +1162,20 @@ function Get-KeyVaultSecret{
 	return $text
 }
 
+function Get-KeyVaultSecretId{
+	param(
+		[string]$KeyVaultName,
+		[string]$SecretName
+	)
+	Write-Host "In: " $MyInvocation.MyCommand $KeyVaultName $SecretName -ForegroundColor Green
+	
+	$secret = Get-AzureKeyVaultSecret -VaultName $KeyVaultName -Name $SecretName
+
+	Write-Host "Out: " $MyInvocation.MyCommand $KeyVaultName $SecretName $secret.Id -ForegroundColor Green 
+
+	return $Secret.Id
+}
+
 function Add-LocalCertificateToKV{
 	param(
 		[string]$keyVaultName,
@@ -1249,12 +1277,12 @@ function Build-KeyVault{
 
 function Rebuild-KeyVault{
 	param(
-		[string]$facility,
-		[string]$environment
+		[Context]$ctx,
+		[bool]$usePeer = $false
 	)
 	
-	Remove-KeyVault -environment $environment -facility $facility
-	Build-KeyVault -environment $environment -facility $facility
+	Remove-KeyVault -ctx $ctx -usePeer $usePeer
+	Build-KeyVault -ctx $ctx -usePeer $usePeer
 }
 
 function Create-Core{
@@ -1289,8 +1317,7 @@ function Create-Core{
 	$installersStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "InstallersStorageAccountKey"
 	$fileShareStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FileShareStorageAccountKey"
 
-	$webSslCertificatePR = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "WebSslCertificate"
-	$webSslCertificateIdPR = $webSslCertificatePR.Id
+	$webSslCertificateIdPR = Get-KeyVaultSecretId -KeyVaultName $keyVaultNamePR -SecretName "WebSslCertificate"
 
 	$octoApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "OctoApiKey"
 	$octoUrl = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "OctoUrl"
@@ -1312,14 +1339,14 @@ function Create-Core{
 	#>
 	$fileStgAcctNamePR = $ctx.GetStorageAccountName("files", $false)
 	$fileStgAcctNameDR = $ctx.GetStorageAccountName("files", $true)
-	$installersStorageAccountNamePR = $ctx.GetStorageAccountName("files", $false)
-	$installersStorageAccountNameDR = $ctx.GetStorageAccountName("files", $true)
-
-	Deploy-DB -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountName -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
-	#Deploy-Web -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
+	$installersStorageAccountNamePR = $ctx.GetSharedStorageAccountName("installers", $false)
+	$installersStorageAccountNameDR = $ctx.GetSharedStorageAccountName("installers", $true)
+	$fileShareName = "workspace-file-storage"
+	#Deploy-DB -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountNamePR -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
+	#Deploy-Web -ctx $ctx -usePeer $false -scaleSetCapacity "2" -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
 	#Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
-	#Deploy-Jump -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
-	#Deploy-Admin -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
+	Deploy-Jump -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
+	#Deploy-Admin -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $ctx.vnetCidrPrefix $ctx.peerVnetCidrPrefix -ForegroundColor Green
 }
@@ -1553,7 +1580,7 @@ function Create-BaseEntities{
 
 	Ensure-LoggedIntoAzureAccount
 
-	Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $usePeer
+	#Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $usePeer
 	#Create-DiagnosticsEntities -ctx $ctx -usePeer $usePeer
 	#Create-AzureFilesEntities -ctx $ctx -usePeer $usePeer
 	#Create-ServicesEntities -ctx $ctx -usePeer $usePeer
@@ -1624,7 +1651,9 @@ function Create-AzureFilesShare{
 
 $ctx = Login-WorkspacePrimaryProd
 #Create-All -ctx $ctx
-Create-Base -ctx $ctx
+#Create-Base -ctx $ctx
+Create-Core -ctx $ctx
+#Rebuild-KeyVault -ctx $ctx
 #Deploy-VPN -ctx $ctx
 
 #Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $false

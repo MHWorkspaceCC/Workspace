@@ -1,4 +1,4 @@
-  param(
+   param(
 	[string]$installersStgAcctKey = "KRihdvk4dDFQkOloPqpk0P5DtnpNOr13Hh9TfBywjyjcE7wSgLSgNud8JnEzTZI4ZAbKnytoFiLfI0kJZ4z4gQ==",
 	[string]$installersStgAcctName = "stginstallerswsp0d",
 	[string]$saUserName = "wsadmin",
@@ -113,6 +113,9 @@ Try
 	$mdfs = $ss.EnumDetachedDatabaseFiles($databaseMdfFile)
 	$ldfs = $ss.EnumDetachedLogFiles($databaseMdfFile)
 
+    $files = Get-ChildItem -Path $($dataDisk + ":\*.?df")
+    <#
+
 	$files = New-Object System.Collections.Specialized.StringCollection
     Write-Log("Enumerating mdfs")
 	ForEach-Object -InputObject $mdfs {
@@ -124,6 +127,7 @@ Try
         Write-Log($_)
 		$files.Add($_)
 	}
+#>
 	$ss.AttachDatabase($databaseName, $files)
 	Write-Log("Attached database")
 
@@ -136,10 +140,18 @@ Try
 
 	Write-Log("Configuring database login")
 
+	Write-Log("Configuring database user")
+	if ($db.Users.Contains($loginUserName))
+	{
+		Write-Host "User exists, dropping"
+		$db.Users[$loginUserName].Drop()
+	}
+	
+	Write-Log("Deleting login")
 	if ($ss.Logins.Contains($loginUsername))
 	{
 		Write-Host "Login exists, dropping"
-		$ss.Logins[$loginUsername].Drop()
+		$ss.Logins[$loginUsername].Drop() 
 	}
 
 	Write-Log("Creating login")
@@ -148,13 +160,6 @@ Try
 	$login.PasswordExpirationEnabled = $false
 	$securePwd = ConvertTo-SecureString $loginPassword -AsPlainText -Force
 	$login.Create($securePwd)
-
-	Write-Host("Configuring database user")
-	if ($db.Users.Contains($loginUserName))
-	{
-		Write-Host "User exists, dropping"
-		$db.Users[$loginUserName].Drop()
-	}
 
 	Write-Log("Creating user")
 	$dbuser = New-Object "Microsoft.SqlServer.Management.Smo.User" $db, $loginUserName
@@ -172,4 +177,5 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
  

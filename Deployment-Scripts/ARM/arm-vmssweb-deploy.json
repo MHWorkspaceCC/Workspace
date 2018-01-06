@@ -93,7 +93,11 @@
 
     "vmCustomData": {
       "type": "string"
-    }
+    },
+
+    "scaleSetCapacity": {
+      "type":  "string" 
+    } 
   },
 
   "variables": {
@@ -123,7 +127,7 @@
     "lbFrontEndIpConfigName": "LB-Frontend",
     "lbPipName": "[concat('pip-web', variables('baseName'))]",
     "lbPipId": "[resourceId(concat('rg-pips', variables('baseName')), 'Microsoft.Network/publicIPAddresses', variables('lbPipName'))]",
-    "lbProbeId": "[concat(resourceId('Microsoft.Network/loadBalancers', 'lb-web-wspdpr'), '/probes/HealthProbe')]",
+    "lbProbeId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/probes/HealthProbe')]",
     "frontEndIpConfigId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/frontendIPConfigurations/', variables('lbFrontEndIpConfigName'))]",
 
     "wadlogs": "<WadCfg> <DiagnosticMonitorConfiguration overallQuotaInMB=\"4096\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2010/10/DiagnosticsConfiguration\"> <DiagnosticInfrastructureLogs scheduledTransferLogLevelFilter=\"Error\"/> <WindowsEventLog scheduledTransferPeriod=\"PT1M\" > <DataSource name=\"Application!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"Security!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"System!*[System[(Level = 1 or Level = 2)]]\" /></WindowsEventLog>",
@@ -242,7 +246,7 @@
       "sku": {
         "name": "[parameters('webVmSku')]",
         "tier": "Standard",
-        "capacity": 1
+        "capacity": "[parameters('scaleSetCapacity')]"
       },
       "name": "[variables('vmssName')]",
       "apiVersion": "2017-03-30",
@@ -266,18 +270,6 @@
           "mode": "Automatic"
         },
         "virtualMachineProfile": {
-          "tags": {
-            "Role": "[parameters('role')]",
-            "ResourceType": "WEBVM",
-            "Environment": "[parameters('environment')]",
-            "EnvironmentCode": "[parameters('environmentCode')]",
-            "Facility": "[parameters('facility')]",
-            "Location": "[parameters('location')]",
-            "Instance": "[parameters('instance')]",
-            "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
-            "SubscriptionCode": "[parameters('subscriptionCode')]"
-          },
-
           "osProfile": {
             "computerNamePrefix": "[variables('computerNamePrefix')]",
             "adminUsername": "[variables('adminUserName')]",
@@ -413,10 +405,6 @@
         "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"
       ]
     }
-
-
-
-
   ],
 
   "outputs": {
