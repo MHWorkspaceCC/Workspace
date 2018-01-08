@@ -2,67 +2,67 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "environment": {
-      "type": "string",
-      "defaultValue": "sb",
-      "allowedValues": [
-        "sb",
-        "dv",
-        "qa",
-        "pd"
-      ],
-      "metadata": {
-        "description": "The envirnoment: Sandbox (sb), Dev (dv), QA (qa), Prod (qa)"
+      "environment": {
+        "type": "string"
+      },
+      "environmentCode": {
+        "type": "string"
+      },
+      "subscriptionCode": {
+        "type": "string"
+      },
+      "facility": {
+        "type": "string"
+      },
+      "instance": {
+        "type": "string"
+      },
+      "role": {
+        "type": "string"
+      },
+      "resourceNamePostfix": {
+        "type": "string"
+      },
+      "location": {
+        "type": "string"
+      },
+
+      "diagStorageAccountKey": {
+        "type": "string"
+      },
+
+      "dataDogApiKey": {
+        "type": "string"
+      },
+
+      "adminUserName": {
+        "type": "string"
+      },
+
+      "adminPassword": {
+        "type": "securestring"
+      },
+
+      "fileUris": {
+        "type": "array",
+        "defaultValue": [
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-admin-server.ps1"
+        ]
+      },
+
+      "commandToExecute": {
+        "type": "string",
+        "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-admin-server.ps1"
+      },
+
+      "vmCustomData": {
+        "type": "string"
       }
     },
-    "facility": {
-      "type": "string",
-      "defaultValue": "pr",
-      "allowedValues": [
-        "pr",
-        "dr"
-      ],
-      "metadata": {
-        "description": "The location: 'pr' == westus, 'dr' == eastus"
-      }
-    },
-
-    "diagStorageAccountKey": {
-      "type": "string"
-    },
-
-    "dataDogApiKey": {
-      "type": "string"
-    },
-
-    "adminUserName": {
-      "type": "string"
-    },
-
-    "adminPassword": {
-      "type": "securestring"
-    },
-
-    "fileUris": {
-      "type": "array",
-      "defaultValue": [
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-admin-server.ps1"
-      ]
-    },
-    "commandToExecute": {
-      "type": "string",
-      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-admin-server.ps1"
-    },
-
-    "vmCustomData": {
-      "type": "string"
-    }
-  },
 
   "variables": {
-    "location": "[if(equals(parameters('facility'), 'pr'), 'westus', 'eastus')]",
-    "environmentFacility": "[concat(parameters('environment'), parameters('facility'))]",
-    "baseName": "[concat('-ws', variables('environmentFacility'))]",
+    "location": "[parameters('location')]",
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
 
     "adminBaseName": "[concat('admin', variables('baseName'))]",
     "stgAcctName": "[concat('stg', replace(variables('adminBaseName'), '-', ''))]",
@@ -79,7 +79,7 @@
     "windowsOsVersion": "2016-Datacenter",
 
     "computerName": "admin1",
-    "vnetName": "[concat('vn1-vnet', variables('baseName'))]",
+    "vnetName": "[concat(parameters('environmentCode'), '-vnet', variables('baseName'))]",
     "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
     "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
     "adminSnName": "[concat('sn-', variables('adminBaseName'))]",
@@ -122,6 +122,17 @@
       "name": "[variables('adminNicName')]",
       "apiVersion": "2017-06-01",
       "location": "[variables('location')]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NIC",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "ipConfigurations": [
           {
@@ -156,6 +167,17 @@
       "apiVersion": "2017-03-30",
       "location": "[variables('location')]",
 
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "Server",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
         "storageProfile": {
@@ -177,7 +199,6 @@
           "computerName": "[variables('computerName')]",
           "adminUsername": "[variables('adminUserName')]",
           "adminPassword": "[variables('adminPassword')]",
-          "customData": "[variables('vmCustomData')]",
           "windowsConfiguration": {
             "provisionVMAgent": true,
             "enableAutomaticUpdates": false

@@ -1,9 +1,5 @@
-$loggedIn = $false
-
 $currentDir = (Get-Item -Path ".\" -Verbose).FullName
 Write-Host "Current dir: " $currentDir
-
-$templateFileLocation = $currentDir
 
 $facilitiesLocationMap = @{
 	"p" = "westus"
@@ -144,10 +140,13 @@ Class Context{
 	[string]$peerLocation
 	[string]$vnetCidrPrefix
 	[string]$peerVnetCidrPrefix
+	[object]$azureCtx
+	[object]$azureSub
 
 	
 	Validate(){
-		if ($this.environment -eq $null) { throw "environment cannot be null" }
+		if ($this.azureCtx -eq $null) { throw "must have an azure context" }
+		if ($this.azureSub -eq $null) { throw "must have an azure subscription" }
 		if ($this.environmentInstance -eq $null) { throw "environmentInstance cannot be null" }
 		if ($this.environmentCode -eq $null) { throw "environmentCode cannot be null" }
 		if ($this.facilityCode -eq $null) { throw "facilityCode cannot be null" }
@@ -162,7 +161,6 @@ Class Context{
 		if ($this.vnetCidrPrefix -eq $null) { throw "vnetCidrPrefix cannot be null" }
 		if ($this.peerVnetCidrPrefix -eq $null) { throw "peerVnetCidrPrefix cannot be null" }
 	}
-
 
 	[string] GetResourceGroupName($resourceType, $usePeer=$false){
 		if (!$usePeer){
@@ -294,8 +292,19 @@ function Login-WorkspaceAzureAccount{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environmentCode $facilityCode $subscriptionCode -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	$profileFile = $currentDir + "\Deployment-Scripts\" + $loginAccount['profileFile']
+
+	Write-Host "Logging into azure account"
+	$azureCtx = Import-AzureRmContext -Path $profileFile
+	Write-Host "Successfully loaded the profile file: " $profileFile -ForegroundColor Green
+
+	Write-Host "Setting subscription..."
+	$azureSub = Get-AzureRmSubscription –SubscriptionName $loginAccount['subscriptionName'] | Select-AzureRmSubscription
+	Write-Host "Set Azure Subscription for session complete" -ForegroundColor Green
+
 	$ctx = [Context]::new()
+	$ctx.azureCtx = $azureCtx
+	$ctx.azureSub = $azureSub
 	$ctx.environmentCode = $environmentCode
 	$ctx.environment = $ctx.GetEnvironment()
 	$ctx.environmentInstance = $ctx.GetEnvironmentInstance()
@@ -338,34 +347,18 @@ function Dump-Ctx{
 	Write-Host 'peerVnetCidrPrefix:' $ctx.peerVnetCidrPrefix
 }
 
-function Ensure-LoggedIntoAzureAccount{
-	if (!$loggedIn)
-	{
-		Login-AzureAccount
-		if (!$global:loggedIn){
-			throw "Could not log in to azure"
-		}
+function Ensure-LoggedIntoAzureAccount {
+	param(
+		[Context]$ctx
+	)
+
+	if ($ctx -eq $null) { throw "Must have a context" }
+	if ($ctx.azureCtx -eq $null -or $ctx.azureSub -eq $null){
+		$ctx2 = Login-WorkspaceAzureAccount -environmentCode $ctx.environmentCode -facilityCode $ctx.facilityCode -subscriptionCode $ctx.subscriptionCode
+		$ctx.azureCtx = $ctx2.azureCtx
+		$ctx.azureSub = $ctx2.azureSub
 	}
 }
-
-function Login-AzureAccount{
-	if ($loggedIn){
-		return
-	}
-
-	$profileFile = $currentDir + "\Deployment-Scripts\" + $loginAccount['profileFile']
-
-	Write-Host "Logging into azure account"
-	Import-AzureRmContext -Path $profileFile | Out-Null
-	Write-Host "Successfully loaded the profile file: " $profileFile -ForegroundColor Green
-
-	Write-Host "Setting subscription..."
-	Get-AzureRmSubscription –SubscriptionName $loginAccount['subscriptionName'] | Select-AzureRmSubscription | Out-Null
-	Write-Host "Set Azure Subscription for session complete" -ForegroundColor Green
-
-	$global:loggedIn = $true
-}
-
 
 
 function Construct-ResourcePostfix{
@@ -410,14 +403,14 @@ function Create-ResourceGroup{
 function Ensure-ResourceGroup{
 	param(
 		[Context]$ctx,
-		[string]$category,
 		[bool]$usePeer=$false,
+		[string]$category,
 		[string]$location,
 		[string]$resourceGroupName
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx $usePeer $location $groupName -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	if ($ctx -ne $null){
 		$resourceGroupName = $ctx.GetResourceGroupName($category, $usePeer)
@@ -448,7 +441,7 @@ function Ensure-AllResourceGroups{
 
 	Write-Host "In: " $MyInvocation.MyCommand $facility $environment -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	foreach ($resourceCategory in $resourceCategories){
 		$groupName = Construct-ResourceGroupName -facility $facility -environment $environment -resourceCategory $resourceCategory
@@ -466,18 +459,25 @@ function Execute-Deployment{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $templateFile $resourceGroupName -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	#Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Write-Host "Executing template deployment: " $resourceGroupName $templateFile
-	Write-Host "Using parameters: " + $parameters
+	Write-Host "Using parameters: "
+	#Dump-Hash $parameters
 
-	$templateFile = $currentDir + "\Deployment-Scripts\ARM\" + $templateFile
+	#$templateFile = $currentDir + "\Deployment-Scripts\ARM\" + $templateFile
+	Write-Host "Using template file: " $templateFile
+
+	# try to find ARM template
+	$items = Get-ChildItem -Path $currentDir -Include $templateFile -Recurse
+	if ($items -eq $null) { throw "Could not find template: " + $templateFile}
+	$fullTemplateFileName = $items[0]
 	
-	$name = ((Get-ChildItem $templateFile).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm'))
+	$name = ((Get-ChildItem $fullTemplateFileName).BaseName + '-' + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm'))
 	$result = New-AzureRmResourceGroupDeployment `
 		-Name $name `
 		-ResourceGroupName $resourceGroupName `
-		-TemplateFile $templateFile `
+		-TemplateFile $fullTemplateFileName `
 		-TemplateParameterObject $parameters `
 		-Force -Verbose `
 		-ErrorVariable errorMessages
@@ -520,7 +520,7 @@ function Deploy-StorageAccount{
 
 	Write-Host "In: " $MyInvocation.MyCommand $facility $resourceGroupName $storageAccountName -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$parameters = @{
 		"storageAccountName" = $storageAccountName
@@ -539,7 +539,7 @@ function Ensure-StorageAccount{
 
 	Write-Host "In: " $MyInvocation.MyCommand $resourceGroupName $storageAccountName -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$account = Get-AzureRmStorageAccount -ResourceGroupName $resourceGroupName -StorageAccountName $storageAccountName -ErrorVariable rgNotPresent -ErrorAction SilentlyContinue
 	if (!$account)
@@ -550,7 +550,7 @@ function Ensure-StorageAccount{
 	}
 	else
 	{
-		Write-Host $groupName "already exists"
+		Write-Host $account "Storage account already exists"
 	}
 
 
@@ -566,7 +566,7 @@ function Create-AllStorageAccounts{
 
 	Write-Host "In: " $MyInvocation.MyCommand $facility $environment -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	foreach ($resourceCategory in $resourceCategories){
 		Create-StorageAccount -facility $facility -environment $environment -resourceCategory $resourceCategory
@@ -585,7 +585,7 @@ function Deploy-VNet{
 
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $ctx.GetVnetCidrPrefix($usePeer) -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Ensure-ResourceGroup -ctx $ctx -usePeer $usePeer -category "vnet"
 
@@ -609,7 +609,7 @@ function Deploy-PIPs {
 
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Ensure-ResourceGroup -ctx $ctx -usePeer $usePeer -category "pips"
 
@@ -631,7 +631,7 @@ function Deploy-NSGs {
 
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
  	Ensure-ResourceGroup -ctx $ctx -usePeer $usePeer -category "nsgs"
 
@@ -653,7 +653,7 @@ function Deploy-VPN{
 
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true) -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Ensure-ResourceGroup -ctx $ctx -category "vnet"
 
@@ -700,7 +700,7 @@ function Deploy-DB{
 
 	Dump-Ctx $ctx
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = $ctx.GetResourceGroupName("db", $usePeer)
 	Ensure-ResourceGroup -ctx $ctx -category "db"
@@ -755,7 +755,7 @@ function Deploy-Web{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Ensure-ResourceGroup -ctx $ctx -category "web"
 
@@ -781,7 +781,7 @@ function Deploy-Web{
 		"fileShareKey" = $fileShareKey
 		"fileStgAcctName" = $fileStgAcctName
 		"fileShareName" = $fileShareName
-		"webVmSku" = "Standard_DS1_v2"
+		"vmSku" = "Standard_DS1_v2"
 		"scaleSetCapacity" = $scaleSetCapacity
 	}
 
@@ -791,86 +791,45 @@ function Deploy-Web{
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 }
 
-<#
-TODO: Put this stuff in the context
-function Check-EnvironmentCode{
-	param([string]$environmentCode)
-
-	return $environmentConfig
-}
-
-function Check-FacilityCode{
-	param([string]$facilityCode)
-
-	if ($facilityCode.Length -ne 1){
-		throw "Environment code length must be exactly one character"
-	}
-
-	if (!$facilityInfo['validCodes'] -contains $code){
-		throw "Invalid facility code.  Must be one of: " + $facilityInfo['validCodes']
-	}
-
-	$facilityConfig = @{
-		"code" = $facilityCode
-		"name" = $facilityInfo['codeNameMap'][$facilityCode]
-		"cidrValue" = $facilityInfo['cidrValues'][$facilityCode]
-		"location" = $facilityInfo['locationMap'][$facilityCode]
-	}
-
-	return $facilityConfig
-}
-
-function Check-EnvironmentAndFacility{
+function Deploy-FTP{
 	param(
-		[string]$environmentCode,
-		[string]$facilityCode
-	)
-
-	$environmentConfig = Check-EnvironmentCode -environmentCode $environmentCode
-	$facilityConfig = Check-FacilityCode -facilityCode $facilityCode
-	$cidr1 = $environmentConfig['cidrValue'] 
-	$cidr2 = $facilityConfig['cidrValue']
-	$cidr = $cidr1 + $cidr2
-
-	Write-Host $([Convert]::ToString($cidr, 2))
-
-	$result = @{
-		"environmentConfig" = $environmentConfig
-		"facilityConfig" = $facilityConfig
-		"cidrPrefix" = "10." + $cidr + "."
-	}
-
-	return $result
-}
-#>
-function Deploy-Ftp{
-	param(
-		[string]$environment,
-		[string]$facility,
+		[Context]$ctx,
+		[bool]$usePeer=$false,
 		[string]$diagnosticStorageAccountKey,
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
-		[string]$adminPassword
+		[string]$adminPassword,
+		[string]$scaleSetCapacity = "2"
 	)
-	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "ftp"
-	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
+	Ensure-ResourceGroup -ctx $ctx -category "ftp"
 
 	$parameters = @{
-		"environment" = $environmentsPostfixCodeMap[$environment]
-		"facility" = $facilitiesPostfixCodeMap[$facility]
+		"environmentCode" = $ctx.environmentCode
+		"environment" = $ctx.environment
+		"instance" = $ctx.environmentInstance
+		"facility" = $ctx.facilityCode
+		"subscriptionCode" = $ctx.subscriptionCode
+		"Role" = "FTP"
+		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
+		"location" = $ctx.location
+
 		"diagStorageAccountKey" = $diagnosticStorageAccountKey
 		"dataDogApiKey" = $dataDogApiKey
 		"adminUserName" = $adminUserName
 		"adminPassword" = $adminPassword
+		"vmSku" = "Standard_DS1_v2"
+		"scaleSetCapacity" = $scaleSetCapacity
+		"vmCustomData" = ""
 	}
 
+	$resourceGroupName = $ctx.GetResourceGroupName("ftp", $usePeer) 
 	Execute-Deployment -templateFile "arm-vmssftp-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
-	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 }
 
 function Deploy-Jump{
@@ -884,7 +843,7 @@ function Deploy-Jump{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Ensure-ResourceGroup -ctx $ctx -category "jump"
 
@@ -913,8 +872,8 @@ function Deploy-Jump{
 
 function Deploy-Admin{
 	param(
-		[string]$facility,
-		[string]$environment,
+		[Context]$ctx,
+		[bool]$usePeer=$false,
 		[string]$diagnosticStorageAccountKey,
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
@@ -922,23 +881,31 @@ function Deploy-Admin{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "admin"
-	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
+	Ensure-ResourceGroup -ctx $ctx -usePeer $usePeer -category "admin"
 
 	$parameters = @{
-		"environment" = $environmentsPostfixCodeMap[$environment]
-		"facility" = $facilitiesPostfixCodeMap[$facility]
+		"environmentCode" = $ctx.environmentCode
+		"environment" = $ctx.environment
+		"instance" = $ctx.environmentInstance
+		"facility" = $ctx.facilityCode
+		"subscriptionCode" = $ctx.subscriptionCode
+		"Role" = "ADMIN"
+		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
+		"location" = $ctx.location
+		
+		"vmCustomData" = ""
 		"diagStorageAccountKey" = $diagnosticStorageAccountKey
 		"dataDogApiKey" = $dataDogApiKey
 		"adminUserName" = $adminUserName
 		"adminPassword" = $adminPassword
 	}
 
+	$resourceGroupName = $ctx.GetResourceGroupName("admin", $usePeer)
 	Execute-Deployment -templateFile "arm-admin-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
-	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 }
 
 function Deploy-DatabaseDiskViaInitVM{
@@ -954,10 +921,10 @@ function Deploy-DatabaseDiskViaInitVM{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Ensure-ResourceGroup -ctx $ctx -category "dbdi"
-	Ensure-ResourceGroup -ctx $ctx -category "disks"
+	Ensure-ResourceGroup -ctx $ctx -category "dbdi" -usePeer $usePeer
+	Ensure-ResourceGroup -ctx $ctx -category "disks" -usePeer $usePeer
 
 	$diskResourceGroupName = $ctx.GetResourceGroupName("disks", $usePeer)
 
@@ -997,7 +964,7 @@ function Create-KeyVault{
 
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Ensure-ResourceGroup -ctx $ctx "svc"
 
@@ -1027,7 +994,7 @@ function Get-KeyVault{
 
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = $ctx.GetResourceGroupName("svc", $usePeer)
 	$resourcePostfix = $ctx.GetResourcePostfix("svc", $usePeer)
@@ -1047,7 +1014,7 @@ function Remove-KeyVault{
 
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = $ctx.GetResourceGroupName("svc", $usePeer)
 	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
@@ -1070,7 +1037,7 @@ function Add-WebSslSelfSignedCertToKeyVault{
 
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $certName -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "svc"
 	$resourcePostfix = Construct-ResourcePostfix -environment $environment -facility $facility
@@ -1106,7 +1073,7 @@ function Add-WebSslCertToKeyVault{
 
 	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $certName -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = Construct-ResourceGroupName -environment $environment -facility $facility -resourceCategory "svc"
 	$resourcePostfix = Construct-ResourcePostfix -environment $environment -facility $facility
@@ -1155,7 +1122,7 @@ function Get-KeyVaultSecret{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $KeyVaultName $SecretName -ForegroundColor Green
 	
-	$text = (Get-AzureKeyVaultSecret -VaultName $KeyVaultName -Name $SecretName).SecretValueText
+	$text = (Get-AzureKeyVaultSecret -VaultName $KeyVaultName -Name $SecretName -ErrorAction Stop).SecretValueText
 
 	Write-Host "Out: " $MyInvocation.MyCommand $KeyVaultName $SecretName -ForegroundColor Green 
 
@@ -1169,7 +1136,7 @@ function Get-KeyVaultSecretId{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $KeyVaultName $SecretName -ForegroundColor Green
 	
-	$secret = Get-AzureKeyVaultSecret -VaultName $KeyVaultName -Name $SecretName
+	$secret = Get-AzureKeyVaultSecret -VaultName $KeyVaultName -Name $SecretName -ErrorAction Stop
 
 	Write-Host "Out: " $MyInvocation.MyCommand $KeyVaultName $SecretName $secret.Id -ForegroundColor Green 
 
@@ -1185,7 +1152,7 @@ function Add-LocalCertificateToKV{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $keyVaultName $certName $pfxFile -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$pfxFilePath = $currentDir + "\Deployment-Scripts\" + $pfxFile
 	$flag = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
@@ -1197,7 +1164,7 @@ function Add-LocalCertificateToKV{
 	$secret = ConvertTo-SecureString -String $fileContentEncoded -AsPlainText –Force
 	$secretContentType = 'application/x-pkcs12'
 
-	Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name $secretName -SecretValue $secret -ContentType $secretContentType
+	Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name $secretName -SecretValue $secret -ContentType $secretContentType -ErrorAction Stop
 
 	Write-Host "Out: " $MyInvocation.MyCommand $keyVaultName $certName $pfxFile -ForegroundColor Green
 }
@@ -1211,7 +1178,7 @@ function Create-KeyVaultSecrets{
 
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$webSslCertificateSecretName = "WebSslCertificate"
 	$octoUrl = "https://pip-octo-wspdpr.westus.cloudapp.azure.com" 
@@ -1290,9 +1257,11 @@ function Create-Core{
 		[Context]$ctx
 	)
 	
-	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $ctx.vnetCidrPrefix $ctx.peerVnetCidrPrefix -ForegroundColor Green
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true) -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Dump-Ctx $ctx
+
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 	
 	$keyVaultNamePR = "kv-svc-" + $ctx.GetResourcePostfix($false)
 	$keyVaultNameDR = "kv-svc-" + $ctx.GetResourcePostfix($true)
@@ -1329,26 +1298,31 @@ function Create-Core{
 	$webVmCustomDataB64 = [System.Convert]::ToBase64String($webVmCustomDataBytes)
 	$dbVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($dbVmCustomData)
 	$dbVmCustomDataB64 = [System.Convert]::ToBase64String($dbVmCustomDataBytes)
-	<#
+	
+	# Bring up the VNet along as the NSG's and PIPs
 	Deploy-NSGs -ctx $ctx -usePeer $false
 	Deploy-NSGs -ctx $ctx -usePeer $true
 	Deploy-PIPs -ctx $ctx -usePeer $false
 	Deploy-PIPs -ctx $ctx -usePeer $true
 	Deploy-VNet -ctx $ctx -usePeer $false
 	Deploy-VNet -ctx $ctx -usePeer $true
-	#>
+
+	Deploy-VPN -ctx $ctx
+	
 	$fileStgAcctNamePR = $ctx.GetStorageAccountName("files", $false)
 	$fileStgAcctNameDR = $ctx.GetStorageAccountName("files", $true)
 	$installersStorageAccountNamePR = $ctx.GetSharedStorageAccountName("installers", $false)
 	$installersStorageAccountNameDR = $ctx.GetSharedStorageAccountName("installers", $true)
 	$fileShareName = "workspace-file-storage"
-	#Deploy-DB -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountNamePR -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
-	#Deploy-Web -ctx $ctx -usePeer $false -scaleSetCapacity "2" -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
-	#Deploy-Ftp -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
-	Deploy-Jump -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
-	#Deploy-Admin -facility "primary" -environment $environment -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
 
-	Write-Host "Out: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $ctx.vnetCidrPrefix $ctx.peerVnetCidrPrefix -ForegroundColor Green
+	# Bring up services in each VNet
+	Deploy-DB -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountNamePR -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
+	Deploy-Web -ctx $ctx -usePeer $false -scaleSetCapacity "2" -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
+	Deploy-FTP -ctx $ctx -usePeer $false -scaleSetCapacity "2" -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
+	Deploy-Jump -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
+	Deploy-Admin -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
+
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true) -ForegroundColor Green
 }
 
 function Create-All{
@@ -1356,7 +1330,7 @@ function Create-All{
 		[Context]$ctx
 	)
 
-	#Create-Base -ctx $ctx
+	Create-Base -ctx $ctx
 	Create-Core -ctx $ctx
 }
 
@@ -1367,12 +1341,20 @@ function Teardown-Core{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Teardown-CoreEntities -ctx $ctx -usePeer $false -includeServices $includeServices
 	Teardown-CoreEntities -ctx $ctx -usePeer $true -includeServices $includeServices
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx -ForegroundColor Green
+}
+
+function Teardown-All{
+	param(
+		[Context]$ctx,
+		[bool]$includeServices=$false
+	)
+	Teardown-Core -ctx $ctx
 }
 
 function Teardown-CoreEntities{
@@ -1383,7 +1365,7 @@ function Teardown-CoreEntities{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	if ($includeServices){
 		$group2 = @("svc")
@@ -1400,7 +1382,6 @@ function Teardown-CoreEntities{
 	foreach ($group in $groups){
 		foreach ($rc in $group){
 			Teardown-ResourceCategory -ctx $ctx -usePeer $usePeer -category $rc
-			#Delete-ResourceGroup -ctx $ctx -usePeer $peer -category $rc
 		}
 	}
 
@@ -1413,7 +1394,7 @@ function Create-DiagnosticsEntitiesMultiFacility{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerFacilityResourcePrefix -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Create-DiagnosticsEntitiesInFacility -environment $environment -facility "primary"
 	Create-DiagnosticsEntitiesInFacility -environment $environment -facility "dr"
@@ -1428,7 +1409,7 @@ function Create-DiagnosticsEntities{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $context.resourcePostfix $context.peerFacilityResourcePrefix $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceCategories = @("bootdiag", "diag")
 
@@ -1437,7 +1418,7 @@ function Create-DiagnosticsEntities{
 	foreach ($rc in $resourceCategories){
 		$resourceGroupName = $ctx.GetResourceGroupName($rc, $usePeer)
 		$storageAccountName = $ctx.GetStorageAccountName($rc, $usePeer)
-		Ensure-ResourceGroup -ctx $ctx -category $rc
+		Ensure-ResourceGroup -ctx $ctx -usePeer $usePeer -category $rc
 		Ensure-StorageAccount -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
 	}
 
@@ -1450,7 +1431,7 @@ function Teardown-Diagnostics{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Teardown-DiagnosticsEntities -ctx $ctx -usePeer $false
 	Teardown-DiagnosticsEntities -ctx $ctx -usePeer $true
@@ -1465,7 +1446,7 @@ function Teardown-DiagnosticsEntities{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$group1 = @("bootdiag", "diag")
 	foreach ($rc in $group1){
@@ -1481,7 +1462,7 @@ function Teardown-SvcInEnvironment{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environment -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$facilities = @("primary", "dr")
 	$group1 = @("svc")
@@ -1503,13 +1484,12 @@ function Teardown-ResourceCategory{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $category  -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = $ctx.GetResourceGroupName($category, $usePeer)
 
 	Write-Host "Getting resource group: " $resourceGroupName
 	$rg = Get-AzureRmResourceGroup -Name $resourceGroupName -ErrorVariable rgNotPresent -ErrorAction SilentlyContinue
-
 	if ($rg -eq $null)
 	{
 		Write-Host "Resource group did not exist: " $resourceGroupName
@@ -1543,7 +1523,7 @@ function Create-ServicesEntities{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Ensure-ResourceGroup -ctx $ctx -category "svc"
 
@@ -1562,7 +1542,7 @@ function Create-Base{
 
 	$usages = [Context]::GetFacilityUsages($usePeer, $multiFacility)
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	foreach ($usage in $usages){
 		Create-BaseEntities -ctx $ctx -usePeer $usage
@@ -1578,12 +1558,12 @@ function Create-BaseEntities{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.resourcePostfix $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	#Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $usePeer
-	#Create-DiagnosticsEntities -ctx $ctx -usePeer $usePeer
-	#Create-AzureFilesEntities -ctx $ctx -usePeer $usePeer
-	#Create-ServicesEntities -ctx $ctx -usePeer $usePeer
+	Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $usePeer
+	Create-DiagnosticsEntities -ctx $ctx -usePeer $usePeer
+	Create-AzureFilesEntities -ctx $ctx -usePeer $usePeer
+	Create-ServicesEntities -ctx $ctx -usePeer $usePeer
 
 	Write-Host "Out: " $MyInvocation.MyCommand $environment $facility -ForegroundColor Green
 }
@@ -1595,7 +1575,7 @@ function Create-AzureFilesEntities{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$location = $ctx.GetLocation($usePeer)
 	$resourceGroupName = $ctx.GetResourceGroupName("files", $usePeer)
@@ -1607,6 +1587,18 @@ function Create-AzureFilesEntities{
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
 }
+
+function Get-AllWorkspaceEntities{
+	# codes don't matter for this process: this will get all item the selected subscription
+	$ctx = Login-WorkspaceAzureAccount -environmentCode "p0" -facilityCode "p" -subscriptionCode "ws"
+	Get-AzureRmResource | Select-Object Name, Location, ResourceGroupName, ResourceType | `
+		Sort-Object -Property @{Expression = "Location"; Descending=$true}, ResourceGroupName, ResourceType 
+}
+
+function Write-AllWorkspaceEntitiesToCSV{
+	Get-AllWorkspaceEntities | Export-Csv -Path $($currentDir + "\resources.csv")
+}
+
 <#
 function Create-AzureFilesEntitiesInFacility{
 	param(
@@ -1615,7 +1607,7 @@ function Create-AzureFilesEntitiesInFacility{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = Construct-ResourceGroupName -facility $facility -environment $environment -resourceCategory "files"
 	Ensure-ResourceGroup -facility $facility -groupName $resourceGroupName
@@ -1632,7 +1624,7 @@ function Create-AzureFilesShare{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $resourceGroupName $storageAccountName -ForegroundColor Green
 
-	Ensure-LoggedIntoAzureAccount
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Ensure-StorageAccount  -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
 
@@ -1649,14 +1641,121 @@ function Create-AzureFilesShare{
 	Write-Host "Out: " $MyInvocation.MyCommand $resourceGroupName $storageAccountName -ForegroundColor Green
 }
 
-$ctx = Login-WorkspacePrimaryProd
+
+function Stop-ComputeResources{
+	param(
+		[Context]$ctx,
+		[bool]$usePeer = $false,
+		[bool]$multiFacility = $false
+	)
+	
+	Ensure-LoggedIntoAzureAccount -ctx ctx
+
+	$usages = [Context]::GetFacilityUsages($usePeer, $multiFacility)
+	foreach ($usage in $usages)	{
+		Stop-ComputeVMs -ctx $ctx -usePeer $usage
+		Stop-ScaleSets -ctx $ctx -usePeer $usage
+	}
+}
+
+function Stop-ComputeVMs{
+	param(
+		[Context]$context,
+		[bool]$usePeer=$false
+	)
+
+	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
+	$allVirtualMachines = Get-AzureRmVM
+	$virtualMachinesToStop =  $allVirtualMachines | Where-Object { $_.Name.EndsWith($resourcePostfix) }
+	$virtualMachinesToStop | ForEach-Object -Process {
+		Write-Host "Stopping VM: " $ $_.Name
+		Stop-AzureRmVM -Name $_.Name
+	}
+}
+
+function Stop-ComputeVMSSs{
+	param(
+		[Context]$ctx,
+		[bool]$usePeer = $false
+	)
+	
+	Ensure-LoggedIntoAzureAccount -ctx ctx
+
+	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
+	$allScaleSets = Get-AzureRmVmss 
+	$scaleSets = $allScaleSets | Where-Object { $_.Name.EndsWith($resourcePostfix) }
+	foreach ($scaleSet in $scaleSets){
+		$vmssVMs = Get-AzureRmVmssVM -ResourceGroupName $scaleSet.ResourceGroupName -VMScaleSetName $scaleSet.Name 
+		foreach ($vmssVM in $vmssVMs){
+			Write-Host "Stopping VMSS VM: " $scaleSet.Name $vmssVMs.Name
+			Stop-AzureRmVmss -ResourceGroupName $scaleSets.ResourceGroupName -VMScaleSetName $scaleSet.Name -InstanceId $vmssVM.InstanceId
+		}
+	}
+}
+
+function Start-ComputeResources{
+	param(
+		[Context]$ctx,
+		[bool]$usePeer = $false,
+		[bool]$multiFacility = $false
+	)
+	
+	Ensure-LoggedIntoAzureAccount -ctx ctx
+
+	$usages = [Context]::GetFacilityUsages($usePeer, $multiFacility)
+	foreach ($usage in $usages)	{
+		Start-ComputeVMs -ctx $ctx -usePeer $usage
+		Start-ScaleSets -ctx $ctx -usePeer $usage
+	}
+}
+
+function Start-ComputeVMs{
+	param(
+		[Context]$context,
+		[bool]$usePeer=$false
+	)
+
+	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
+	$allVirtualMachines = Get-AzureRmVM
+	$virtualMachinesToStop =  $allVirtualMachines | Where-Object { $_.Name.EndsWith($resourcePostfix) }
+	$virtualMachinesToStop | ForEach-Object -Process {
+		Write-Host "Stopping VM: " $ $_.Name
+		Start-AzureRmVM -Name $_.Name
+	}
+}
+
+function Start-ComputeVMSSs{
+	param(
+		[Context]$ctx,
+		[bool]$usePeer = $false
+	)
+	
+	Ensure-LoggedIntoAzureAccount -ctx ctx
+
+	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
+	$allScaleSets = Get-AzureRmVmss 
+	$scaleSets = $allScaleSets | Where-Object { $_.Name.EndsWith($resourcePostfix) }
+	foreach ($scaleSet in $scaleSets){
+		$vmssVMs = Get-AzureRmVmssVM -ResourceGroupName $scaleSet.ResourceGroupName -VMScaleSetName $scaleSet.Name 
+		foreach ($vmssVM in $vmssVMs){
+			Write-Host "Stopping VMSS VM: " $scaleSet.Name $vmssVMs.Name
+			Start-AzureRmVmss -ResourceGroupName $scaleSets.ResourceGroupName -VMScaleSetName $scaleSet.Name -InstanceId $vmssVM.InstanceId
+		}
+	}
+}
+
+#Execute-Deployment -templateFile "arm-vnet-deploy.json"
+#$ctx = Login-WorkspacePrimaryProd
+#Write-AllWorkspaceEntitiesToCSV
+#$ctx = Login-WorkspaceAzureAccount -environmentCode "p0" -facilityCode "p" -subscriptionCode "ws"
 #Create-All -ctx $ctx
 #Create-Base -ctx $ctx
-Create-Core -ctx $ctx
+#Create-Core -ctx $ctx
 #Rebuild-KeyVault -ctx $ctx
 #Deploy-VPN -ctx $ctx
+#Teardown-All -ctx $ctx
 
-#Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $false
+#Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $true
 #Create-AzureFilesEntitiesInFacility -environment "prod" -facility "primary"
 #Create-ServicesEntities -environment "prod" -facility "primary"
 #Remove-KeyVault -environment "prod" -facility "primary"
@@ -1680,25 +1779,4 @@ Export-ModuleMember -Function Teardown-EntireRegionAndFacility
 #Add-CertificateToKV -facility "primary" -environment "prod" -pfxFile "workspace.pfx" -password "workspace" -secretName "foo"
 
 #Create-KeyVaultSecrets -facility "primary" -environment "prod"
-
-Class AzureResource
-{
-	[string]$Subscription
-	[string]$ResourceType
-	[string]$ResourceId
-	[string]$ResourceGroup
-	[string]$Location
-	[string]$Name
-	[string]$ServiceName
-	[string]$VNet
-	[string]$Subnet
-	[string]$Size
-	[string]$Status
-}
-
-function Get-AllAzureResources{
-	Ensure-LoggedIntoAzureAccount
-	Get-AzureRmResource
-}
-
-#Get-AllAzureResources
+#Write-AllWorkspaceEntitiesToCSV

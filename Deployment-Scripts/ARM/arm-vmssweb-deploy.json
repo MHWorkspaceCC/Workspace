@@ -87,7 +87,7 @@
       "type": "string"
     },
 
-    "webVmSku": {
+    "vmSku": {
       "type": "string"
     },
 
@@ -96,10 +96,9 @@
     },
 
     "scaleSetCapacity": {
-      "type":  "string" 
-    } 
+      "type": "string"
+    }
   },
-
   "variables": {
     "location": "[parameters('location')]",
     "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
@@ -161,7 +160,6 @@
     "commandToExecute": "[concat(parameters('commandToExecute'), ' -octoUrl ', variables('octoUrl'), ' -octoApiKey ', variables('octoApiKey'), ' -fileShareKey ', variables('fileShareKey'), ' -fileShareName ', variables('fileShareName'), ' -fileStgAcctName ', variables('fileStgAcctName'))]"
   },
   "resources": [
-
     {
       "type": "Microsoft.Network/loadBalancers",
       "name": "[variables('loadBalancerName')]",
@@ -244,14 +242,13 @@
     {
       "type": "Microsoft.Compute/virtualMachineScaleSets",
       "sku": {
-        "name": "[parameters('webVmSku')]",
+        "name": "[parameters('vmSku')]",
         "tier": "Standard",
         "capacity": "[parameters('scaleSetCapacity')]"
       },
       "name": "[variables('vmssName')]",
       "apiVersion": "2017-03-30",
       "location": "[variables('location')]",
-      "tags": {},
       "scale": null,
       "tags": {
         "Role": "[parameters('role')]",
