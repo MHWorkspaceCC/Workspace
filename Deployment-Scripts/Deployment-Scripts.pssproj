@@ -64,6 +64,7 @@
     <Compile Include="CSE\OctopusServerDSC.ps1" />
     <Compile Include="CSE\SqlConfigurationData.psd1" />
     <Compile Include="CSE\SqlStandaloneDSC.ps1" />
+    <Compile Include="Invoke-Parallel.ps1" />
     <Compile Include="old\deploy-db-disks.ps1" />
     <Compile Include="old\deploy-vnet.ps1" />
     <Compile Include="old\deploy-vpn-connections.ps1" />

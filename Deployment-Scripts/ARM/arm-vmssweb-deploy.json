@@ -96,7 +96,7 @@
     },
 
     "scaleSetCapacity": {
-      "type": "string"
+      "type": "int"
     }
   },
   "variables": {

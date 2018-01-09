@@ -719,6 +719,21 @@
             }
           },
           {
+            "name": "SQL_FROM_ADMIN",
+            "properties": {
+              "protocol": "TCP",
+              "sourcePortRange": "*",
+              "destinationPortRange": "1433",
+              "sourceAddressPrefix": "[variables('adminCIDR')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 1001,
+              "direction": "Inbound",
+              "sourceAddressPrefixes": [],
+              "destinationAddressPrefixes": []
+            }
+          },
+          {
             "name": "RDP_FROM_JUMP",
             "properties": {
               "protocol": "TCP",

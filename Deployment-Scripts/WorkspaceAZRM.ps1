@@ -1,6 +1,10 @@
 $currentDir = (Get-Item -Path ".\" -Verbose).FullName
 Write-Host "Current dir: " $currentDir
 
+$items = Get-ChildItem -Path $currentDir -Include "Invoke-Parallel.ps1" -Recurse
+if ($items -eq $null) { throw "Could not find Invoke-Parallel.ps1"}
+. $items.FullName
+
 $facilitiesLocationMap = @{
 	"p" = "westus"
 	"d" = "eastus"
@@ -265,8 +269,35 @@ Class Context{
 		return $this.environmentCode.Substring(1, 1)
 	}
 
+	[string] GetKeyVaultName($usePeer){
+		$keyVaultName = "kv-svc-" + $this.GetResourcePostfix($false)
+		return $keyVaultName
+	}
+
 	[string] GetEnvironment(){
 		return $this.environmentCode.Substring(0, 1)
+	}
+
+	static [Context]newEnvironmentContextFrom($fromCtx, $environment, $instanceId){
+		$ctx = [Context]::new()
+		$ctx.azureCtx = $fromCtx.azureCtx
+		$ctx.azureSub = $fromCtx.azureSub
+		$ctx.environment = $environment
+		$ctx.environmentInstance = $instanceId
+		$ctx.environmentCode = $environment + $instanceId
+		$ctx.facilityCode = $fromCtx.facilityCode
+		$ctx.peerFacilityCode = [EnvironmentAndFacilitiesInfo]::GetPeerFacilityCode($ctx.facilityCode)
+		$ctx.subscriptionCode = $fromCtx.subscriptionCode
+		$ctx.resourcePostfix = [Context]::BuildResourcePostfix($ctx, $false)
+		$ctx.peerResourcePostfix = [Context]::BuildResourcePostfix($ctx, $true)
+		$ctx.sharedResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
+		$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
+		$ctx.location = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.facilityCode)
+		$ctx.peerLocation = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.peerFacilityCode)
+		$ctx.vnetCidrPrefix = [EnvironmentAndFacilitiesInfo]::CalculateVnetCidrPrefix($ctx.environmentCode, $ctx.facilityCode)
+		$ctx.peerVnetCidrPrefix = [EnvironmentAndFacilitiesInfo]::CalculateVnetCidrPrefix($ctx.environmentCode, $ctx.peerFacilityCode)
+
+		return $ctx
 	}
 }
 
@@ -301,6 +332,7 @@ function Login-WorkspaceAzureAccount{
 	Write-Host "Setting subscription..."
 	$azureSub = Get-AzureRmSubscription –SubscriptionName $loginAccount['subscriptionName'] | Select-AzureRmSubscription
 	Write-Host "Set Azure Subscription for session complete" -ForegroundColor Green
+	Write-Host $azureSub.Name $azureSub.Subscription
 
 	$ctx = [Context]::new()
 	$ctx.azureCtx = $azureCtx
@@ -751,7 +783,7 @@ function Deploy-Web{
 		[string]$fileShareKey,
 		[string]$fileStgAcctName,
 		[string]$fileShareName,
-		[string]$scaleSetCapacity = "2"
+		[int]$scaleSetCapacity = 2
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
@@ -799,7 +831,7 @@ function Deploy-FTP{
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
 		[string]$adminPassword,
-		[string]$scaleSetCapacity = "2"
+		[int]$scaleSetCapacity = 2
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
@@ -1021,7 +1053,7 @@ function Remove-KeyVault{
 	$keyVaultName = "kv-svc-" + $resourcePostfix
 	$location = $ctx.GetLocation($usePeer)
 
-	$keyVault = Remove-AzureRmKeyVault -Force -VaultName $keyVaultName -Location $location -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
+	$keyVault = Remove-AzureRmKeyVault -Force -VaultName $keyVaultName -Location $location -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue -InformationAction Continue
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) -ForegroundColor Green
 	return $keyVault
@@ -1254,7 +1286,12 @@ function Rebuild-KeyVault{
 
 function Create-Core{
 	param(
-		[Context]$ctx
+		[Context]$ctx,
+		[int]$webScaleSetSize=2,
+		[int]$ftpScaleSetSize=2,
+		[bool]$networkOnly=$false,
+		[bool]$excludeVPN=$false,
+		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin")
 	)
 	
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true) -ForegroundColor Green
@@ -1263,66 +1300,126 @@ function Create-Core{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 	
-	$keyVaultNamePR = "kv-svc-" + $ctx.GetResourcePostfix($false)
-	$keyVaultNameDR = "kv-svc-" + $ctx.GetResourcePostfix($true)
+	Deploy-NSGs -ctx $ctx -usePeer $false
+	#Deploy-NSGs -ctx $ctx -usePeer $true
+	Deploy-PIPs -ctx $ctx -usePeer $false
+	#Deploy-PIPs -ctx $ctx -usePeer $true
+	Deploy-VNet -ctx $ctx -usePeer $false
+	#Deploy-VNet -ctx $ctx -usePeer $true
+
+	if (!$excludeVPN){
+		Deploy-VPN -ctx $ctx
+	}
+
+	if ($networkOnly)
+	{
+		return
+	}
 
 	# at this point, this only uses values in the primary KV
-	$dbAdminUserName =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbServerAdminName"
-	$dbAdminPassword =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbServerAdminPassword"
-	$webAdminUserName =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "WebVmssServerAdminName"
-	$webAdminPassword =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "WebVmssServerAdminPassword"
-	$ftpAdminUserName =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FtpVmssServerAdminName"
-	$ftpAdminPassword =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FtpVmssServerAdminPassword"
-	$jumpAdminUserName =  Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "JumpServerAdminName"
-	$jumpAdminPassword =  Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "JumpServerAdminPassword"
-	$adminAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "AdminServerAdminName"
-	$adminAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "AdminServerAdminPassword"
-	$dbSaUserName =       Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbSaUserName"
-	$dbSaPassword =       Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbSaPassword"
-	$dbLoginUserName =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbLoginUserName"
-	$dbLoginPassword =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbLoginPassword"
+	$keyVaultNamePR = $ctx.GetKeyVaultName($false)
+	$keyVaultNameDR = $ctx.GetKeyVaultName($true)
 
 	$diagStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DiagStorageAccountKey"
 	$installersStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "InstallersStorageAccountKey"
 	$fileShareStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FileShareStorageAccountKey"
 
-	$webSslCertificateIdPR = Get-KeyVaultSecretId -KeyVaultName $keyVaultNamePR -SecretName "WebSslCertificate"
-
-	$octoApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "OctoApiKey"
-	$octoUrl = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "OctoUrl"
 	$dataDogApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DataDogApiKey"
-	$webVmCustomData = "{'octpApiKey': '" + $octoApiKey + "', 'octoUrl': " + $octoUrl + "', 'fileShareKey': '" + $fileShareStorageAccountKey + "'}"
-	$dbVmCustomData = "{'installersStgAcctKey': '" + $fileShareStorageAccountKey + "', 'dbSaUserName': '" + $dbSaUserName + "', 'dbSaPassword': '" + $dbSaPassword + "'}"
 
-	$webVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($webVmCustomData)
-	$webVmCustomDataB64 = [System.Convert]::ToBase64String($webVmCustomDataBytes)
-	$dbVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($dbVmCustomData)
-	$dbVmCustomDataB64 = [System.Convert]::ToBase64String($dbVmCustomDataBytes)
-	
 	# Bring up the VNet along as the NSG's and PIPs
-	Deploy-NSGs -ctx $ctx -usePeer $false
-	Deploy-NSGs -ctx $ctx -usePeer $true
-	Deploy-PIPs -ctx $ctx -usePeer $false
-	Deploy-PIPs -ctx $ctx -usePeer $true
-	Deploy-VNet -ctx $ctx -usePeer $false
-	Deploy-VNet -ctx $ctx -usePeer $true
 
-	Deploy-VPN -ctx $ctx
-	
 	$fileStgAcctNamePR = $ctx.GetStorageAccountName("files", $false)
 	$fileStgAcctNameDR = $ctx.GetStorageAccountName("files", $true)
 	$installersStorageAccountNamePR = $ctx.GetSharedStorageAccountName("installers", $false)
 	$installersStorageAccountNameDR = $ctx.GetSharedStorageAccountName("installers", $true)
 	$fileShareName = "workspace-file-storage"
 
-	# Bring up services in each VNet
-	Deploy-DB -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountNamePR -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
-	Deploy-Web -ctx $ctx -usePeer $false -scaleSetCapacity "2" -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
-	Deploy-FTP -ctx $ctx -usePeer $false -scaleSetCapacity "2" -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
-	Deploy-Jump -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
-	Deploy-Admin -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
+	# Bring up services in each VNet (right now just primary)
+
+	if ("db" -in $computeElements){
+		$dbSaUserName =       Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbSaUserName"
+		$dbSaPassword =       Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbSaPassword"
+		$dbLoginUserName =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbLoginUserName"
+		$dbLoginPassword =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbLoginPassword"
+		$dbAdminUserName =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbServerAdminName"
+		$dbAdminPassword =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbServerAdminPassword"
+		$dbVmCustomData = "{'installersStgAcctKey': '" + $fileShareStorageAccountKey + "', 'dbSaUserName': '" + $dbSaUserName + "', 'dbSaPassword': '" + $dbSaPassword + "'}"
+		$dbVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($dbVmCustomData)
+		$dbVmCustomDataB64 = [System.Convert]::ToBase64String($dbVmCustomDataBytes)
+		Deploy-DB -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountNamePR -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
+	}
+
+	if ("web" -in $computeElements){
+		$octoApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "OctoApiKey"
+		$octoUrl = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "OctoUrl"
+		$webAdminUserName =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "WebVmssServerAdminName"
+		$webAdminPassword =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "WebVmssServerAdminPassword"
+		$webVmCustomData = "{'octpApiKey': '" + $octoApiKey + "', 'octoUrl': " + $octoUrl + "', 'fileShareKey': '" + $fileShareStorageAccountKey + "'}"
+		$webVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($webVmCustomData)
+		$webVmCustomDataB64 = [System.Convert]::ToBase64String($webVmCustomDataBytes)
+		$webSslCertificateIdPR = Get-KeyVaultSecretId -KeyVaultName $keyVaultNamePR -SecretName "WebSslCertificate"
+		Deploy-Web -ctx $ctx -usePeer $false -scaleSetCapacity 1 -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
+	}
+
+	if ("ftp" -in $computeElements){
+		$ftpAdminUserName =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FtpVmssServerAdminName"
+		$ftpAdminPassword =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FtpVmssServerAdminPassword"
+		Deploy-FTP -ctx $ctx -usePeer $false -scaleSetCapacity 1 -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
+	}
+
+	if ("web" -in $computeElements){
+		$jumpAdminUserName =  Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "JumpServerAdminName"
+		$jumpAdminPassword =  Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "JumpServerAdminPassword"
+		Deploy-Jump -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
+	}
+
+	if ("admin" -in $computeElements){
+		$adminAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "AdminServerAdminName"
+		$adminAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "AdminServerAdminPassword"
+		Deploy-Admin -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
+	}
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true) -ForegroundColor Green
+}
+
+function Invoke-ParallelScriptBlocks{
+	param(
+		[array]$scriptBlocks
+	)
+
+	$scriptBlocks | Invoke-Parallel -ScriptBlock { 
+		Write-Host "Starting block: " $_
+		Invoke-Command -ScriptBlock $_ 
+		Write-Host "Done block: " $_
+	}
+}
+
+function Teardown-ResourceCategory{
+	param(
+		[Context]$ctx,
+		[bool]$usePeer=$false,
+		[string]$category
+	)
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $category  -ForegroundColor Green
+
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
+
+	$resourceGroupName = $ctx.GetResourceGroupName($category, $usePeer)
+
+	Write-Host "Getting resource group: " $resourceGroupName
+	$rg = Get-AzureRmResourceGroup -Name $resourceGroupName -ErrorVariable rgNotPresent -ErrorAction SilentlyContinue
+	if ($rg -eq $null)
+	{
+		Write-Host "Resource group did not exist: " $resourceGroupName
+	}
+	else
+	{
+		Write-Host "Deleting resource group: " $resourceGroupName
+		Remove-AzureRmResourceGroup -Name $resourceGroupName -Force | Out-Null
+		Write-Host "Deleted resource group: " $resourceGroupName
+	}
+
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $category  -ForegroundColor Green
 }
 
 function Create-All{
@@ -1343,8 +1440,8 @@ function Teardown-Core{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Teardown-CoreEntities -ctx $ctx -usePeer $false -includeServices $includeServices
-	Teardown-CoreEntities -ctx $ctx -usePeer $true -includeServices $includeServices
+	Teardown-CoreEntities -ctx $ctx -usePeer $false -includeServices $includeServices 
+	Teardown-CoreEntities -ctx $ctx -usePeer $true -includeServices $includeServices 
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx -ForegroundColor Green
 }
@@ -1354,6 +1451,7 @@ function Teardown-All{
 		[Context]$ctx,
 		[bool]$includeServices=$false
 	)
+	Teardown-Base -ctx $ctx
 	Teardown-Core -ctx $ctx
 }
 
@@ -1387,6 +1485,7 @@ function Teardown-CoreEntities{
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx $usePeer -ForegroundColor Green
 }
+
 <#
 function Create-DiagnosticsEntitiesMultiFacility{
 	param(
@@ -1474,34 +1573,6 @@ function Teardown-SvcInEnvironment{
 	}
 
 	Write-Host "Out: " $MyInvocation.MyCommand $environment -ForegroundColor Green
-}
-
-function Teardown-ResourceCategory{
-	param(
-		[Context]$ctx,
-		[bool]$usePeer=$false,
-		[string]$category
-	)
-	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $category  -ForegroundColor Green
-
-	Ensure-LoggedIntoAzureAccount -ctx $ctx
-
-	$resourceGroupName = $ctx.GetResourceGroupName($category, $usePeer)
-
-	Write-Host "Getting resource group: " $resourceGroupName
-	$rg = Get-AzureRmResourceGroup -Name $resourceGroupName -ErrorVariable rgNotPresent -ErrorAction SilentlyContinue
-	if ($rg -eq $null)
-	{
-		Write-Host "Resource group did not exist: " $resourceGroupName
-	}
-	else
-	{
-		Write-Host "Deleting resource group: " $resourceGroupName
-		Remove-AzureRmResourceGroup -Name $resourceGroupName -Force | Out-Null
-		Write-Host "Deleted resource group: " $resourceGroupName
-	}
-
-	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $category  -ForegroundColor Green
 }
 
 function Teardown-DatabaseDisk{
@@ -1649,17 +1720,22 @@ function Stop-ComputeResources{
 		[bool]$multiFacility = $false
 	)
 	
-	Ensure-LoggedIntoAzureAccount -ctx ctx
-
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
+	<#
 	$usages = [Context]::GetFacilityUsages($usePeer, $multiFacility)
-	foreach ($usage in $usages)	{
-		Stop-ComputeVMs -ctx $ctx -usePeer $usage
-		Stop-ScaleSets -ctx $ctx -usePeer $usage
+	$usages | Invoke-Parallel -ScriptBlock{
+		Stop-ComputeVMs -ctx $ctx -usePeer $_
 	}
+	foreach ($usage in $usages)	{
+		{  }
+		{ Stop-ScaleSetVMs -ctx $ctx -usePeer $usage }
+	}
+	#>
 }
 
 function Stop-ComputeVMs{
 	param(
+
 		[Context]$context,
 		[bool]$usePeer=$false
 	)
@@ -1668,18 +1744,18 @@ function Stop-ComputeVMs{
 	$allVirtualMachines = Get-AzureRmVM
 	$virtualMachinesToStop =  $allVirtualMachines | Where-Object { $_.Name.EndsWith($resourcePostfix) }
 	$virtualMachinesToStop | ForEach-Object -Process {
-		Write-Host "Stopping VM: " $ $_.Name
-		Stop-AzureRmVM -Name $_.Name
+		Write-Host "Stopping VM: " $_.Name
+		Stop-AzureRmVM -ResourceGroupName $_.ResourceGroupName -Name $_.Name -Force -InformationAction Continue
 	}
 }
 
-function Stop-ComputeVMSSs{
+function Stop-ScaleSetVMs{
 	param(
 		[Context]$ctx,
 		[bool]$usePeer = $false
 	)
 	
-	Ensure-LoggedIntoAzureAccount -ctx ctx
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
 	$allScaleSets = Get-AzureRmVmss 
@@ -1687,8 +1763,8 @@ function Stop-ComputeVMSSs{
 	foreach ($scaleSet in $scaleSets){
 		$vmssVMs = Get-AzureRmVmssVM -ResourceGroupName $scaleSet.ResourceGroupName -VMScaleSetName $scaleSet.Name 
 		foreach ($vmssVM in $vmssVMs){
-			Write-Host "Stopping VMSS VM: " $scaleSet.Name $vmssVMs.Name
-			Stop-AzureRmVmss -ResourceGroupName $scaleSets.ResourceGroupName -VMScaleSetName $scaleSet.Name -InstanceId $vmssVM.InstanceId
+			Write-Host "Stopping VMSS VM: " $scaleSet.Name $vmssVM.Name
+			Stop-AzureRmVmss -ResourceGroupName $scaleSet.ResourceGroupName -VMScaleSetName $scaleSet.Name -InstanceId $vmssVM.InstanceId -StayProvisioned -Force -InformationAction Continue
 		}
 	}
 }
@@ -1700,12 +1776,12 @@ function Start-ComputeResources{
 		[bool]$multiFacility = $false
 	)
 	
-	Ensure-LoggedIntoAzureAccount -ctx ctx
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$usages = [Context]::GetFacilityUsages($usePeer, $multiFacility)
 	foreach ($usage in $usages)	{
 		Start-ComputeVMs -ctx $ctx -usePeer $usage
-		Start-ScaleSets -ctx $ctx -usePeer $usage
+		Start-ScaleSetVMs -ctx $ctx -usePeer $usage
 	}
 }
 
@@ -1719,18 +1795,18 @@ function Start-ComputeVMs{
 	$allVirtualMachines = Get-AzureRmVM
 	$virtualMachinesToStop =  $allVirtualMachines | Where-Object { $_.Name.EndsWith($resourcePostfix) }
 	$virtualMachinesToStop | ForEach-Object -Process {
-		Write-Host "Stopping VM: " $ $_.Name
-		Start-AzureRmVM -Name $_.Name
+		Write-Host "Starting VM: " $_.Name
+		Start-AzureRmVM -ResourceGroupName $_.ResourceGroupName -Name $_.Name
 	}
 }
 
-function Start-ComputeVMSSs{
+function Start-ScaleSetVMs{
 	param(
 		[Context]$ctx,
 		[bool]$usePeer = $false
 	)
 	
-	Ensure-LoggedIntoAzureAccount -ctx ctx
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
 	$allScaleSets = Get-AzureRmVmss 
@@ -1738,22 +1814,83 @@ function Start-ComputeVMSSs{
 	foreach ($scaleSet in $scaleSets){
 		$vmssVMs = Get-AzureRmVmssVM -ResourceGroupName $scaleSet.ResourceGroupName -VMScaleSetName $scaleSet.Name 
 		foreach ($vmssVM in $vmssVMs){
-			Write-Host "Stopping VMSS VM: " $scaleSet.Name $vmssVMs.Name
+			Write-Host "Starting VMSS VM: " $scaleSet.Name $vmssVMs.Name
 			Start-AzureRmVmss -ResourceGroupName $scaleSets.ResourceGroupName -VMScaleSetName $scaleSet.Name -InstanceId $vmssVM.InstanceId
 		}
 	}
 }
 
+function Find-OpenDeploymentSlotNumber{
+	# finds the first numeric deployment slot for an environment
+	# this is defined by looking for the vnets and finding the first
+	# open spot ?n-vnet-<postfix>, the lowest number n in 0-7 
+	# where a vnet is not found
+
+	param(
+		[Context]$ctx
+	)
+
+	$env = $ctx.environment
+	$postfix = $ctx.GetResourcePostfix($false)
+	$utilized = @{
+		$($env + "0-vnet-" + $postfix) = $false
+		$($env + "1-vnet-" + $postfix) = $false
+		$($env + "2-vnet-" + $postfix) = $false
+		$($env + "3-vnet-" + $postfix) = $false
+		$($env + "4-vnet-" + $postfix) = $false
+		$($env + "5-vnet-" + $postfix) = $false
+		$($env + "6-vnet-" + $postfix) = $false
+		$($env + "7-vnet-" + $postfix) = $false
+	}
+
+	$vnetNames = Get-AzureRmVirtualNetwork | Where-Object {$_.Name.EndsWith($postfix)} | Select-Object -Property Name -ExpandProperty Name
+
+	$vnetNames | ForEach-Object -Process { $utilized[$_] = $true }
+	$utilized | Where-Object {$_.Value}
+
+	$free = $utilized.GetEnumerator() | Where-Object { !$_.Value } | Select-Object -ExpandProperty Name
+
+	$next = $free | Sort-Object | Select-Object -First 1
+	$next.split('-')[0]
+}
+
+function Create-NextEnvironmentInstanceContext{
+	param(
+		[Context]$ctx,
+		[string]$instanceId
+	)
+
+	$newCtx = [Context]::newEnvironmentContextFrom($ctx, $ctx.environment, $instanceId)
+	return $newCtx
+}
+
+function Deploy-NextEnvironmentInstance{
+	param(
+		[Context]$ctx
+	)
+
+	$instancdId = Find-OpenDeploymentSlotNumber $ctx
+	$newCtx = Create-NextEnvironmentContext -ctx $ctx -instanceId $instanceId
+
+	Create-Core -ctx $newCtx
+
+	return $newCtx
+}
+
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
-#$ctx = Login-WorkspacePrimaryProd
+$ctx = Login-WorkspacePrimaryProd
+Create-Core -ctx $ctx -excludeVPN $true -computeElements @("db")
+
+#Stop-ComputeResources -ctx $ctx
 #Write-AllWorkspaceEntitiesToCSV
-#$ctx = Login-WorkspaceAzureAccount -environmentCode "p0" -facilityCode "p" -subscriptionCode "ws"
+#$ctx = Login-WorkspaceAzureAccount -environmentCode "p1" -facilityCode "p" -subscriptionCode "ws"
+#Start-ComputeResources -ctx $ctx
 #Create-All -ctx $ctx
 #Create-Base -ctx $ctx
 #Create-Core -ctx $ctx
 #Rebuild-KeyVault -ctx $ctx
 #Deploy-VPN -ctx $ctx
-#Teardown-All -ctx $ctx
+#Teardown-Core -ctx $ctx
 
 #Deploy-DatabaseDiskViaInitVM -ctx $ctx -usePeer $true
 #Create-AzureFilesEntitiesInFacility -environment "prod" -facility "primary"

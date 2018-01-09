@@ -41,6 +41,7 @@ Try
     }
 
     wget http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=msftdbprodsamples -Body $downloadParams -UseBasicParsing -OutFile $($dataDisk + "av.zip")
+    wget http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=msftdbprodsamples -Body $downloadParams -UseBasicParsing -OutFile $($dataDisk + "av.bak")
 
     Unzip $($dataDisk + "av.zip") $dataDisk
     Remove-Item -Path $($dataDisk + "av.zip")
