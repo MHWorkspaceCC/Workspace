@@ -40,8 +40,8 @@ Try
         "Build"=21066
     }
 
-    wget http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=msftdbprodsamples -Body $downloadParams -UseBasicParsing -OutFile $($dataDisk + "av.zip")
-    wget http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=msftdbprodsamples -Body $downloadParams -UseBasicParsing -OutFile $($dataDisk + "av.bak")
+    wget http://download-codeplex.sec.s-msft.com/Download/Release?ProjectName=msftdbprodsamples -UseBasicParsing -OutFile $($dataDisk + "av.zip")
+    wget https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2016.bak -UseBasicParsing -OutFile $($dataDisk + "av2016.zip")
 
     Unzip $($dataDisk + "av.zip") $dataDisk
     Remove-Item -Path $($dataDisk + "av.zip")
