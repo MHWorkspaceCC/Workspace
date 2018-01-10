@@ -3,7 +3,8 @@ param(
 	[string]$octoApiKey,
 	[string]$fileShareKey,
 	[string]$fileStgAcctName,
-	[string]$fileShareName
+	[string]$fileShareName,
+	[string]$octoEnvironment
 )
 
 Function Write-Log
@@ -21,6 +22,7 @@ Write-Log $("octoApiKey: " + $octoApiKey)
 Write-Log $("fileShareKey: " + $fileShareKey)
 Write-Log $("fileStgAcctName: " + $fileStgAcctName)
 Write-Log $("fileShareName: " + $fileShareName)
+Write-Log $("octoEnvironment: " + $octoEnvironment)
 
 Write-Log "Trusting PSGallery"
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
@@ -36,6 +38,6 @@ Write-Log "Configuring file shares"
 . .\configure-file-share.ps1 -fileShareKey $fileShareKey -fileShareName $fileShareName -fileStgAcctName $fileStgAcctName
 
 Write-Log "Installing Web App with Octopus DSC"
-. .\install-web-app-with-octo-dsc.ps1 -octoUrl $octoUrl -octoApiKey $octoApiKey
+. .\install-web-app-with-octo-dsc.ps1 -octoUrl $octoUrl -octoApiKey $octoApiKey -environment $octoEnvironment
 
 Write-Log "All done configuration!"

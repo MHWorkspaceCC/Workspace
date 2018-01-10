@@ -14,7 +14,6 @@
   },
 
   "variables": {
-    "vnName": "vn1",
     "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
     "vnetName": "[concat(parameters('vnetName'), '-vnet', variables('baseName'))]",
 

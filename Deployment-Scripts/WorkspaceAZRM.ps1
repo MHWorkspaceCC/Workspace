@@ -911,7 +911,7 @@ function Deploy-Admin{
 		[string]$adminUserName,
 		[string]$adminPassword
 	)
-	Write-Host "In: " $MyInvocation.MyCommand $environment $facility $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
@@ -937,7 +937,58 @@ function Deploy-Admin{
 	$resourceGroupName = $ctx.GetResourceGroupName("admin", $usePeer)
 	Execute-Deployment -templateFile "arm-admin-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
-	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer) $diagnosticStorageAccountKey $dataDogApiKey -ForegroundColor Green
+}
+
+function Deploy-OctoServer{
+	param(
+		[Context]$ctx,
+		[switch]$secondary
+	)
+	Write-Host "In: " $MyInvocation.MyCommand -ForegroundColor Green
+
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
+
+	Ensure-ResourceGroup -ctx $ctx -usePeer $secondary -category "svc"
+
+	$parameters = @{
+		"environmentCode" = $ctx.environmentCode
+		"environment" = $ctx.environment
+		"instance" = $ctx.environmentInstance
+		"facility" = $ctx.facilityCode
+		"subscriptionCode" = $ctx.subscriptionCode
+		"Role" = "OCTO"
+		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
+		"location" = $ctx.location
+	}
+
+	$resourceGroupName = $ctx.GetResourceGroupName("svc", $usePeer)
+	Execute-Deployment -templateFile "arm-octoserver-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand $secondary -ForegroundColor Green
+}
+
+function Deploy-ServicesVnetEntities{
+	param(
+		[Context]$ctx,
+		[switch]$secondary
+	)
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) -ForegroundColor Green
+
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
+
+	Ensure-ResourceGroup -ctx $ctx -usePeer $secondary -category "svc"
+
+	$parameters = @{
+		"vnetCidrPrefix" = $ctx.GetVnetCidrPrefix($secondary)
+		"resourceNamePostfix" = $ctx.GetResourcePostfix($secondary)
+		"vnetName" = "s0" 
+	}
+	
+	$resourceGroupName = $ctx.GetResourceGroupName("svc", $usePeer)
+	Execute-Deployment -templateFile "arm-svcvnet-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) -ForegroundColor Green
 }
 
 function Deploy-DatabaseDiskViaInitVM{
@@ -1369,7 +1420,7 @@ function Create-Core{
 		Deploy-FTP -ctx $ctx -usePeer $false -scaleSetCapacity 1 -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
 	}
 
-	if ("web" -in $computeElements){
+	if ("jump" -in $computeElements){
 		$jumpAdminUserName =  Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "JumpServerAdminName"
 		$jumpAdminPassword =  Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "JumpServerAdminPassword"
 		Deploy-Jump -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
@@ -1600,6 +1651,7 @@ function Create-ServicesEntities{
 
 	Ensure-ResourceGroup -ctx $ctx -category "svc"
 
+	Deploy-ServicesVnetEntities -ctx $ctx -secondary $usePeer
 	Build-KeyVault -ctx $ctx
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
@@ -1880,8 +1932,11 @@ function Deploy-NextEnvironmentInstance{
 }
 
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
-$ctx = Login-WorkspacePrimaryProd
-Create-Core -ctx $ctx -computeElements @("db") -excludeNetwork
+#$ctx = Login-WorkspacePrimaryProd
+#Create-Core -ctx $ctx -computeElements @("db", "web") -excludeNetwork -webScaleSetSize 2
+$ctx = Login-WorkspaceAzureAccount -environmentCode "s0" -facilityCode "p" -subscriptionCode "ws"
+Deploy-ServicesVnetEntities -ctx $ctx
+Deploy-OctoServer -ctx $ctx
 
 #Stop-ComputeResources -ctx $ctx
 #Write-AllWorkspaceEntitiesToCSV

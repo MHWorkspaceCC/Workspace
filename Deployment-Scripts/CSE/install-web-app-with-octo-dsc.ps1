@@ -4,7 +4,8 @@
 #
 param(
 	[string]$octoUrl,
-	[string]$octoApiKey
+	[string]$octoApiKey,
+	[string]$environment
 )
 
 Function Write-Log
@@ -19,6 +20,7 @@ Function Write-Log
 Configuration WebAppConfig
 {
     param ($ApiKey, $OctopusServerUrl, $Environments, $Roles, $ServerPort)
+
 
     Import-DscResource -Module OctopusDSC
 
@@ -50,10 +52,11 @@ Configuration WebAppConfig
 Write-Log "In configure web app"
 Write-Log $("octoUrl: " + $octoUrl)
 Write-Log $("octoApiKey: " + $octoApiKey)
+Write-Log $("environment: " + $environment)
 
 Write-Log('Staring DSC config of octopus app')
 
-WebAppConfig -ApiKey $octoApiKey -OctopusServerUrl $octoUrl -Environments @("Dev") -Roles @("Web-VMSS") -ServerPort 10943
+WebAppConfig -ApiKey $octoApiKey -OctopusServerUrl $octoUrl -Environments @($environment) -Roles @("Web-VMSS") -ServerPort 10943
 
 Write-Log('Built config - starting configuration')
 Start-DscConfiguration .\WebAppConfig -Verbose -wait

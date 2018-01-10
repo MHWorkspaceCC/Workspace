@@ -31,7 +31,9 @@
     <Content Include="ARM\arm-db-disk-init-vm-deploy.json" />
     <Content Include="ARM\arm-db-disks-deploy.json" />
     <Content Include="ARM\arm-nsgs-deploy.json" />
+    <Content Include="ARM\arm-octoserver-deploy.json" />
     <Content Include="ARM\arm-stgaccount-deploy.json" />
+    <Content Include="ARM\arm-svcvnet-deploy.json" />
     <Content Include="ARM\arm-vmssftp-deploy.json" />
     <Content Include="ARM\arm-pips-deploy.json" />
     <Content Include="ARM\arm-vpn-connections-deploy.json" />
@@ -51,6 +53,7 @@
     <Compile Include="CSE\configure-file-share.ps1" />
     <Compile Include="CSE\configure-ftp-server.ps1" />
     <Compile Include="CSE\configure-jump-server.ps1" />
+    <Compile Include="CSE\configure-octopus-server.ps1" />
     <Compile Include="CSE\configure-sql-server.ps1" />
     <Compile Include="CSE\configure-sql-server-old.ps1" />
     <Compile Include="CSE\configure-web-server.ps1" />

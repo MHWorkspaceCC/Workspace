@@ -157,7 +157,7 @@
     "fileShareName": "[parameters('fileShareName')]",
     "fileStgAcctName": "[parameters('fileStgAcctName')]",
 
-    "commandToExecute": "[concat(parameters('commandToExecute'), ' -octoUrl ', variables('octoUrl'), ' -octoApiKey ', variables('octoApiKey'), ' -fileShareKey ', variables('fileShareKey'), ' -fileShareName ', variables('fileShareName'), ' -fileStgAcctName ', variables('fileStgAcctName'))]"
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -octoUrl ', variables('octoUrl'), ' -octoApiKey ', variables('octoApiKey'), ' -fileShareKey ', variables('fileShareKey'), ' -fileShareName ', variables('fileShareName'), ' -fileStgAcctName ', variables('fileStgAcctName'), ' -octoEnvironment ', parameters('resourceNamePostfix'))]"
   },
   "resources": [
     {
