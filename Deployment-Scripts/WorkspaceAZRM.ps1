@@ -1289,8 +1289,9 @@ function Create-Core{
 		[Context]$ctx,
 		[int]$webScaleSetSize=2,
 		[int]$ftpScaleSetSize=2,
-		[bool]$networkOnly=$false,
-		[bool]$excludeVPN=$false,
+		[switch]$networkOnly,
+		[switch]$excludeVPN,
+		[switch]$excludeNetwork,
 		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin")
 	)
 	
@@ -1300,19 +1301,20 @@ function Create-Core{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 	
-	Deploy-NSGs -ctx $ctx -usePeer $false
-	#Deploy-NSGs -ctx $ctx -usePeer $true
-	Deploy-PIPs -ctx $ctx -usePeer $false
-	#Deploy-PIPs -ctx $ctx -usePeer $true
-	Deploy-VNet -ctx $ctx -usePeer $false
-	#Deploy-VNet -ctx $ctx -usePeer $true
+	if (!$excludeNetwork){
+		Deploy-NSGs -ctx $ctx -usePeer $false
+		#Deploy-NSGs -ctx $ctx -usePeer $true
+		Deploy-PIPs -ctx $ctx -usePeer $false
+		#Deploy-PIPs -ctx $ctx -usePeer $true
+		Deploy-VNet -ctx $ctx -usePeer $false
+		#Deploy-VNet -ctx $ctx -usePeer $true
 
-	if (!$excludeVPN){
-		Deploy-VPN -ctx $ctx
+		if ($excludeVPN){
+			Deploy-VPN -ctx $ctx
+		}
 	}
 
-	if ($networkOnly)
-	{
+	if ($networkOnly){
 		return
 	}
 
@@ -1879,7 +1881,7 @@ function Deploy-NextEnvironmentInstance{
 
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 $ctx = Login-WorkspacePrimaryProd
-Create-Core -ctx $ctx -excludeVPN $true -computeElements @("db")
+Create-Core -ctx $ctx -computeElements @("db") -excludeNetwork
 
 #Stop-ComputeResources -ctx $ctx
 #Write-AllWorkspaceEntitiesToCSV

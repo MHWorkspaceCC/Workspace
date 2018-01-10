@@ -1,4 +1,4 @@
-   param(
+    param(
 	[string]$installersStgAcctKey = "KRihdvk4dDFQkOloPqpk0P5DtnpNOr13Hh9TfBywjyjcE7wSgLSgNud8JnEzTZI4ZAbKnytoFiLfI0kJZ4z4gQ==",
 	[string]$installersStgAcctName = "stginstallerswsp0d",
 	[string]$saUserName = "wsadmin",
@@ -107,42 +107,19 @@ Try
     wget https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2016.bak -OutFile "e:\av2016.bak" -UseBasicParsing 
 	Write-Log("Restoring database")
  
-	$dbCommand = "RESTORE DATABASE AdventureWorks2016 FROM DISK = N'e:\av2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO 'e:\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO 'e:\AdventureWorks2016.ldf',REPLACE"
+	$dbCommand = "RESTORE DATABASE AdventureWorks FROM DISK = N'e:\av2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO 'e:\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO 'e:\AdventureWorks2016.ldf',REPLACE"
 	Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
 
  
 
 
-	<#
-    Write-Log("Attaching database")
+    Write-Log("Cofiguring database")
     $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
     $ss.ConnectionContext.LoginSecure = $false
     $ss.ConnectionContext.Login = "sa"
     $ss.ConnectionContext.Password = $saPassword
     Write-Log($ss.Information.Version)
 
-	$mdfs = $ss.EnumDetachedDatabaseFiles($databaseMdfFile)
-	$ldfs = $ss.EnumDetachedLogFiles($databaseMdfFile)
-
-    $files = Get-ChildItem -Path $($dataDisk + ":\*.?df")
-    <#
-
-	$files = New-Object System.Collections.Specialized.StringCollection
-    Write-Log("Enumerating mdfs")
-	ForEach-Object -InputObject $mdfs {
-        Write-Log($_)
-		$files.Add($_)
-	}
-    Write-Log "Enumerating ldfs"
-	ForEach-Object -InputObject $ldfs {
-        Write-Log($_)
-		$files.Add($_)
-	}
-#>
-	<#
-	$ss.AttachDatabase($databaseName, $files)
-	Write-Log("Attached database")
-	#>
 	Write-Log("Checking database info")
 	$db = $ss.Databases[$databaseName]
 	Write-Log("The database is:")
@@ -189,5 +166,6 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
  
  

@@ -113,8 +113,8 @@
           }
         ],
         "sku": {
-          "name": "VpnGw1",
-          "tier": "VpnGw1",
+          "name": "Basic",
+          "tier": "Basic",
           "capacity": 2
         },
         "gatewayType": "Vpn",
@@ -173,8 +173,8 @@
                   }
                 ],
                 "sku": {
-                  "name": "VpnGw1",
-                  "tier": "VpnGw1",
+                  "name": "Basic",
+                  "tier": "Basic",
                   "capacity": 2
                 },
                 "gatewayType": "Vpn",
