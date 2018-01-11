@@ -30,7 +30,7 @@
     "fileUris": {
       "type": "array",
       "defaultValue": [
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-octopus-serverr.ps1"
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-octopus-server.ps1"
       ]
     },
     "commandToExecute": {
@@ -81,6 +81,18 @@
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[variables('pipName')]",
       "location": "[resourceGroup().location]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NIC",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]",
+        "DeleteOrder": "3"
+      },
       "properties": {
         "publicIPAddressVersion": "IPv4",
         "publicIPAllocationMethod": "Dynamic",
@@ -106,7 +118,8 @@
         "Location": "[parameters('location')]",
         "Instance": "[parameters('instance')]",
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
-        "SubscriptionCode": "[parameters('subscriptionCode')]"
+        "SubscriptionCode": "[parameters('subscriptionCode')]",
+        "DeleteOrder": "2"
       },
       "properties": {
         "ipConfigurations": [
@@ -155,7 +168,8 @@
         "Location": "[parameters('location')]",
         "Instance": "[parameters('instance')]",
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
-        "SubscriptionCode": "[parameters('subscriptionCode')]"
+        "SubscriptionCode": "[parameters('subscriptionCode')]",
+        "DeleteOrder":  "0" 
       },
 
       "properties": {
@@ -171,7 +185,10 @@
             "osType": "Windows",
             "name": "[variables('osDiskName')]",
             "caching": "ReadWrite",
-            "createOption": "FromImage"
+            "createOption": "FromImage",
+            "tags": {
+              "DeleteOrder": "0"
+            }
           },
           "dataDisks": []
         },
@@ -196,11 +213,11 @@
       "resources": [
         {
           "type": "extensions",
-          "name": "configure-sql-server",
+          "name": "configure-octopus-server",
           "apiVersion": "2017-03-30",
           "location": "[variables('location')]",
           "dependsOn": [
-            "[variables('dbName')]"
+            "[variables('octoBoxName')]"
           ],
           "properties": {
             "publisher": "Microsoft.Compute",
@@ -225,3 +242,4 @@
   "outputs": {
   }
 }
+

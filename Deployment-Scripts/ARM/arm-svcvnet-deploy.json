@@ -218,7 +218,10 @@
       "apiVersion": "2017-06-01",
       "scale": null,
       "properties": {
-        "addressPrefix": "[variables('defaultCIDR')]"
+        "addressPrefix": "[variables('defaultCIDR')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId(variables('nsgRg'), 'Microsoft.Network/networkSecurityGroups', variables('defaultNsgName'))]"
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"

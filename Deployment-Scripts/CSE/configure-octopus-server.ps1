@@ -1,4 +1,4 @@
- Function Write-Log
+  Function Write-Log
 {
     Param ([string]$logstring)
 
@@ -64,11 +64,29 @@ Try
         )
     }
 
-    $octoAdminPwdSecure = ConvertTo-SecureString "octo" -AsPlainText -Force
+    $octoAdminPwdSecure = ConvertTo-SecureString "Workspace!Octo!2018" -AsPlainText -Force
     $octoAdminCreds = New-Object System.Management.Automation.PSCredential ("octo", $octoAdminPwdSecure)
 
     octoConfig -adminCredential $octoAdminCreds -ConfigurationData $cd
     Start-DscConfiguration -Path ".\octoConfig" -Verbose -wait -Force
+
+    Configuration configUserNamePasswordAuth
+    {
+        Import-DscResource -Module OctopusDSC
+
+        Node "localhost"
+        {
+            cOctopusServerUsernamePasswordAuthentication "Enable Username/Password Auth"
+            {
+                InstanceName = "OctopusServer"
+                Enabled = $true
+            }
+        }
+    }
+
+    configUserNamePasswordAuth
+    Start-DscConfiguration .\configUserNamePasswordAuth -Verbose -wait
+
 }
 Catch
 {
@@ -76,3 +94,4 @@ Catch
 	Write-Log $_.Exception.Message
 	Write-Log $_.Exception.InnerException
 } 
+ 

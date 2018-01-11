@@ -1771,20 +1771,22 @@ function Stop-ComputeResources{
 	param(
 		[Context]$ctx,
 		[bool]$usePeer = $false,
-		[bool]$multiFacility = $false
+		[bool]$multiFacility = $false,
+		[switch]$includeServicesVMs
 	)
 	
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
-	<#
+
 	$usages = [Context]::GetFacilityUsages($usePeer, $multiFacility)
-	$usages | Invoke-Parallel -ScriptBlock{
-		Stop-ComputeVMs -ctx $ctx -usePeer $_
-	}
 	foreach ($usage in $usages)	{
-		{  }
-		{ Stop-ScaleSetVMs -ctx $ctx -usePeer $usage }
+		Stop-ComputeVMs -ctx $ctx -usePeer $usage
+		Stop-ScaleSetVMs -ctx $ctx -usePeer $usage
 	}
-	#>
+
+	if ($includeServicesVMs){
+		$servicesCtx = [Context]::newEnvironmentContextFrom($ctx, "s", "0")
+		Stop-ComputeVMs -ctx $ctx -usePeer $usePeer
+	}
 }
 
 function Stop-ComputeVMs{
@@ -1931,14 +1933,32 @@ function Deploy-NextEnvironmentInstance{
 	return $newCtx
 }
 
+function Delete-AllResourcesInRole{
+	param(
+		[Context]$ctx,
+		[switch]$usePeer,
+		[string]$category,
+		[string]$role
+	)
+
+	$resourceNamePostfix = $ctx.GetResourcePostfix($usePeer)
+	$matched = Find-AzureRmResource -Tag @{ 
+		role = $role
+		ResourceNamePostfix = $resourceNamePostfix }
+
+	$resourceGroupName = $ctx.GetResourceGroupName($category, $usePeer)
+}
+
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 #$ctx = Login-WorkspacePrimaryProd
 #Create-Core -ctx $ctx -computeElements @("db", "web") -excludeNetwork -webScaleSetSize 2
 $ctx = Login-WorkspaceAzureAccount -environmentCode "s0" -facilityCode "p" -subscriptionCode "ws"
 Deploy-ServicesVnetEntities -ctx $ctx
 Deploy-OctoServer -ctx $ctx
+#Delete-AllResourcesInRole -ctx $ctx -category "svc" -role "OCTO"
+#Stop-ComputeResources -ctx $ctx -includeServicesVMs
 
-#Stop-ComputeResources -ctx $ctx
+
 #Write-AllWorkspaceEntitiesToCSV
 #$ctx = Login-WorkspaceAzureAccount -environmentCode "p1" -facilityCode "p" -subscriptionCode "ws"
 #Start-ComputeResources -ctx $ctx
