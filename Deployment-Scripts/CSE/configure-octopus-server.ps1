@@ -30,8 +30,7 @@ Try
 		Write-Log($_.Exception.InnerException)
 	}
 
-	<#
-
+	Write-Log("Declaring DSC")
 
     Configuration octoConfig
     {
@@ -76,11 +75,15 @@ Try
         )
     }
 
+	Write-Log("Starting OCTO install")
+
     $octoAdminPwdSecure = ConvertTo-SecureString "Workspace!Octo!2018" -AsPlainText -Force
     $octoAdminCreds = New-Object System.Management.Automation.PSCredential ("octo", $octoAdminPwdSecure)
 
     octoConfig -adminCredential $octoAdminCreds -ConfigurationData $cd
     Start-DscConfiguration -Path ".\octoConfig" -Verbose -wait -Force
+
+	Write-Log("Finished OCTO install, starting DSC confing for auth")
 
     Configuration configUserNamePasswordAuth
     {
@@ -96,9 +99,10 @@ Try
         }
     }
 
+	Write-Log("Running DSC for auth")
     configUserNamePasswordAuth
     Start-DscConfiguration .\configUserNamePasswordAuth -Verbose -wait
-	#>
+	Write-Log("All done!")
 }
 Catch
 {
