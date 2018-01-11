@@ -19,11 +19,13 @@ Try
 
 	Try{
 	    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+		Write-Log("Installed choclatey, now using it to install SQL server express")
 	    choco install sql-server-express -y
+		Write-Log("Done instannling sql server express")
 	}
 	Catch
 	{
-		Write-Log("Issue installing choclatey")
+		Write-Log("Issue installing choclatey / sql server")
 		Write-Log($_.Exception.Message)
 		Write-Log($_.Exception.InnerException)
 	}
