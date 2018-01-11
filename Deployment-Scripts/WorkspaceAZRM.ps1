@@ -1942,11 +1942,36 @@ function Delete-AllResourcesInRole{
 	)
 
 	$resourceNamePostfix = $ctx.GetResourcePostfix($usePeer)
-	$matched = Find-AzureRmResource -Tag @{ 
-		role = $role
-		ResourceNamePostfix = $resourceNamePostfix }
+	
+	$resourceOrderMap = @{}
+	$resourceMap = @{}
 
-	$resourceGroupName = $ctx.GetResourceGroupName($category, $usePeer)
+	$matched = Find-AzureRmResource -Tag @{ Role = $role } | foreach {
+		$tags = (Get-AzureRmResource -ResourceId $_.ResourceId).Tags
+		$resourceOrderMap[$_.ResourceId] = $tags["DeleteOrder"] -as [int]
+		$resourceMap[$_.ResourceId] = $_
+	}
+
+	$currentOrder = 0
+	while ($resourceOrderMap.Count -gt 0){
+		Write-Host "Processing" $currentOrder
+		$removed = New-Object System.Collections.ArrayList
+		Foreach ($de in ($resourceOrderMap.GetEnumerator() | Where-Object {$_.Value -eq $currentOrder})){
+			$removed.Add($de.Key)
+
+			$r = $resourceMap[$de.Key]
+			Write-Host "Deleting: " $r.ResourceName $r.ResourceType
+			Remove-AzureRmResource -ResourceId $de.Key -Force -InformationAction Continue -Verbose
+		}
+
+		foreach ($key in $removed){
+			$resourceOrderMap.Remove($key)
+		}
+
+		$currentOrder++
+	}
+
+	$toDelete = $null
 }
 
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"

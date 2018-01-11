@@ -58,6 +58,7 @@
     <Compile Include="CSE\configure-sql-server-old.ps1" />
     <Compile Include="CSE\configure-web-server.ps1" />
     <Compile Include="CSE\install-and-configure-iis.ps1" />
+    <Compile Include="CSE\install-octopus-server-with-dsc.ps1" />
     <Compile Include="CSE\Install-OctopusDSC.ps1" />
     <Compile Include="CSE\install-powershellget.ps1" />
     <Compile Include="CSE\install-sqlserverdsc.ps1" />
