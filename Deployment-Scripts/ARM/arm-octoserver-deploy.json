@@ -187,23 +187,19 @@
             "createOption": "FromImage",
             "caching": "ReadWrite",
             "managedDisk": {
-              "storageAccountType": "Premium_LRS",
-              "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('octoBoxName'))]"
+              "storageAccountType": "Standard_LRS",
             },
             "diskSizeGB": 128
           },
           "dataDisks": [
             {
+              "diskSizeGB": 1023,
               "lun": 0,
-              "name": "[concat(variables('octoBoxName'),'-datadisk1')]",
+              "name": "[concat('datadisk1-', variables('octoBoxName'))]",
               "createOption": "Empty",
-              "caching": "ReadOnly",
-              "managedDisk": {
-                "storageAccountType": "Premium_LRS",
-                "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('octoBoxName'))]"
-              },
-              "diskSizeGB": 1023
+              "caching": "ReadOnly"
             }
+          ]
         },
         "osProfile": {
           "computerName": "[variables('computerName')]",

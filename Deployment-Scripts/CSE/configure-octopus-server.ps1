@@ -1,35 +1,21 @@
-  Function Write-Log
+ Function Write-Log
 {
     Param ([string]$logstring)
 
     Add-Content -Path "c:\configure.log" -Value $logstring
 	Write-Host $logstring
 } 
+Write-Log("HI")
 
 Try
 {
-	Write-Log "Trusting PSGallery"
+	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-	Write-Log "Installing OctoDSC"
+	Write-Log("Installing OctoDSC")
 
     Install-Module -Name OctopusDSC
 
-    Write-Log("Installing SQL Server Express")
-	<#
-	Try{
-	    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-		Write-Log("Installed choclatey, now using it to install SQL server express")
-	    choco install sql-server-express -y
-		Write-Log("Done instannling sql server express")
-	}
-	Catch
-	{
-		Write-Log("Issue installing choclatey / sql server")
-		Write-Log($_.Exception.Message)
-		Write-Log($_.Exception.InnerException)
-	}
-	#>
 	Write-Log("Declaring DSC for OCTO")
 
     Configuration octoConfig
@@ -103,6 +89,7 @@ Try
     configUserNamePasswordAuth
     Start-DscConfiguration .\configUserNamePasswordAuth -Verbose -wait
 	Write-Log("All done!")
+
 }
 Catch
 {
@@ -110,4 +97,5 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
  
