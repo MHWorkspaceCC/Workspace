@@ -16,8 +16,18 @@ Try
     Install-Module -Name OctopusDSC
 
     Write-Log("Installing SQL Express")
-<#
-    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+	Try{
+	    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+	}
+	Catch
+	{
+		Write-Log("Issue installing choclatey")
+		Write-Log($_.Exception.Message)
+		Write-Log($_.Exception.InnerException)
+	}
+
+	<#
     choco install sql-server-express -y
 
 
@@ -90,8 +100,8 @@ Try
 }
 Catch
 {
-	Write-Log "Exception"
-	Write-Log $_.Exception.Message
-	Write-Log $_.Exception.InnerException
+	Write-Log("Exception")
+	Write-Log($_.Exception.Message)
+	Write-Log($_.Exception.InnerException)
 } 
  
