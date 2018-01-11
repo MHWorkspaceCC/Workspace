@@ -15,10 +15,11 @@ Try
 
     Install-Module -Name OctopusDSC
 
-    Write-Log("Installing SQL Express")
+    Write-Log("Installing SQL Server Express")
 
 	Try{
 	    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+	    choco install sql-server-express -y
 	}
 	Catch
 	{
@@ -28,7 +29,6 @@ Try
 	}
 
 	<#
-    choco install sql-server-express -y
 
 
     Configuration octoConfig
