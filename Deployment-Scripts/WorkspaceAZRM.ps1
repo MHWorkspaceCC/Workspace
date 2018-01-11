@@ -1953,7 +1953,7 @@ function Delete-AllResourcesInRole{
 #$ctx = Login-WorkspacePrimaryProd
 #Create-Core -ctx $ctx -computeElements @("db", "web") -excludeNetwork -webScaleSetSize 2
 $ctx = Login-WorkspaceAzureAccount -environmentCode "s0" -facilityCode "p" -subscriptionCode "ws"
-Deploy-ServicesVnetEntities -ctx $ctx
+#Deploy-ServicesVnetEntities -ctx $ctx
 Deploy-OctoServer -ctx $ctx
 #Delete-AllResourcesInRole -ctx $ctx -category "svc" -role "OCTO"
 #Stop-ComputeResources -ctx $ctx -includeServicesVMs

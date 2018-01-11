@@ -91,7 +91,7 @@
         "Instance": "[parameters('instance')]",
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
         "SubscriptionCode": "[parameters('subscriptionCode')]",
-        "DeleteOrder": "3"
+        "DeleteOrder": "2"
       },
       "properties": {
         "publicIPAddressVersion": "IPv4",
@@ -119,7 +119,7 @@
         "Instance": "[parameters('instance')]",
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
         "SubscriptionCode": "[parameters('subscriptionCode')]",
-        "DeleteOrder": "2"
+        "DeleteOrder": "1"
       },
       "properties": {
         "ipConfigurations": [
@@ -186,9 +186,6 @@
             "name": "[variables('osDiskName')]",
             "caching": "ReadWrite",
             "createOption": "FromImage",
-            "tags": {
-              "DeleteOrder": "0"
-            }
           },
           "dataDisks": []
         },
