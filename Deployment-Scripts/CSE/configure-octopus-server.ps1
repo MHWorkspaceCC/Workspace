@@ -12,11 +12,11 @@ Try
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 	Write-Log "Installing OctoDSC"
-<#
+
     Install-Module -Name OctopusDSC
 
     Write-Log("Installing SQL Express")
-
+<#
     iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
     choco install sql-server-express -y
 
