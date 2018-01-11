@@ -16,7 +16,7 @@ Try
     Install-Module -Name OctopusDSC
 
     Write-Log("Installing SQL Server Express")
-
+	<#
 	Try{
 	    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 		Write-Log("Installed choclatey, now using it to install SQL server express")
@@ -29,8 +29,8 @@ Try
 		Write-Log($_.Exception.Message)
 		Write-Log($_.Exception.InnerException)
 	}
-
-	Write-Log("Declaring DSC")
+	#>
+	Write-Log("Declaring DSC for OCTO")
 
     Configuration octoConfig
     {

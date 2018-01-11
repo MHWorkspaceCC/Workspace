@@ -176,18 +176,34 @@
         "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
         "storageProfile": {
           "imageReference": {
-            "publisher": "[variables('imagePublisher')]",
-            "offer": "[variables('imageOffer')]",
-            "sku": "[variables('windowsOSVersion')]",
+            "publisher": "MicrosoftSQLServer",
+            "offer": "SQL2016SP1-WS2016",
+            "sku": "Express",
             "version": "latest"
           },
           "osDisk": {
             "osType": "Windows",
-            "name": "[variables('osDiskName')]",
-            "caching": "ReadWrite",
+            "name": "[concat(variables('octoBoxName'),'-osdisk')]",
             "createOption": "FromImage",
+            "caching": "ReadWrite",
+            "managedDisk": {
+              "storageAccountType": "Premium_LRS",
+              "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('octoBoxName'))]"
+            },
+            "diskSizeGB": 128
           },
-          "dataDisks": []
+          "dataDisks": [
+            {
+              "lun": 0,
+              "name": "[concat(variables('octoBoxName'),'-datadisk1')]",
+              "createOption": "Empty",
+              "caching": "ReadOnly",
+              "managedDisk": {
+                "storageAccountType": "Premium_LRS",
+                "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('octoBoxName'))]"
+              },
+              "diskSizeGB": 1023
+            }
         },
         "osProfile": {
           "computerName": "[variables('computerName')]",
