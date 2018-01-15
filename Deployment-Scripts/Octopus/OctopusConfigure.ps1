@@ -1,0 +1,13 @@
+
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" create-instance --instance "OctopusServer" --config "C:\Octopus\OctopusServer.config"
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" database --instance "OctopusServer" --connectionString "Data Source=localhost\SQLEXPRESS;Initial Catalog=octopus;Integrated Security=True" --create --grant "NT AUTHORITY\SYSTEM"
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" configure --instance "OctopusServer" --upgradeCheck "True" --upgradeCheckWithStatistics "True" --webForceSSL "False" --webListenPrefixes "http://localhost:80/" --commsListenPort "10943" --serverNodeName "o1-octo-wss0p" --usernamePasswordIsEnabled "True"
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" service --instance "OctopusServer" --stop
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" admin --instance "OctopusServer" --username "octo" --email "michael.heydt@workspace.cc" --password "Octo!Admin!2018"
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" license --instance "OctopusServer" --licenseBase64 "PExpY2Vuc2UgU2lnbmF0dXJlPSJieVNVTUxLbWwxSG91dkNWVVNpN3h4c2hPZWhJVDF3SXR2cHJHN214VFh6U3k1Z21SU3lvRE14TldOUnB6eE5lQTAwODJmVXM5ajViU2FyaGgyUmpSZz09Ij4KICA8TGljZW5zZWRUbz5Xb3Jrc3BhY2U8L0xpY2Vuc2VkVG8+CiAgPExpY2Vuc2VLZXk+MTIxNjAtNTc0NDEtMTU0MjItNTkyNTY8L0xpY2Vuc2VLZXk+CiAgPFZlcnNpb24+Mi4wPCEtLSBMaWNlbnNlIFNjaGVtYSBWZXJzaW9uIC0tPjwvVmVyc2lvbj4KICA8VmFsaWRGcm9tPjIwMTgtMDEtMTI8L1ZhbGlkRnJvbT4KICA8VmFsaWRUbz4yMDE4LTAyLTI2PC9WYWxpZFRvPgogIDxQcm9qZWN0TGltaXQ+VW5saW1pdGVkPC9Qcm9qZWN0TGltaXQ+CiAgPE1hY2hpbmVMaW1pdD5VbmxpbWl0ZWQ8L01hY2hpbmVMaW1pdD4KICA8VXNlckxpbWl0PlVubGltaXRlZDwvVXNlckxpbWl0Pgo8L0xpY2Vuc2U+"
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" service --instance "OctopusServer" --install --reconfigure --start --dependOn "MSSQL$SQLEXPRESS"
+
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" ssl-certificate --instance "OctopusServer" --ip-address "0.0.0.0" --port "443" --thumbprint "47A2650E45D37035E0F114900260F32DE603F270" --certificate-store "My"
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" configure --instance "OctopusServer" --webForceSSL "True"
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" configure --instance "OctopusServer" --webListenPrefixes "http://localhost/,https://localhost/"
+"C:\Program Files\Octopus Deploy\Octopus\Octopus.Server.exe" service --instance "OctopusServer" --stop --start

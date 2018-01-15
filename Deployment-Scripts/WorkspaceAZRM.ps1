@@ -250,9 +250,9 @@ Class Context{
 
 	static [string] BuildSharedResourcePostfix([Context]$ctx, $usePeer){
 		if (!$usePeer){
-			return $ctx.subscriptionCode + "al" + $ctx.facilityCode
+			return $ctx.subscriptionCode + "s0" + $ctx.facilityCode
 		}
-		return $ctx.subscriptionCode + "al" + $ctx.peerFacilityCode
+		return $ctx.subscriptionCode + "s0" + $ctx.peerFacilityCode
 	}
 
 	static [object] GetFacilityUsages($usePeer, $multiFacility){
@@ -270,7 +270,7 @@ Class Context{
 	}
 
 	[string] GetKeyVaultName($usePeer){
-		$keyVaultName = "kv-svc-" + $this.GetResourcePostfix($false)
+		$keyVaultName = "kv-svc-" + $this.GetResourcePostfix($usePeer)
 		return $keyVaultName
 	}
 
@@ -291,7 +291,7 @@ Class Context{
 		$ctx.resourcePostfix = [Context]::BuildResourcePostfix($ctx, $false)
 		$ctx.peerResourcePostfix = [Context]::BuildResourcePostfix($ctx, $true)
 		$ctx.sharedResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
-		$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
+		$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $true)
 		$ctx.location = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.facilityCode)
 		$ctx.peerLocation = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.peerFacilityCode)
 		$ctx.vnetCidrPrefix = [EnvironmentAndFacilitiesInfo]::CalculateVnetCidrPrefix($ctx.environmentCode, $ctx.facilityCode)
@@ -346,7 +346,7 @@ function Login-WorkspaceAzureAccount{
 	$ctx.resourcePostfix = [Context]::BuildResourcePostfix($ctx, $false)
 	$ctx.peerResourcePostfix = [Context]::BuildResourcePostfix($ctx, $true)
 	$ctx.sharedResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
-	$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
+	$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $true)
 	$ctx.location = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.facilityCode)
 	$ctx.peerLocation = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.peerFacilityCode)
 	$ctx.vnetCidrPrefix = [EnvironmentAndFacilitiesInfo]::CalculateVnetCidrPrefix($ctx.environmentCode, $ctx.facilityCode)
@@ -494,7 +494,6 @@ function Execute-Deployment{
 	#Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	Write-Host "Executing template deployment: " $resourceGroupName $templateFile
-	Write-Host "Using parameters: "
 	#Dump-Hash $parameters
 
 	#$templateFile = $currentDir + "\Deployment-Scripts\ARM\" + $templateFile
@@ -735,7 +734,7 @@ function Deploy-DB{
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = $ctx.GetResourceGroupName("db", $usePeer)
-	Ensure-ResourceGroup -ctx $ctx -category "db"
+	Ensure-ResourceGroup -ctx $ctx -category "db" -usePeer $usePeer
 
 	$parameters = @{
 		"environmentCode" = $ctx.environmentCode
@@ -745,7 +744,7 @@ function Deploy-DB{
 		"subscriptionCode" = $ctx.subscriptionCode
 		"Role" = "DB"
 		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
-		"location" = $ctx.location
+		"location" = $ctx.GetLocation($usePeer)
 
 		"diagStorageAccountKey" = $diagnosticStorageAccountKey
 		"dataDogApiKey" = $dataDogApiKey
@@ -789,17 +788,17 @@ function Deploy-Web{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Ensure-ResourceGroup -ctx $ctx -category "web"
+	Ensure-ResourceGroup -ctx $ctx -category "web" -usePeer $usePeer
 
 	$parameters = @{
 		"environmentCode" = $ctx.environmentCode
-		"environment" = $ctx.environment
+		"environment" = $ctx.GetEnvironment()
 		"instance" = $ctx.environmentInstance
-		"facility" = $ctx.facilityCode
+		"facility" = $ctx.GetFacilityCode($usePeer)
 		"subscriptionCode" = $ctx.subscriptionCode
 		"Role" = "WEB"
-		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
-		"location" = $ctx.location
+		"resourceNamePostfix" = $ctx.GetResourcePostfix($usePeer)
+		"location" = $ctx.GetLocation($usePeer)
 
 		"diagStorageAccountKey" = $diagnosticStorageAccountKey
 		"dataDogApiKey" = $dataDogApiKey
@@ -809,7 +808,6 @@ function Deploy-Web{
 		"adminPassword" = $adminPassword
 		"octoUrl" = $octoUrl
 		"octoApiKey" = $octoApiKey
-		"vmCustomData" = $vmCustomData
 		"fileShareKey" = $fileShareKey
 		"fileStgAcctName" = $fileStgAcctName
 		"fileShareName" = $fileShareName
@@ -837,7 +835,7 @@ function Deploy-FTP{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Ensure-ResourceGroup -ctx $ctx -category "ftp"
+	Ensure-ResourceGroup -ctx $ctx -category "ftp" -usePeer $usePeer
 
 	$parameters = @{
 		"environmentCode" = $ctx.environmentCode
@@ -847,7 +845,7 @@ function Deploy-FTP{
 		"subscriptionCode" = $ctx.subscriptionCode
 		"Role" = "FTP"
 		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
-		"location" = $ctx.location
+		"location" = $ctx.GetLocation($usePeer)
 
 		"diagStorageAccountKey" = $diagnosticStorageAccountKey
 		"dataDogApiKey" = $dataDogApiKey
@@ -877,7 +875,7 @@ function Deploy-Jump{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Ensure-ResourceGroup -ctx $ctx -category "jump"
+	Ensure-ResourceGroup -ctx $ctx -category "jump" -usePeer $usePeer
 
 	$parameters = @{
 		"environmentCode" = $ctx.environmentCode
@@ -887,7 +885,7 @@ function Deploy-Jump{
 		"subscriptionCode" = $ctx.subscriptionCode
 		"Role" = "JUMP"
 		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
-		"location" = $ctx.location
+		"location" = $ctx.GetLocation($usePeer)
 		
 		"vmCustomData" = ""
 		"diagStorageAccountKey" = $diagnosticStorageAccountKey
@@ -925,7 +923,7 @@ function Deploy-Admin{
 		"subscriptionCode" = $ctx.subscriptionCode
 		"Role" = "ADMIN"
 		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
-		"location" = $ctx.location
+		"location" = $ctx.GetLocation($usePeer)
 		
 		"vmCustomData" = ""
 		"diagStorageAccountKey" = $diagnosticStorageAccountKey
@@ -959,7 +957,7 @@ function Deploy-OctoServer{
 		"subscriptionCode" = $ctx.subscriptionCode
 		"Role" = "OCTO"
 		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
-		"location" = $ctx.location
+		"location" = $ctx.GetLocation($usePeer)
 	}
 
 	$resourceGroupName = $ctx.GetResourceGroupName("svc", $usePeer)
@@ -1042,14 +1040,14 @@ function Deploy-DatabaseDiskViaInitVM{
 function Create-KeyVault{
 	param(
 		[Context]$ctx,
-		[bool]$usePeer = $false
+		[bool]$usePeer=$false
 	)
 
-	Write-Host "In: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer)
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Ensure-ResourceGroup -ctx $ctx "svc"
+	Ensure-ResourceGroup -ctx $ctx -category "svc"
 
 	$resourcePostfix = $ctx.GetResourcePostfix($usePeer)
 
@@ -1064,7 +1062,7 @@ function Create-KeyVault{
 		$keyVault = New-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName $resourceGroupName -Location $location -EnabledForDeployment
 	}
 
-	Write-Host "Out: " $MyInvocation.MyCommand $ctx.resourcePostfix $ctx.peerResourcePostfix $usePeer -ForegroundColor Green
+	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($usePeer)
 
 	return $keyVault
 }
@@ -1264,9 +1262,15 @@ function Create-KeyVaultSecrets{
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$webSslCertificateSecretName = "WebSslCertificate"
-	$octoUrl = "https://pip-octo-wspdpr.westus.cloudapp.azure.com" 
-	$octoApiKey = "API-SFVPQ7CI5DELMEXG0Y3XZKLE8II"
-	$dataDogApiKey = "691f4dde2b1a5e9a9fd5f06aa3090b87"
+	
+
+	# force this to the west region octo for now
+	$postfix = $ctx.GetSharedResourcePostfix($false)
+	$region = $ctx.GetLocation($false)
+	$octoUrl = "https://pip-octo-" + $postfix + "." + $region + ".cloudapp.azure.com" 
+
+	$octoApiKey = "API-THVVH8LYEZOHYUCI7J6JESNXW"
+	$dataDogApiKey = "5ecc232442a6fa39de3c1b5f189e135d"
 	$pfxfile = "workspace.pfx"
 	$pfxfilePassword = "workspace"
 
@@ -1318,7 +1322,7 @@ function Create-KeyVaultSecrets{
 function Build-KeyVault{
 	param(
 		[Context]$ctx,
-		[bool]$usePeer = $false
+		[bool]$usePeer=$false
 	)
 	
 	Create-KeyVault -ctx $ctx -usePeer $usePeer
@@ -1354,15 +1358,15 @@ function Create-Core{
 	
 	if (!$excludeNetwork){
 		Deploy-NSGs -ctx $ctx -usePeer $false
-		#Deploy-NSGs -ctx $ctx -usePeer $true
+		Deploy-NSGs -ctx $ctx -usePeer $true
 		Deploy-PIPs -ctx $ctx -usePeer $false
-		#Deploy-PIPs -ctx $ctx -usePeer $true
+		Deploy-PIPs -ctx $ctx -usePeer $true
 		Deploy-VNet -ctx $ctx -usePeer $false
-		#Deploy-VNet -ctx $ctx -usePeer $true
+		Deploy-VNet -ctx $ctx -usePeer $true
 
-		if ($excludeVPN){
-			Deploy-VPN -ctx $ctx
-		}
+	}
+	if (!$excludeNetwork -and !$excludeVPN){
+		Deploy-VPN -ctx $ctx
 	}
 
 	if ($networkOnly){
@@ -1370,66 +1374,154 @@ function Create-Core{
 	}
 
 	# at this point, this only uses values in the primary KV
-	$keyVaultNamePR = $ctx.GetKeyVaultName($false)
-	$keyVaultNameDR = $ctx.GetKeyVaultName($true)
+	$keyVaultNameThis = $ctx.GetKeyVaultName($false)
+	$keyVaultNamePeer = $ctx.GetKeyVaultName($true)
 
-	$diagStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DiagStorageAccountKey"
-	$installersStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "InstallersStorageAccountKey"
-	$fileShareStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FileShareStorageAccountKey"
+	$diagStorageAccountKeyThis = Get-KeyVaultSecret -KeyVaultName $keyVaultNameThis -SecretName "DiagStorageAccountKey"
+	$diagStorageAccountKeyPeer = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePeer -SecretName "DiagStorageAccountKey"
 
-	$dataDogApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DataDogApiKey"
-
-	# Bring up the VNet along as the NSG's and PIPs
-
-	$fileStgAcctNamePR = $ctx.GetStorageAccountName("files", $false)
-	$fileStgAcctNameDR = $ctx.GetStorageAccountName("files", $true)
-	$installersStorageAccountNamePR = $ctx.GetSharedStorageAccountName("installers", $false)
-	$installersStorageAccountNameDR = $ctx.GetSharedStorageAccountName("installers", $true)
-	$fileShareName = "workspace-file-storage"
-
-	# Bring up services in each VNet (right now just primary)
+	$dataDogApiKeyThis = Get-KeyVaultSecret -KeyVaultName $keyVaultNameThis -SecretName "DataDogApiKey"
+	$dataDogApiKeyPeer = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePeer -SecretName "DataDogApiKey"
 
 	if ("db" -in $computeElements){
-		$dbSaUserName =       Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbSaUserName"
-		$dbSaPassword =       Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbSaPassword"
-		$dbLoginUserName =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbLoginUserName"
-		$dbLoginPassword =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbLoginPassword"
-		$dbAdminUserName =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbServerAdminName"
-		$dbAdminPassword =    Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "DbServerAdminPassword"
-		$dbVmCustomData = "{'installersStgAcctKey': '" + $fileShareStorageAccountKey + "', 'dbSaUserName': '" + $dbSaUserName + "', 'dbSaPassword': '" + $dbSaPassword + "'}"
-		$dbVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($dbVmCustomData)
-		$dbVmCustomDataB64 = [System.Convert]::ToBase64String($dbVmCustomDataBytes)
-		Deploy-DB -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountNamePR -vmCustomData $dbVmCustomDataB64 -saUserName $dbSaUserName -saPassword $dbSaPassword -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword
+		$installersStorageAccountKeyThis = Get-KeyVaultSecret -KeyVaultName $keyVaultNameThis -SecretName "InstallersStorageAccountKey"
+		$installersStorageAccountKeyPeer = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePeer -SecretName "InstallersStorageAccountKey"
+
+		foreach ($site in @($false, $true)){
+			if (!$site) { 
+				$keyVaultName = $keyVaultNameThis
+				$diagStorageAccountKey = $diagStorageAccountKeyThis
+				$installersStorageAccountName = $ctx.GetSharedStorageAccountName("installers", $false)
+				$installersStorageAccountKey = $installersStorageAccountKeyThis
+				$dataDogApiKey = $dataDogApiKeyThis
+			}
+			else { 
+				$keyVaultName = $keyVaultNameThis
+				$diagStorageAccountKey = $diagStorageAccountKeyPeer
+				$installersStorageAccountName = $ctx.GetSharedStorageAccountName("installers", $true)
+				$installersStorageAccountKey = $installersStorageAccountKeyThis
+				$dataDogApiKey = $dataDogApiKeyPeer
+			}
+
+			$dbSaUserName =    Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaUserName"
+			$dbSaPassword =    Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaPassword"
+			$dbLoginUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName"
+			$dbLoginPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword"
+			$dbAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminName"
+			$dbAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword"
+
+			Deploy-DB -ctx $ctx -usePeer $false `
+					  -diagnosticStorageAccountKey $diagStorageAccountKey `
+					  -dataDogApiKey $dataDogApiKey `
+					  -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountName `
+					  -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword `
+			          -saUserName $dbSaUserName -saPassword $dbSaPassword `
+					  -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword 
+		}
 	}
 
 	if ("web" -in $computeElements){
-		$octoApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "OctoApiKey"
-		$octoUrl = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "OctoUrl"
-		$webAdminUserName =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "WebVmssServerAdminName"
-		$webAdminPassword =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "WebVmssServerAdminPassword"
-		$webVmCustomData = "{'octpApiKey': '" + $octoApiKey + "', 'octoUrl': " + $octoUrl + "', 'fileShareKey': '" + $fileShareStorageAccountKey + "'}"
-		$webVmCustomDataBytes = [System.Text.Encoding]::UTF8.GetBytes($webVmCustomData)
-		$webVmCustomDataB64 = [System.Convert]::ToBase64String($webVmCustomDataBytes)
-		$webSslCertificateIdPR = Get-KeyVaultSecretId -KeyVaultName $keyVaultNamePR -SecretName "WebSslCertificate"
-		Deploy-Web -ctx $ctx -usePeer $false -scaleSetCapacity 1 -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateIdPR -vmCustomData $webVmCustomDataB64 -octoUrl $octoUrl -octoApiKey $octoApiKey -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctNamePR -fileShareName $fileShareName
+		$fileShareName = "workspace-file-storage"
+
+		foreach ($site in @($false)){
+			if (!$site) { 
+				$keyVaultName = $keyVaultNameThis
+				$diagStorageAccountKey = $diagStorageAccountKeyThis
+				$fileStgAcctName = $ctx.GetStorageAccountName("files", $false)
+				$dataDogApiKey = $dataDogApiKeyThis
+			}
+			else { 
+				$keyVaultName = $keyVaultNamePeer
+				$diagStorageAccountKey = $diagStorageAccountKeyPeer
+				$fileStgAcctName = $ctx.GetStorageAccountName("files", $true)
+				$dataDogApiKey = $dataDogApiKeyPeer
+			}
+
+			$fileShareStorageAccountKey = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey"
+			$octoApiKey                 = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoApiKey"
+			$octoUrl                    = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoUrl"
+			$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
+			$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
+			$webSslCertificateId        = Get-KeyVaultSecretId -KeyVaultName $keyVaultName -SecretName "WebSslCertificate"
+
+			Deploy-Web -ctx $ctx -usePeer $site `
+					   -diagnosticStorageAccountKey $diagStorageAccountKey `
+					   -dataDogApiKey $dataDogApiKey `
+			           -scaleSetCapacity $webScaleSetSize `
+			           -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateId `
+			           -octoUrl $octoUrl -octoApiKey $octoApiKey `
+				       -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctName -fileShareName $fileShareName
+		}
 	}
 
 	if ("ftp" -in $computeElements){
-		$ftpAdminUserName =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FtpVmssServerAdminName"
-		$ftpAdminPassword =   Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "FtpVmssServerAdminPassword"
-		Deploy-FTP -ctx $ctx -usePeer $false -scaleSetCapacity 1 -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
+		foreach ($site in @($false)){
+			if (!$site) { 
+				$keyVaultName = $keyVaultNameThis
+				$diagStorageAccountKey = $diagStorageAccountKeyThis
+				$dataDogApiKey = $dataDogApiKeyThis
+			}
+			else { 
+				$keyVaultName = $keyVaultNamePeer
+				$diagStorageAccountKey = $diagStorageAccountKeyPeer
+				$dataDogApiKey = $dataDogApiKeyPeer
+			}
+
+			$ftpAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FtpVmssServerAdminName"
+			$ftpAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FtpVmssServerAdminPassword"
+
+			Deploy-FTP -ctx $ctx -usePeer $false `
+					   -diagnosticStorageAccountKey $diagStorageAccountKey `
+					   -dataDogApiKey $dataDogApiKey `
+					   -scaleSetCapacity $ftpScaleSetSize `
+					   -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword
+		}
 	}
 
 	if ("jump" -in $computeElements){
-		$jumpAdminUserName =  Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "JumpServerAdminName"
-		$jumpAdminPassword =  Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "JumpServerAdminPassword"
-		Deploy-Jump -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
+		foreach ($site in @($false)){
+			if (!$site) { 
+				$keyVaultName = $keyVaultNameThis
+				$diagStorageAccountKey = $diagStorageAccountKeyThis
+				$dataDogApiKey = $dataDogApiKeyThis
+			}
+			else { 
+				$keyVaultName = $keyVaultNamePeer
+				$diagStorageAccountKey = $diagStorageAccountKeyPeer
+				$dataDogApiKey = $dataDogApiKeyPeer
+			}
+
+			$jumpAdminUserName =  Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "JumpServerAdminName"
+			$jumpAdminPassword =  Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "JumpServerAdminPassword"
+
+			Deploy-Jump -ctx $ctx -usePeer $false `
+			            -diagnosticStorageAccountKey $diagStorageAccountKey `
+			            -dataDogApiKey $dataDogApiKey `
+						-adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword
+		}
 	}
 
 	if ("admin" -in $computeElements){
-		$adminAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "AdminServerAdminName"
-		$adminAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultNamePR -SecretName "AdminServerAdminPassword"
-		Deploy-Admin -ctx $ctx -usePeer $false -diagnosticStorageAccountKey $diagStorageAccountKey -dataDogApiKey $dataDogApiKey -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
+		foreach ($site in @($false)){
+			if (!$site) { 
+				$keyVaultName = $keyVaultNameThis
+				$diagStorageAccountKey = $diagStorageAccountKeyThis
+				$dataDogApiKey = $dataDogApiKeyThis
+			}
+			else { 
+				$keyVaultName = $keyVaultNamePeer
+				$diagStorageAccountKey = $diagStorageAccountKeyPeer
+				$dataDogApiKey = $dataDogApiKeyPeer
+			}
+
+			$adminAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "AdminServerAdminName"
+			$adminAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "AdminServerAdminPassword"
+
+			Deploy-Admin -ctx $ctx -usePeer $false `
+						 -diagnosticStorageAccountKey $diagStorageAccountKey `
+			             -dataDogApiKey $dataDogApiKey `
+			             -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword
+		}
 	}
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true) -ForegroundColor Green
@@ -1952,15 +2044,18 @@ function Delete-AllResourcesInRole{
 		$resourceMap[$_.ResourceId] = $_
 	}
 
+	Write-Host "Deleting the following resources:"
+	Foreach ($de in $resourceMap.GetEnumerator()){
+		$r = $resourceMap[$de.Key]
+		Write-Host "Deleting: " $r.ResourceName $r.ResourceType
+	}
 	$currentOrder = 0
 	while ($resourceOrderMap.Count -gt 0){
-		Write-Host "Processing" $currentOrder
 		$removed = New-Object System.Collections.ArrayList
 		Foreach ($de in ($resourceOrderMap.GetEnumerator() | Where-Object {$_.Value -eq $currentOrder})){
 			$removed.Add($de.Key)
 
 			$r = $resourceMap[$de.Key]
-			Write-Host "Deleting: " $r.ResourceName $r.ResourceType
 			Remove-AzureRmResource -ResourceId $de.Key -Force -InformationAction Continue -Verbose
 		}
 
@@ -1976,11 +2071,14 @@ function Delete-AllResourcesInRole{
 
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 #$ctx = Login-WorkspacePrimaryProd
-#Create-Core -ctx $ctx -computeElements @("db", "web") -excludeNetwork -webScaleSetSize 2
-$ctx = Login-WorkspaceAzureAccount -environmentCode "s0" -facilityCode "p" -subscriptionCode "ws"
+$ctx = Login-WorkspaceAzureAccount -environmentCode "p0" -facilityCode "p" -subscriptionCode "ws"
+Build-KeyVault -ctx $ctx
+Build-KeyVault -ctx $ctx -usePeer $true
+
+Create-Core -ctx $ctx -computeElements @("web") -excludeNetwork -webScaleSetSize 1 -excludeVPN
 #Deploy-ServicesVnetEntities -ctx $ctx
-Deploy-OctoServer -ctx $ctx
 #Delete-AllResourcesInRole -ctx $ctx -category "svc" -role "OCTO"
+#Deploy-OctoServer -ctx $ctx
 #Stop-ComputeResources -ctx $ctx -includeServicesVMs
 
 

@@ -91,10 +91,6 @@
       "type": "string"
     },
 
-    "vmCustomData": {
-      "type": "string"
-    },
-
     "scaleSetCapacity": {
       "type": "int"
     }
@@ -105,7 +101,7 @@
     "webRgName": "[concat('rg-web', variables('baseName'))]",
     "vmssPrefix": "vmss-web",
     "vmssName": "[concat(variables('vmssPrefix'), variables('baseName'))]",
-    "computerNamePrefix": "wvmss",
+    "computerNamePrefix": "[concat('w', parameters('environmentCode'), parameters('facility'), '-')]",
     "adminUserName": "[parameters('adminUserName')]",
     "adminPassword": "[parameters('adminPassword')]",
     "kvName": "[concat('kv-svc', variables('baseName'))]",
@@ -119,13 +115,16 @@
     "subnetName": "[concat('sn-web', variables('baseName'))]",
     "subnetId": "[concat(resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName')), '/subnets/', variables('subnetName'))]",
 
+    "pipName": "[concat('pip-web' , variables('baseName'))]",
+    "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
+
     "loadBalancerName": "[concat('lb-web', variables('baseName'))]",
     "backendAddressPoolName": "LB-Backend",
     "backendAddressPoolId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/backendAddressPools/', variables('backendAddressPoolName'))]",
     "inboundNatPoolsId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/inboundNatPools/RDP')]",
     "lbFrontEndIpConfigName": "LB-Frontend",
-    "lbPipName": "[concat('pip-web', variables('baseName'))]",
-    "lbPipId": "[resourceId(concat('rg-pips', variables('baseName')), 'Microsoft.Network/publicIPAddresses', variables('lbPipName'))]",
+    "lbPipName": "[variables('pipName')]",
+    "lbPipId": "[variables('pipId')]",
     "lbProbeId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/probes/HealthProbe')]",
     "frontEndIpConfigId": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName')), '/frontendIPConfigurations/', variables('lbFrontEndIpConfigName'))]",
 
@@ -151,20 +150,45 @@
 
     "sslCertificateUrl": "[parameters('sslCertificateUrl')]",
 
-    "vmCustomData": "[parameters('vmCustomData')]",
-
     "fileShareKey": "[parameters('fileShareKey')]",
     "fileShareName": "[parameters('fileShareName')]",
     "fileStgAcctName": "[parameters('fileStgAcctName')]",
 
-    "commandToExecute": "[concat(parameters('commandToExecute'), ' -octoUrl ', variables('octoUrl'), ' -octoApiKey ', variables('octoApiKey'), ' -fileShareKey ', variables('fileShareKey'), ' -fileShareName ', variables('fileShareName'), ' -fileStgAcctName ', variables('fileStgAcctName'), ' -octoEnvironment ', parameters('resourceNamePostfix'))]"
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -octoUrl ', variables('octoUrl'), ' -octoApiKey ', variables('octoApiKey'), ' -fileShareKey ', variables('fileShareKey'), ' -fileShareName ', variables('fileShareName'), ' -fileStgAcctName ', variables('fileStgAcctName'), ' -octoEnvironment ', toUpper(parameters('resourceNamePostfix')))]"
   },
   "resources": [
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('pipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('pipName')]"
+        }
+      },
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "PIP",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
+      "dependsOn": []
+    },
+
     {
       "type": "Microsoft.Network/loadBalancers",
       "name": "[variables('loadBalancerName')]",
       "apiVersion": "2017-06-01",
-      "location": "[variables('location')]",
+      "location": "[resourceGroup().location]",
       "scale": null,
       "tags": {
         "Role": "[parameters('role')]",
@@ -184,7 +208,7 @@
             "properties": {
               "privateIPAllocationMethod": "Dynamic",
               "publicIPAddress": {
-                "id": "[variables('lbPipId')]"
+                "id": "[toLower(variables('lbPipId'))]"
               }
             }
           }
@@ -237,7 +261,9 @@
           }
         ]
       },
-      "dependsOn": []
+      "dependsOn": [
+        "[variables('pipId')]"
+      ]
     },
     {
       "type": "Microsoft.Compute/virtualMachineScaleSets",
@@ -248,7 +274,7 @@
       },
       "name": "[variables('vmssName')]",
       "apiVersion": "2017-03-30",
-      "location": "[variables('location')]",
+      "location": "[resourceGroup().location]",
       "scale": null,
       "tags": {
         "Role": "[parameters('role')]",
@@ -271,7 +297,6 @@
             "computerNamePrefix": "[variables('computerNamePrefix')]",
             "adminUsername": "[variables('adminUserName')]",
             "adminPassword": "[variables('adminPassword')]",
-            "customData": "[variables('vmCustomData')]",
             "windowsConfiguration": {
               "provisionVMAgent": true,
               "enableAutomaticUpdates": true

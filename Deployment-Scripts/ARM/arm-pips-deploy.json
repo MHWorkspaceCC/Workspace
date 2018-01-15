@@ -33,21 +33,6 @@
     {
       "apiVersion": "2017-06-01",
       "type": "Microsoft.Network/publicIPAddresses",
-      "name": "[variables('webPipName')]",
-      "location": "[resourceGroup().location]",
-      "properties": {
-        "publicIPAddressVersion": "IPv4",
-        "publicIPAllocationMethod": "Dynamic",
-        "idleTimeoutInMinutes": 4,
-        "dnsSettings": {
-          "domainNameLabel": "[variables('webPipName')]"
-        }
-      },
-      "dependsOn": []
-    },
-    {
-      "apiVersion": "2017-06-01",
-      "type": "Microsoft.Network/publicIPAddresses",
       "name": "[variables('ftpPipName')]",
       "location": "[resourceGroup().location]",
       "properties": {

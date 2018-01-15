@@ -81,13 +81,10 @@
       "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-sql-server.ps1"
     },
 
-    "vmCustomData": {
-      "type": "string"
-    },
-
     "vmSize": {
       "type": "string"
     },
+
     "dbServerName": {
       "type": "string"
     }
@@ -140,8 +137,6 @@
     "wadcfgxstart": "[concat(variables('wadlogs'), variables('wadperfcounters1'), variables('wadperfcounters2'), '<Metrics resourceId=\"')]",
     "wadmetricsresourceid": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name , '/providers/', 'Microsoft.Compute/virtualMachines/')]",
     "wadcfgxend": "\"><MetricAggregation scheduledTransferPeriod=\"PT1H\"/><MetricAggregation scheduledTransferPeriod=\"PT1M\"/></Metrics></DiagnosticMonitorConfiguration></WadCfg>",
-
-    "vmCustomData": "[parameters('vmCustomData')]",
 
     "diagnosticsStorageAccountName": "[concat('stgdiag', replace(variables('baseName'), '-', ''))]",
     "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
@@ -252,7 +247,6 @@
           "computerName": "[variables('computerName')]",
           "adminUsername": "[variables('adminUserName')]",
           "adminPassword": "[variables('adminPassword')]",
-          "customData": "[variables('vmCustomData')]",
           "windowsConfiguration": {
             "provisionVMAgent": true,
             "enableAutomaticUpdates": false
