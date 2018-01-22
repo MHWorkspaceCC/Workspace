@@ -2,12 +2,35 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "environment": {
+      "type": "string"
+    },
+    "environmentCode": {
+      "type": "string"
+    },
+    "subscriptionCode": {
+      "type": "string"
+    },
+    "facility": {
+      "type": "string"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+
+    "location": {
+      "type": "string"
+    },
+
     "vnetCidrPrefix": {
       "type": "string"
     },
     "resourceNamePostfix": {
       "type": "string"
-    } 
+    }
   },
 
   "variables": {
@@ -39,6 +62,17 @@
       "apiVersion": "2017-06-01",
       "location": "[resourceGroup().location]",
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NSG",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "securityRules": [
           {
@@ -229,6 +263,17 @@
       "apiVersion": "2017-06-01",
       "location": "[resourceGroup().location]",
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NSG",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "securityRules": [
           {
@@ -402,6 +447,17 @@
       "apiVersion": "2017-06-01",
       "location": "[resourceGroup().location]",
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NSG",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "securityRules": [
           {
@@ -529,6 +585,17 @@
       "apiVersion": "2017-06-01",
       "location": "[resourceGroup().location]",
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NSG",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "securityRules": [
           {
@@ -671,6 +738,17 @@
       "apiVersion": "2017-06-01",
       "location": "[resourceGroup().location]",
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NSG",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "securityRules": [
           {
@@ -859,6 +937,17 @@
       "apiVersion": "2017-06-01",
       "location": "[resourceGroup().location]",
       "scale": null,
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NSG",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
       "properties": {
         "securityRules": [
           {

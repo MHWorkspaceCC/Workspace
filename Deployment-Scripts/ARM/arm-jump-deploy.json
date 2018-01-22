@@ -52,10 +52,8 @@
     "commandToExecute": {
       "type": "string",
       "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-jump-server.ps1"
-    },
-    "vmCustomData": {
-      "type": "string"
     }
+
   },
 
   "variables": {
@@ -89,7 +87,7 @@
     "jumpPipName": "[concat('pip-', variables('jumpBaseName'))]",
 
     "pipRg": "[concat('rg-pips', variables('baseName'))]",
-    "jumpPipId": "[resourceId(variables('pipRg'), 'Microsoft.Network/publicIPAddresses', variables('jumpPipName'))]",
+    "jumpPipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('jumpPipName'))]",
 
     "dataDogApiKey": "[parameters('dataDogApiKey')]",
 
@@ -99,8 +97,6 @@
     "wadcfgxstart": "[concat(variables('wadlogs'), variables('wadperfcounters1'), variables('wadperfcounters2'), '<Metrics resourceId=\"')]",
     "wadmetricsresourceid": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name , '/providers/', 'Microsoft.Compute/virtualMachines/')]",
     "wadcfgxend": "\"><MetricAggregation scheduledTransferPeriod=\"PT1H\"/><MetricAggregation scheduledTransferPeriod=\"PT1M\"/></Metrics></DiagnosticMonitorConfiguration></WadCfg>",
-
-    "vmCustomData": "[parameters('vmCustomData')]",
 
     "diagnosticsStorageAccountName": "[concat('stgdiag', replace(variables('baseName'), '-', ''))]",
     "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
@@ -116,10 +112,36 @@
 
   "resources": [
     {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('jumpPipName')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "PIP",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('jumpPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+    {
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('jumpNicName')]",
       "apiVersion": "2017-06-01",
-      "location": "[variables('location')]",
+      "location": "[resourceGroup().location]",
       "tags": {
         "Role": "[parameters('role')]",
         "ResourceType": "NIC",
@@ -156,6 +178,7 @@
         }
       },
       "dependsOn": [
+        "[variables('jumpPipId')]"
       ]
     },
 
@@ -163,7 +186,7 @@
       "type": "Microsoft.Compute/virtualMachines",
       "name": "[variables('jumpBoxName')]",
       "apiVersion": "2017-03-30",
-      "location": "[variables('location')]",
+      "location": "[resourceGroup().location]",
 
       "tags": {
         "Role": "[parameters('role')]",
@@ -223,7 +246,7 @@
           "type": "extensions",
           "name": "config-server",
           "apiVersion": "2017-03-30",
-          "location": "[variables('location')]",
+          "location": "[resourceGroup().location]",
           "dependsOn": [
             "[variables('jumpBoxName')]"
           ],
@@ -242,7 +265,7 @@
           "type": "Microsoft.Compute/virtualMachines/extensions",
           "name": "[concat(variables('jumpBoxName'), '/DataDogAgent')]",
           "apiVersion": "2017-03-30",
-          "location": "[variables('location')]",
+          "location": "[resourceGroup().location]",
           "scale": null,
           "properties": {
             "publisher": "Datadog.Agent",
@@ -261,7 +284,7 @@
           "type": "extensions",
           "name": "Microsoft.Insights.VMDiagnosticsSettings",
           "apiVersion": "2017-03-30",
-          "location": "[variables('location')]",
+          "location": "[resourceGroup().location]",
           "scale": null,
           "properties": {
             "publisher": "Microsoft.Azure.Diagnostics",
@@ -292,25 +315,5 @@
   ],
 
   "outputs": {
-    "region": {
-      "type": "string",
-      "value": "[resourceGroup().location]"
-    },
-    "vmName": {
-      "type": "string",
-      "value": "[variables('vmName')]"
-    },
-    "wadcfgxstart": {
-      "type": "string",
-      "value": "[variables('wadcfgxstart')]"
-    },
-    "wadmetricsresourceid": {
-      "type": "string",
-      "value": "[variables('wadmetricsresourceid')]"
-    },
-    "wadcfgxend": {
-      "type": "string",
-      "value": "[variables('wadcfgxend')]"
-    }
   }
 }

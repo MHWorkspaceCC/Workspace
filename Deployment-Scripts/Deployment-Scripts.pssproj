@@ -69,6 +69,7 @@
     <Compile Include="CSE\SqlConfigurationData.psd1" />
     <Compile Include="CSE\SqlStandaloneDSC.ps1" />
     <Compile Include="Invoke-Parallel.ps1" />
+    <Compile Include="jobs.ps1" />
     <Compile Include="Octopus\OctopusConfigure.ps1" />
     <Compile Include="old\deploy-db-disks.ps1" />
     <Compile Include="old\deploy-vnet.ps1" />
@@ -80,6 +81,9 @@
     <Compile Include="old\deploy-web-vmss.ps1" />
     <Compile Include="old\deploy-web.ps1" />
     <Compile Include="old\remove-vngs.ps1" />
+    <Compile Include="runner.ps1" />
+    <Compile Include="teardown.ps1" />
+    <Compile Include="tests.ps1" />
     <Compile Include="WorkspaceAZRM.ps1" />
   </ItemGroup>
   <ItemGroup>

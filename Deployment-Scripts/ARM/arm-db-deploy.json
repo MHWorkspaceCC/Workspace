@@ -127,7 +127,7 @@
     "dataDiskID": "[resourceId(variables('dataDiskRgName'), 'Microsoft.Compute/disks', variables('dataDiskName'))]",
 
     "pipRg": "[concat('rg-pips', variables('baseName'))]",
-    "dbPipId": "[resourceId(variables('pipRg'), 'Microsoft.Network/publicIPAddresses', variables('dbPipName'))]",
+    "dbPipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('dbPipName'))]",
 
     "dataDogApiKey": "[parameters('dataDogApiKey')]",
 
@@ -153,10 +153,37 @@
 
   "resources": [
     {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('dbPipName')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "PIP",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('dbPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+
+    {
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('dbNicName')]",
       "apiVersion": "2017-06-01",
-      "location": "[variables('location')]",
+      "location": "[resourceGroup().location]",
       "tags": {
         "Role": "[parameters('role')]",
         "ResourceType": "NIC",
@@ -166,7 +193,7 @@
         "Location": "[parameters('location')]",
         "Instance": "[parameters('instance')]",
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
-        "SubscriptionCode":  "[parameters('subscriptionCode')]" 
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
       },
 
       "properties": {
@@ -194,6 +221,7 @@
         }
       },
       "dependsOn": [
+        "[variables('dbPipId')]"
       ]
     },
 
@@ -201,7 +229,7 @@
       "type": "Microsoft.Compute/virtualMachines",
       "name": "[variables('dbName')]",
       "apiVersion": "2017-03-30",
-      "location": "[variables('location')]",
+      "location": "[resourceGroup().location]",
       "tags": {
         "Role": "[parameters('role')]",
         "ResourceType": "Server",
@@ -213,10 +241,6 @@
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
         "SubscriptionCode": "[parameters('subscriptionCode')]"
       },
-
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces/', variables('dbNicName'))]"
-      ],
 
       "properties": {
         "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
@@ -272,7 +296,7 @@
           "type": "extensions",
           "name": "configure-sql-server",
           "apiVersion": "2017-03-30",
-          "location": "[variables('location')]",
+          "location": "[resourceGroup().location]",
           "dependsOn": [
             "[variables('dbName')]"
           ],
@@ -291,7 +315,7 @@
           "type": "Microsoft.Compute/virtualMachines/extensions",
           "name": "[concat(variables('dbName'), '/DataDogAgent')]",
           "apiVersion": "2017-03-30",
-          "location": "[variables('location')]",
+          "location": "[resourceGroup().location]",
           "scale": null,
           "properties": {
             "publisher": "Datadog.Agent",
@@ -310,7 +334,7 @@
           "type": "extensions",
           "name": "Microsoft.Insights.VMDiagnosticsSettings",
           "apiVersion": "2017-03-30",
-          "location": "[variables('location')]",
+          "location": "[resourceGroup().location]",
           "scale": null,
           "properties": {
             "publisher": "Microsoft.Azure.Diagnostics",
@@ -331,6 +355,9 @@
             "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
           ]
         }
+      ],
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('dbNicName'))]"
       ]
     }
   ],

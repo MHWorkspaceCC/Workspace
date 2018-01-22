@@ -421,7 +421,7 @@
             ]
           }
         },
-        "overprovision": true
+        "overprovision": false
       },
       "dependsOn": [
         "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"

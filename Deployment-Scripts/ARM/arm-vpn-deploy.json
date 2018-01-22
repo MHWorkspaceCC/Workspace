@@ -35,7 +35,7 @@
     "peerVnetCidrPrefix": {
       "type": "string"
     },
-    "mainLocation": {
+    "location": {
       "type": "string"
     },
     "peerLocation": {
@@ -48,7 +48,7 @@
   "variables": {
     "thisFacility": "[parameters('facility')]",
     "thatFacility": "[parameters('peerFacility')]",
-    "thisLocation": "[parameters('mainLocation')]",
+    "thisLocation": "[parameters('location')]",
     "thatLocation": "[parameters('peerLocation')]",
     "thisAddressPrefix": "[parameters('mainVnetCidrPrefix')]",
     "thatAddressPrefix": "[parameters('peerVnetCidrPrefix')]",
@@ -70,8 +70,8 @@
     "thatPipName": "[concat('pip-vpn', variables('thatBaseName'))]",
     "thisBgpAddress": "[concat(variables('thisAddressPrefix'), '100.254')]",
     "thatBgpAddress": "[concat(variables('thatAddressPrefix'), '100.254')]",
-    "thisPipRgName": "[concat('rg-pips', variables('thisBaseName'))]",
-    "thatPipRgName": "[concat('rg-pips', variables('thatBaseName'))]",
+    "thisPipRgName": "[concat('rg-vnet', variables('thisBaseName'))]",
+    "thatPipRgName": "[concat('rg-vnet', variables('thatBaseName'))]",
     "thisVnetRgName": "[concat('rg-vnet', variables('thisBaseName'))]",
     "thatVnetRgName": "[concat('rg-vnet', variables('thatBaseName'))]",
     "sharedKey": "[parameters('sharedKey')]",
@@ -79,7 +79,7 @@
     "sharedState": {
       "thisFacility": "[parameters('facility')]",
       "thatFacility": "[parameters('peerFacility')]",
-      "thisLocation": "[parameters('mainLocation')]",
+      "thisLocation": "[parameters('location')]",
       "thatLocation": "[parameters('peerLocation')]",
       "thisVnetRgName": "[variables('thisVnetRgName')]",
       "thatVnetRgName": "[variables('thatVnetRgName')]",
@@ -100,17 +100,44 @@
   },
   "resources": [
     {
-      "type": "Microsoft.Network/virtualNetworkGateways",
-      "name": "[variables('sharedState').thisGatewayName]",
       "apiVersion": "2017-06-01",
-      "location": "[parameters('mainLocation')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('sharedState').thisPipName]",
+      "location": "[variables('sharedState').thisLocation]",
       "tags": {
         "Role": "[parameters('role')]",
-        "ResourceType": "VpnGateway",
+        "ResourceType": "PIP",
         "Environment": "[parameters('environment')]",
         "EnvironmentCode": "[parameters('environmentCode')]",
         "Facility": "[parameters('facility')]",
-        "Location": "[parameters('mainLocation')]",
+        "Location": "[variables('sharedState').thatLocation]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('sharedState').thisPipName]"
+        }
+      },
+      "dependsOn": []
+    },
+
+    {
+      "type": "Microsoft.Network/virtualNetworkGateways",
+      "name": "[variables('sharedState').thisGatewayName]",
+      "apiVersion": "2017-06-01",
+      "location": "[parameters('location')]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "VPNG",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
         "Instance": "[parameters('instance')]",
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]"
       },
@@ -154,6 +181,7 @@
         }
       },
       "dependsOn": [
+        "[resourceId(variables('sharedState').thisPipRgName, 'Microsoft.Network/publicIPAddresses', variables('sharedState').thisPipName)]"
       ]
     },
 
@@ -170,6 +198,33 @@
           "variables": {},
           "resources": [
             {
+              "apiVersion": "2017-06-01",
+              "type": "Microsoft.Network/publicIPAddresses",
+              "name": "[variables('sharedState').thatPipName]",
+              "location": "[variables('sharedState').thatLocation]",
+              "tags": {
+                "Role": "[parameters('role')]",
+                "ResourceType": "PIP",
+                "Environment": "[parameters('environment')]",
+                "EnvironmentCode": "[parameters('environmentCode')]",
+                "Facility": "[parameters('peerFacility')]",
+                "Location": "[parameters('peerLocation')]",
+                "Instance": "[parameters('instance')]",
+                "ResourceNamePostfix": "[parameters('peerResourceNamePostfix')]",
+                "SubscriptionCode": "[parameters('subscriptionCode')]"
+              },
+              "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4,
+                "dnsSettings": {
+                  "domainNameLabel": "[variables('sharedState').thatPipName]"
+                }
+              },
+              "dependsOn": []
+            },
+
+            {
               "type": "Microsoft.Network/virtualNetworkGateways",
               "name": "[variables('sharedState').thatGatewayName]",
               "location": "[variables('sharedState').thatLocation]",
@@ -177,7 +232,7 @@
               "scale": null,
               "tags": {
                 "Role": "[parameters('role')]",
-                "ResourceType": "VpnGateway",
+                "ResourceType": "VPNG",
                 "Environment": "[parameters('environment')]",
                 "EnvironmentCode": "[parameters('environmentCode')]",
                 "Facility": "[parameters('peerFacility')]",
@@ -222,7 +277,10 @@
                   "bgpPeeringAddress": "[variables('sharedState').thatBgpAddress]",
                   "peerWeight": 0
                 }
-              }
+              },
+              "dependsOn": [
+                "[resourceId(variables('sharedState').thatPipRgName, 'Microsoft.Network/publicIPAddresses', variables('sharedState').thatPipName)]"
+              ] 
             }
           ]
         }
@@ -235,15 +293,15 @@
       "type": "Microsoft.Network/connections",
       "name": "[variables('sharedState').thisVpnConnectionName]",
       "apiVersion": "2017-06-01",
-      "location": "[parameters('mainLocation')]",
+      "location": "[parameters('location')]",
       "scale": null,
       "tags": {
         "Role": "[parameters('role')]",
-        "ResourceType": "VpnConnection",
+        "ResourceType": "VPNC",
         "Environment": "[parameters('environment')]",
         "EnvironmentCode": "[parameters('environmentCode')]",
         "Facility": "[parameters('facility')]",
-        "Location": "[parameters('mainLocation')]",
+        "Location": "[parameters('location')]",
         "Instance": "[parameters('instance')]",
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]"
       },
@@ -289,7 +347,7 @@
               "scale": null,
               "tags": {
                 "Role": "[parameters('role')]",
-                "ResourceType": "VpnConnection",
+                "ResourceType": "VPNC",
                 "Environment": "[parameters('environment')]",
                 "EnvironmentCode": "[parameters('environmentCode')]",
                 "Facility": "[parameters('peerFacility')]",
@@ -324,6 +382,5 @@
     }
   ],
   "outputs": {
-    "sharedState": { "type": "object", "value": "[variables('sharedState')]" }
   }
 }
