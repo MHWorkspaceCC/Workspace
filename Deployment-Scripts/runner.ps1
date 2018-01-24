@@ -16,7 +16,7 @@ $ctx = Login-WorkspaceAzureAccount -environment "p" -slot 1 -facility "p" -subsc
 #Create-Base -ctx $ctx #-secondary
 #Build-KeyVault -ctx $ctx
 #Build-KeyVault -ctx $ctx -secondary
-Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("db") 
+Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("db") -primary -excludeNetwork
 #Teardown-Base -ctx $ctx -all
 #Create-Core -ctx $ctx -networkOnly -excludeVPN
 #Teardown-Core -ctx $ctx -includeServices

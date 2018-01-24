@@ -761,8 +761,8 @@ function Deploy-Jump{
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
 		[string]$adminPassword,
-		[string]$installersStorageAccountKey,
-		[string]$installersStorageAccountName 
+		[string]$installersStgAcctKey,
+		[string]$installersStgAcctName 
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey
 
@@ -853,7 +853,7 @@ function Deploy-ServicesVnetEntities{
 	$resourceGroupName = $ctx.GetResourceGroupName("svc", $secondary)
 	Execute-Deployment -templateFile "arm-svcvnet-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
-	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary)
+	Write-Host "Out: " $MyInvocation.MyCommand 
 }
 
 
@@ -875,21 +875,73 @@ function Check-IfDatabaseDiskIsPresent{
 	return $result
 }
 
-function Ensure-DatabaseDiskPresent{
+function Create-Disk{
 	param(
 		[Parameter(Mandatory=$true)]
 		[Context]$ctx,
-		[switch]$secondary
+		[switch]$secondary,
+		[string]$diskNamePrefix,
+		[int]$sizeInGB,
+		[string]$accountType="StandardLRS"
 	)
-	Write-Host "Ensuring existence of database disk:" $ctx.GetResourcePostfix($secondary)
+
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $sizeInGB $accountType
+
+	$diskName = $diskNamePrefix + "-" + $ctx.GetResourcePostfix($usage)
+	Write-Host "Disk name:" $diskName
+	$diskconfig = New-AzureRmDiskConfig -Location $ctx.GetLocation($secondary) -DiskSizeGB $sizeInGB -AccountType $accountType -OsType Windows -CreateOption Empty
+	New-AzureRmDisk -ResourceGroupName $ctx.GetResourceGroupName("disks", $secondary) -DiskName $diskName -Disk $diskconfig
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
+function Ensure-DiskPresent{
+	param(
+		[Parameter(Mandatory=$true)]
+		[Context]$ctx,
+		[switch]$secondary,
+		[string]$diskNamePrefix,
+		[int]$sizeInGB,
+		[string]$accountType="StandardLRS"
+	)
+	Write-Host "In:  " $MyInvocation.MyCommand  $ctx.GetResourcePostfix($secondary) $diskNamePrefix $sizeInGB $accountType
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	$diskPresent = Check-IfDatabaseDiskIsPresent -ctx $ctx -secondary:$secondary
+	$diskPresent = Check-IfDatabaseDiskIsPresent -ctx $ctx -secondary:$secondary 
 	if (!$diskPresent){
-		Write-Host "Disk did not exist"
-		Deploy-DatabaseDiskViaInitVM -ctx $ctx -secondary:$secondary
+		Write-Host "Disk did not exist - Creating"
+		#Deploy-DatabaseDiskViaInitVM -ctx $ctx -secondary:$secondary
+		Create-Disk -ctx $ctx -secondary:$secondary -sizeInGB $sizeInGB -diskNamePrefix $diskNamePrefix -accountType $accountType
+	}else{
+		Write-Host "Found the disk"
 	}
+
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
+function Delete-DiskFromVM{
+	param(
+		[Parameter(Mandatory=$true)]
+		[Context]$ctx,
+		[switch]$secondary,
+		[string]$vmNamePrefix,
+		[string]$diskNamePrefix
+	)
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $vmNamePrefix $diskNamePrefix
+
+	$diskName = $diskNamePrefix + "-" + $ctx.GetResourcePostfix($usage)
+	$virtualMachineName = $vmNamePrefix + "-" + $ctx.GetEnvironment($usage)
+	$vmResourceGroupName = $ctx.GetResourceGroupName("db", $secondary)
+	$virtualMachine = Get-AzureRmVM -ResourceGroupName $vmResourceGroupName -Name $virtualMachineName
+
+	Write-Host "Attempting to remove disk:" $diskName $virtualMachineName
+	Remove-AzureRmVMDataDisk -VM $virtualMachine -Name $diskName
+	Write-Host "Updating VM:"$vmResourceGroupName $virtualMachineName
+	Update-AzureRmVM -ResourceGroupName $vmResourceGroupName -VM $virtualMachine
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
 }
 
 function Deploy-DatabaseDiskViaInitVM{
@@ -1320,7 +1372,9 @@ function Create-Core{
 								   -usage $usage `
 								   -name $("Deploy-DB-" + $ctx.GetResourcePostfix($usage)) `
 								   -scriptToRun {
-										#Ensure-DatabaseDiskPresent -ctx $newctx -secondary:$usage
+ 									    Write-Host "Starting Deploy-DB subtask"
+										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "data1-sql1" -sizeInGB 64
+										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "init1-sql1" -sizeInGB 64
 									   
 									    $keyVaultName = $newctx.GetKeyVaultName($usage)
 
@@ -1342,6 +1396,10 @@ function Create-Core{
 												  -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword `
 												  -saUserName $dbSaUserName -saPassword $dbSaPassword `
 												  -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword 
+
+									    Delete-DiskFromVM -ctx $ctx -secondary:$secondary -diskNamePrefix "init1-db1" -vmNamePrefix "db1-db"
+
+ 									    Write-Host "Ending Deploy-DB subtask"
 									}
 			$jobs.Add($job)
 		}

@@ -123,8 +123,10 @@
     "dbPipName": "[concat('pip-db', variables('baseName'))]",
 
     "dataDiskName": "[concat('data1-sql1-db', variables('baseName'))]",
+    "initDiskName": "[concat('init1-sql1-db', variables('baseName'))]",
     "dataDiskRgName": "[concat('rg-disks', variables('baseName'))]",
     "dataDiskID": "[resourceId(variables('dataDiskRgName'), 'Microsoft.Compute/disks', variables('dataDiskName'))]",
+    "initDiskID": "[resourceId(variables('dataDiskRgName'), 'Microsoft.Compute/disks', variables('initDiskName'))]",
 
     "pipRg": "[concat('rg-pips', variables('baseName'))]",
     "dbPipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('dbPipName'))]",
@@ -241,7 +243,9 @@
         "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
         "SubscriptionCode": "[parameters('subscriptionCode')]"
       },
-
+      "identity": {
+        "type": "systemAssigned"
+      },
       "properties": {
         "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
         "storageProfile": {
@@ -263,6 +267,14 @@
               "createOption": "Attach",
               "managedDisk": {
                 "id": "[variables('dataDiskId')]"
+              }
+            },
+            {
+              "lun": 1,
+              "createOption": "Attach",
+              "diskSizeGB": 64,
+              "managedDisk": {
+                "id": "[variables('initDiskId')]"
               }
             }
           ]
@@ -292,6 +304,25 @@
         }
       },
       "resources": [
+        {
+          "type": "Microsoft.Compute/virtualMachines/extensions",
+          "name": "[concat(variables('vmName'),'/ManagedIdentityExtensionForWindows')]",
+          "apiVersion": "2016-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.ManagedIdentity",
+            "type": "ManagedIdentityExtensionForWindows",
+            "typeHandlerVersion": "1.0",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "port": 50342
+            },
+            "protectedSettings": {}
+          }
+        },
         {
           "type": "extensions",
           "name": "configure-sql-server",

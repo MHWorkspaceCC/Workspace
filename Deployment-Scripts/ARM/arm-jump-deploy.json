@@ -114,7 +114,7 @@
     "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
 
     "fileUris": "[parameters('fileUris')]",
-    "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted ', ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -installersStgAcctName ', parameters('installersStgAcctName'), ' -File configure-jump-server.ps1')]"
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -installersStgAcctName ', parameters('installersStgAcctName'))]"
   },
 
   "resources": [
