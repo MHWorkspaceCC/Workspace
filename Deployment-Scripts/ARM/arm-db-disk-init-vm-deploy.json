@@ -79,7 +79,7 @@
     "dataDiskName": "[concat(parameters('diskName'), '-', parameters('databaseServerId'), '-db', variables('baseName'))]",
     "dataDiskSku": "[parameters('dataDiskSku')]",
 
-    "vmPipName": "[concat('pip-dbdi-', variables('vmBaseName'))]"
+    "vmPipName": "[concat('pip-', variables('vmBaseName'))]"
   },
 
   "resources": [

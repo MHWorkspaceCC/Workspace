@@ -70,6 +70,7 @@
     <Compile Include="CSE\SqlStandaloneDSC.ps1" />
     <Compile Include="Invoke-Parallel.ps1" />
     <Compile Include="jobs.ps1" />
+    <Compile Include="misc.ps1" />
     <Compile Include="Octopus\OctopusConfigure.ps1" />
     <Compile Include="old\deploy-db-disks.ps1" />
     <Compile Include="old\deploy-vnet.ps1" />

@@ -10,10 +10,17 @@
  
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 #$ctx = Login-WorkspacePrimaryProd
-$ctx = Login-WorkspaceAzureAccount -environmentCode "p0" -facilityCode "p" -subscriptionCode "ws"
-#Create-Core -ctx $ctx 
+$ctx = Login-WorkspaceAzureAccount -environment "p" -slot 0 -facility "p" -subscription "w"
+Deploy-NextEnvironmentInstance -ctx $ctx -includeBase 
+
+#Create-Base -ctx $ctx -secondary
+#Build-KeyVault -ctx $ctx
+#Build-KeyVault -ctx $ctx -secondary
+#Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("web") 
+#Teardown-Base -ctx $ctx -all
 #Create-Core -ctx $ctx -networkOnly -excludeVPN
-Teardown-Core -ctx $ctx
+#Teardown-Core -ctx $ctx -includeServices
+#Teardown-All -ctx $ctx
 #Create-Core -ctx $ctx -computeElements @("web") -excludeVPN -excludeNetwork
 #Create-Core -ctx $ctx -secondary -computeOnly -computeElements @("ftp") -ftpScaleSetSize 1
 #Build-KeyVault -ctx $ctx -secondary

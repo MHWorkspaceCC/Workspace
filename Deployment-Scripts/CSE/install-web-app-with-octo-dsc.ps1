@@ -56,7 +56,7 @@ Write-Log $("environment: " + $environment)
 
 Write-Log('Staring DSC config of octopus app')
 
-WebAppConfig -ApiKey $octoApiKey -OctopusServerUrl $octoUrl -Environments @("P0") -Roles @("Web-VMSS", $environment) -ServerPort 10943
+WebAppConfig -ApiKey $octoApiKey -OctopusServerUrl $octoUrl -Environments @($environment) -Roles @("Web-VMSS") -ServerPort 10943
 
 Write-Log('Built config - starting configuration')
 Start-DscConfiguration .\WebAppConfig -Verbose -wait
