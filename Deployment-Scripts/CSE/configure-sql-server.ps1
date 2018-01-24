@@ -1,6 +1,6 @@
-    param(
-	[string]$installersStgAcctKey = "KRihdvk4dDFQkOloPqpk0P5DtnpNOr13Hh9TfBywjyjcE7wSgLSgNud8JnEzTZI4ZAbKnytoFiLfI0kJZ4z4gQ==",
-	[string]$installersStgAcctName = "stginstallerswsp0d",
+ param(
+	[string]$installersStgAcctKey = "bB4GIR3BQI7A4EdZ1VYx38yY8ZPCthGkle38gvnQSJ9VtyBjqkzuMbBdbxxIUYeGBSZviaVVV+Pf2CQJjl9Rbw==",
+	[string]$installersStgAcctName = "stginstallersws0p",
 	[string]$saUserName = "wsadmin",
 	[string]$saPassword = "Workspace!DB!2017",
 	[string]$loginUserName = "wsapp",
@@ -24,7 +24,6 @@ Function Write-Log
 
 Try
 {
-	<#
 	Write-Log("In configure sql server")
 	Write-Log("Installers key: " + $installersStgAcctKey)
 	Write-Log("saUsername: " + $saUsername)
@@ -40,6 +39,55 @@ Try
 	Write-Log("databaseName: " + $databaseName)
 	Write-Log("databaseMdfFile: " + $databaseMdfFile)
 
+	$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
+    if ($err -ne $null){
+        Write-Host "Did not find data disk so creating"
+        	$dataDisk = Get-Disk | `
+        		Where partitionstyle -eq 'raw' | `
+                Select-Object -first 1
+
+        $dataDisk | 
+		    Initialize-Disk -PartitionStyle MBR -PassThru | `
+		    New-Partition -AssignDriveLetter -UseMaximumSize | `
+		    Format-Volume -FileSystem NTFS -NewFileSystemLabel "WorkspaceDB" -Confirm:$false | 
+		    Write-Log
+
+        $acl = Get-Acl $filename
+        Write-Host $acl
+        $ar = New-Object  system.security.accesscontrol.filesystemaccessrule("everyone","FullControl","Allow")
+        $acl.SetAccessRule($ar)
+        Set-Acl $filename $acl	
+    }
+
+	$err = $null
+	$dataVolume = Get-Volume -FileSystemLabel InitDisk -ErrorVariable err -ErrorAction SilentlyContinue
+    if ($err -ne $null){
+        Write-Host "Did not find init disk so creating"
+		$initDisk = Get-Disk | `
+			Where partitionstyle -eq 'raw' | `
+			Select-Object -first 1
+
+		$initDisk | 
+			Initialize-Disk -PartitionStyle MBR -PassThru | `
+			New-Partition -AssignDriveLetter -UseMaximumSize | `
+			Format-Volume -FileSystem NTFS -NewFileSystemLabel "InitDisk" -Confirm:$false | 
+			Write-Log
+
+    }
+
+	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+	Write-Log("The data disk drive letter is " + $dataDiskLetter)
+
+	$initDiskLetter = (Get-Volume -FileSystemLabel InitDisk).DriveLetter
+	Write-Log("The init disk drive letter is " + $initDiskLetter)
+
+    # make sure data disk has good permissions
+    $acl = Get-Acl $($dataDiskLetter + ":\")
+    Write-Host $acl
+    $ar = New-Object  system.security.accesscontrol.filesystemaccessrule("everyone","FullControl","Allow")
+    $acl.SetAccessRule($ar)
+    Set-Acl $($dataDiskLetter + ":\") $acl	
+
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -54,12 +102,14 @@ Try
 
 	$ssmsInstallBlobName = "SSMS-Setup-ENU.exe"
 	$destinationSqlIso = "d:\sqlserver.iso"
-	$destinationSSMS = "d:\SSMS-Setup-ENU.exe"
+	#$destinationSSMS = "d:\SSMS-Setup-ENU.exe"
 
 	Write-Log("Starting copy of installer files")
 	$storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
 	Write-Log("Starting copy of SQL Server ISO")
 	Get-AzureStorageBlobContent -Blob $sqlInstallBlobName -Container $containerName -Destination $destinationSqlIso -Context $storageContext
+    Wirte-Log("Copying database backup")
+	Get-AzureStorageBlobContent -Blob "av2016.bak" -Container "dbbackups" -Destination $($initDiskLetter + ":\aw2016.bak") -Context $storageContext
 #	Write-Log("Starting copy of SSMS installer")
 #	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
 
@@ -100,19 +150,16 @@ Try
 	Dismount-DiskImage -ImagePath d:\sqlserver.iso
 	Write-Log("Cleaned up")
 	Remove-Item -Path $destinationSqlIso
-	Remove-Item -Path $destinationSSMS
+	#Remove-Item -Path $destinationSSMS
     Remove-Item -Path d:\log*.txt
     Remove-Item -Path d:\ssms-*.txt
    
-	Write-Log("Downloading database backup")
-    wget https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2016.bak -OutFile "e:\av2016.bak" -UseBasicParsing 
+#	Write-Log("Downloading database backup")
+#    wget https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2016.bak -OutFile "e:\av2016.bak" -UseBasicParsing 
 	Write-Log("Restoring database")
  
-	$dbCommand = "RESTORE DATABASE AdventureWorks FROM DISK = N'e:\av2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO 'e:\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO 'e:\AdventureWorks2016.ldf',REPLACE"
+	$dbCommand = "RESTORE DATABASE AdventureWorks FROM DISK = N'" + $initDiskLetter + ":\aw2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO '" + $dataDiskLetter + ":\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO '" + $dataDiskLetter + ":\AdventureWorks2016.ldf',REPLACE"
 	Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
-
- 
-
 
     Write-Log("Cofiguring database")
     $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
@@ -160,7 +207,6 @@ Try
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 	Write-Log("All done!")
-	#>
 }
 Catch
 {
@@ -168,6 +214,8 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
+ 
  
  
  

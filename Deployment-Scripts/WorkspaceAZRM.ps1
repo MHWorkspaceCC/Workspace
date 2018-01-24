@@ -857,15 +857,15 @@ function Deploy-ServicesVnetEntities{
 }
 
 
-function Check-IfDatabaseDiskIsPresent{
+function Check-IfDiskIsPresent{
 	param(
 		[Parameter(Mandatory=$true)]
 		[Context]$ctx,
-		[switch]$secondary
+		[switch]$secondary,
+		[string]$diskName
 	)
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
-	$diskname = "data1-sql1-db-" + $ctx.GetResourcePostfix($secondary) # wsp0d
 	$rgn = $ctx.GetResourceGroupName("disks", $secondary)
 	Write-Host "Checking existence of:" $diskname $rgn
 	$disk = Get-AzureRmDisk -DiskName $diskname -ResourceGroupName $rgn -ErrorAction SilentlyContinue -ErrorVariable err
@@ -1373,8 +1373,8 @@ function Create-Core{
 								   -name $("Deploy-DB-" + $ctx.GetResourcePostfix($usage)) `
 								   -scriptToRun {
  									    Write-Host "Starting Deploy-DB subtask"
-										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "data1-sql1" -sizeInGB 64
-										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "init1-sql1" -sizeInGB 64
+										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "data1-sql1-db" -sizeInGB 64
+										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "init1-sql1-db" -sizeInGB 64
 									   
 									    $keyVaultName = $newctx.GetKeyVaultName($usage)
 
@@ -1397,7 +1397,7 @@ function Create-Core{
 												  -saUserName $dbSaUserName -saPassword $dbSaPassword `
 												  -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword 
 
-									    Delete-DiskFromVM -ctx $ctx -secondary:$secondary -diskNamePrefix "init1-db1" -vmNamePrefix "db1-db"
+									    Delete-DiskFromVM -ctx $ctx -secondary:$secondary -diskNamePrefix "init1-db1-db" -vmNamePrefix "sql1-db"
 
  									    Write-Host "Ending Deploy-DB subtask"
 									}
