@@ -52,8 +52,15 @@
     "commandToExecute": {
       "type": "string",
       "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-jump-server.ps1"
-    }
+    },
 
+    "installersStgAcctKey": {
+      "type": "string"
+    },
+
+    "installersStgAcctName": {
+      "type": "string"
+    }
   },
 
   "variables": {
@@ -107,7 +114,7 @@
     "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
 
     "fileUris": "[parameters('fileUris')]",
-    "commandToExecute": "[parameters('commandToExecute')]"
+    "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted ', ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -installersStgAcctName ', parameters('installersStgAcctName'), ' -File configure-jump-server.ps1')]"
   },
 
   "resources": [

@@ -760,7 +760,9 @@ function Deploy-Jump{
 		[string]$diagnosticStorageAccountKey,
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
-		[string]$adminPassword
+		[string]$adminPassword,
+		[string]$installersStorageAccountKey,
+		[string]$installersStorageAccountName 
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey
 
@@ -773,6 +775,8 @@ function Deploy-Jump{
 	$parameters["dataDogApiKey"] = $dataDogApiKey
 	$parameters["adminUserName"] = $adminUserName
 	$parameters["adminPassword"] = $adminPassword
+	$parameters["installersStgAcctKey"] = $installersStgAcctKey
+	$parameters["installersStgAcctName"] = $installersStgAcctName
 
 	$resourceGroupName = $ctx.GetResourceGroupName("jump", $secondary)
 	Execute-Deployment -templateFile "arm-jump-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
@@ -1289,27 +1293,34 @@ function Create-Core{
 
 			Wait-ForJobsToComplete $jobs
 		}     
+	}
+
+	if ($networkOnly) { return }
+
+	$jobs.Clear()
+
+	if ($vpnOnly -and !$excludeVPN -and !$computeOnly -and !$excludeNetwork){
 
 		if (!$excludeNetwork -and !$excludeVPN -or $vpnOnly){
-			Deploy-VPN -ctx $ctx
-		}
-
-		if ($networkOnly -or $vpnOnly){
-			return
+				$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
+				    	-usage $usage `
+						-name $("Deploy-VNET-" + $ctx.GetResourcePostfix($usage)) `
+						-scriptToRun {
+							Deploy-VPN -ctx $new ctx
+						}
+				$jobs.Add($job) | Out-Null
 		}
 	}
 
-	$jobs.Clear()
 
 	if ("db" -in $computeElements){
 		foreach ($usage in $facilities){
 
-			$installersStorageAccountName2 = $ctx.GetSharedStorageAccountName("installers", $true)
 			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
 								   -usage $usage `
 								   -name $("Deploy-DB-" + $ctx.GetResourcePostfix($usage)) `
 								   -scriptToRun {
-										Ensure-DatabaseDiskPresent -ctx $newctx -secondary:$usage
+										#Ensure-DatabaseDiskPresent -ctx $newctx -secondary:$usage
 									   
 									    $keyVaultName = $newctx.GetKeyVaultName($usage)
 
@@ -1406,11 +1417,14 @@ function Create-Core{
 							$keyVaultName = $newctx.GetKeyVaultName($usage)
 							$jumpAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "JumpServerAdminName"
 							$jumpAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "JumpServerAdminPassword"
+							$installersStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey"
+							$installersStorageAccountName = $newctx.GetSharedStorageAccountName("installers", $usage)
 
 							Deploy-Jump -ctx $newctx -secondary:$usage `
 									   -diagnosticStorageAccountKey $diagStorageAccountKey `
 									   -dataDogApiKey $dataDogApiKey `
-									   -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword 
+									   -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword `
+ 									   -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountName 
 			}
 			$jobs.Add($job)
 		}
@@ -1512,10 +1526,7 @@ function Teardown-Base{
 		[Context]$ctx,
 		[switch]$primary,
 		[switch]$secondary,
-#		[switch]$includeServices,
-		[switch]$includeFiles,
-		[switch]$includeDatabaseDisk,
-		[switch]$all
+		[switch]$includeFiles
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.environment $ctx.facility $ctx.subscription $primary $secondary $includeServices $includeFiles
 
@@ -1524,8 +1535,6 @@ function Teardown-Base{
 
 	foreach ($usage in $usages){
 		Teardown-DiagnosticsEntities -ctx $ctx -secondary:$usage
-		if ($includeDatabaseDisk -or $all) { Teardown-DatabaseDisk -ctx $ctx -secondary:$usage }
-		#if ($includeServices -or $all) { Teardown-Services -ctx $ctx -secondary:$usage }
 		if ($includeFiles -or $all) { Teardown-AzureFilesEntities -ctx $ctx -secondary:$usage }
 	}
 
@@ -1534,10 +1543,21 @@ function Teardown-Base{
 function Teardown-All{
 	param(
 		[Context]$ctx,
-		[switch]$includeServices
+		[switch]$primary,
+		[switch]$secondary,
+		[switch]$includeDatabaseDisk=$false
 	)
-	Teardown-Base -ctx $ctx -all
-	Teardown-Core -ctx $ctx -all
+
+	$jobs = New-Object System.Collections.ArrayList
+	$usages = [Context]::GetFacilityUsages($primary, $secondary)
+
+	foreach ($usage in $usages){
+		Teardown-Base -ctx $ctx -secondary:$usage  
+		Teardown-Core -ctx $ctx -secondary:$usage 
+
+		# has to be done afer core, and technically after the database is downed
+		if ($includeDatabaseDisk) { Teardown-DatabaseDisk -ctx $ctx -secondary:$usage }
+	}
 }
 
 function Teardown-CoreEntities{
@@ -1973,7 +1993,9 @@ function Deploy-NextEnvironmentInstance{
 		[Context]$ctx,
 		[switch]$primary,
 		[switch]$secondary,
-		[switch]$includeBase
+		[switch]$includeBase,
+		[int]$webScaleSetSize=2,
+		[int]$ftpScaleSetSize=2
 	)
 
 	Write-Host "Starting deploy of next environment" $ctx.environment $ctx.facility $ctx.subscription $primary $secondary $includeBase
@@ -1985,7 +2007,7 @@ function Deploy-NextEnvironmentInstance{
 	$newCtx = Create-NextEnvironmentSlotContext -ctx $ctx -instanceId $instanceId
 
 	if ($includeBase) { Create-Base -ctx $newCtx }
-	Create-Core -ctx $newCtx -primary:$primary -secondary:$secondary
+	Create-Core -ctx $newCtx -primary:$primary -secondary:$secondary -webScaleSetSize $webScaleSetSize -ftpScaleSetSize $ftpScaleSetSize
 
 	return $newCtx
 }
