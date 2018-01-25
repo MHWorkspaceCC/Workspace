@@ -72,7 +72,6 @@ Try
 			New-Partition -AssignDriveLetter -UseMaximumSize | `
 			Format-Volume -FileSystem NTFS -NewFileSystemLabel "InitDisk" -Confirm:$false | 
 			Write-Log
-
     }
 
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
@@ -108,7 +107,7 @@ Try
 	$storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
 	Write-Log("Starting copy of SQL Server ISO")
 	Get-AzureStorageBlobContent -Blob $sqlInstallBlobName -Container $containerName -Destination $destinationSqlIso -Context $storageContext
-    Wirte-Log("Copying database backup")
+    Write-Log("Copying database backup")
 	Get-AzureStorageBlobContent -Blob "av2016.bak" -Container "dbbackups" -Destination $($initDiskLetter + ":\aw2016.bak") -Context $storageContext
 #	Write-Log("Starting copy of SSMS installer")
 #	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext

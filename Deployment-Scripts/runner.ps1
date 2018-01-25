@@ -16,7 +16,7 @@ $ctx = Login-WorkspaceAzureAccount -environment "p" -slot 1 -facility "p" -subsc
 #Create-Base -ctx $ctx #-secondary
 #Build-KeyVault -ctx $ctx
 #Build-KeyVault -ctx $ctx -secondary
-Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("db") -primary -excludeNetwork
+#Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("db")  -excludeNetwork
 #Teardown-Base -ctx $ctx -all
 #Create-Core -ctx $ctx -networkOnly -excludeVPN
 #Teardown-Core -ctx $ctx -includeServices
@@ -34,7 +34,7 @@ Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -compute
 #Deploy-ServicesVnetEntities -ctx $ctx
 #Delete-AllResourcesInRole -ctx $ctx -category "svc" -role "OCTO"
 #Deploy-OctoServer -ctx $ctx
-#Stop-ComputeResources -ctx $ctx #-usePeer $true #-includeServicesVMs
+Stop-ComputeResources -ctx $ctx #-usePeer $true #-includeServicesVMs
 #Start-ComputeResources -ctx $ctx
 
 #Write-AllWorkspaceEntitiesToCSV
