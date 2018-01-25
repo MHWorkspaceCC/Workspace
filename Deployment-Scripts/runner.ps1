@@ -10,7 +10,7 @@
  
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 #$ctx = Login-WorkspacePrimaryProd
-$ctx = Login-WorkspaceAzureAccount -environment "p" -slot 1 -facility "p" -subscription "w"
+$ctx = Login-WorkspaceAzureAccount -environment "p" -slot 1 -facility "p" -subscription "w" -primary
 #Deploy-NextEnvironmentInstance -ctx $ctx -includeBase -webScaleSetSize 1 -ftpScaleSetSize 1
 
 #Create-Base -ctx $ctx #-secondary
@@ -34,7 +34,7 @@ $ctx = Login-WorkspaceAzureAccount -environment "p" -slot 1 -facility "p" -subsc
 #Deploy-ServicesVnetEntities -ctx $ctx
 #Delete-AllResourcesInRole -ctx $ctx -category "svc" -role "OCTO"
 #Deploy-OctoServer -ctx $ctx
-Stop-ComputeResources -ctx $ctx #-usePeer $true #-includeServicesVMs
+#Stop-ComputeResources -ctx $ctx #-usePeer $true #-includeServicesVMs
 #Start-ComputeResources -ctx $ctx
 
 #Write-AllWorkspaceEntitiesToCSV

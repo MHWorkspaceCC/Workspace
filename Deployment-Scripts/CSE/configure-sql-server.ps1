@@ -151,7 +151,7 @@ Try
 	Remove-Item -Path $destinationSqlIso
 	#Remove-Item -Path $destinationSSMS
     Remove-Item -Path d:\log*.txt
-    Remove-Item -Path d:\ssms-*.txt
+    #Remove-Item -Path d:\ssms-*.txt
    
 #	Write-Log("Downloading database backup")
 #    wget https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2016.bak -OutFile "e:\av2016.bak" -UseBasicParsing 
