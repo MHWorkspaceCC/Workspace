@@ -3,24 +3,46 @@
 #
 
 . .\Deployment-Scripts\WorkspaceAZRM.ps1
-#. .\Deployment-Scripts\Invoke-Parallel.ps1
-
-#. .\Deployment-Scripts\Invoke-Parallel.ps1
-
  
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 #$ctx = Login-WorkspacePrimaryProd
-$ctx = Login-WorkspaceAzureAccount -environment "p" -slot 1 -facility "p" -subscription "w" -primary
-#Deploy-NextEnvironmentInstance -ctx $ctx -includeBase -webScaleSetSize 1 -ftpScaleSetSize 1
+$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p"
+#Cancel-ActiveDeployments -ctx $ctx
+#Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("web", "db") 
+#Cancel-ActiveDeployments -ctx $ctx
+#Create-Core -ctx $ctx -baseOnly -excludeNetwork 
+Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+#Deploy-NextEnvironmentInstance -ctx $ctx -includeBase -webScaleSetSize 1 -ftpScaleSetSize 1 -computeElements @("web", "db")
+#Build-KeyVault -ctx $ctx 
+#Build-KeyVault -ctx $ctx -secondary
+
+<#	
+	$jobs = New-Object System.Collections.ArrayList
+
+	$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
+				    -usage $false `
+					-name $("Build-KeyVault" + "-" + $ctx.GetResourcePostfix($secondary)) `
+					-scriptToRun {
+Create-KeyVaultSecrets -ctx $newctx -secondary:$false
+#						Build-KeyVault -ctx $newctx -secondary:$secondary
+					}
+	$jobs.Add($job) | Out-Null
+	
+	Wait-ForJobsToComplete $jobs
+
+
+#Create-KeyVaultSecrets -ctx $ctx -secondary:$false
+
+
 
 #Create-Base -ctx $ctx #-secondary
 #Build-KeyVault -ctx $ctx
 #Build-KeyVault -ctx $ctx -secondary
-#Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("db")  -excludeNetwork
 #Teardown-Base -ctx $ctx -all
 #Create-Core -ctx $ctx -networkOnly -excludeVPN
-#Teardown-Core -ctx $ctx -includeServices
-#Teardown-All -ctx $ctx #-includeDatabaseDisk
+
+#Teardown-Core -ctx $ctx -filesOnly
+#Teardown-All -ctx $ctx -includeDatabaseDisk
 #Create-Core -ctx $ctx -computeElements @("web") -excludeVPN -excludeNetwork
 #Create-Core -ctx $ctx -secondary -computeOnly -computeElements @("ftp") -ftpScaleSetSize 1
 #Build-KeyVault -ctx $ctx -secondary

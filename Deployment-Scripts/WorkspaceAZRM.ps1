@@ -114,8 +114,8 @@ Class Context{
 	[string]$peerfacility
 	[string]$resourcePostfix
 	[string]$peerResourcePostfix
-	[string]$sharedResourcePostfix
-	[string]$sharedPeerResourcePostfix
+	#[string]$sharedResourcePostfix
+	#[string]$sharedPeerResourcePostfix
 	[string]$location
 	[string]$peerLocation
 	[string]$vnetCidrPrefix
@@ -133,8 +133,8 @@ Class Context{
 		if ($this.peerfacility -eq $null) { throw "peerfacility cannot be null" }
 		if ($this.resourcePostfix -eq $null) { throw "resourcePostfix cannot be null" }
 		if ($this.peerResourcePostfix -eq $null) { throw "peerResourcePostfix cannot be null" }
-		if ($this.sharedResourcePostfix -eq $null) { throw "sharedResourcePostfix cannot be null" }
-		if ($this.sharedPeerResourcePostfix -eq $null) { throw "sharedPeerResourcePostfix cannot be null" }
+		#if ($this.sharedResourcePostfix -eq $null) { throw "sharedResourcePostfix cannot be null" }
+		#if ($this.sharedPeerResourcePostfix -eq $null) { throw "sharedPeerResourcePostfix cannot be null" }
 		if ($this.location -eq $null) { throw "location cannot be null" }
 		if ($this.peerLocation -eq $null) { throw "peerLocation cannot be null" }
 		if ($this.vnetCidrPrefix -eq $null) { throw "vnetCidrPrefix cannot be null" }
@@ -151,14 +151,14 @@ Class Context{
 		return "vmss-" + $category + $this.GetResourcePostfix($peer)
 	}
 
-	[string] GetSharedResourceGroupName($resourceType, $usePeer=$false){
+	[string] GetSharedResourceGroupName($resourceCategory, $usePeer=$false){
 		if (!$usePeer){
-			$postfix = $this.sharedResourcePostfix
+			$facil = $this.facility
 		}
 		else{
-			$postfix = $this.sharedPeerResourcePostfix
+			$facil = $this.peerfacility
 		}
-		return "rg-" + $resourceType + "-" + $postfix
+		return "rg-" + $resourceCategory + "-" + $this.subscription + "s0" + $facil
 	}
 
 	[string] GetStorageAccountName($resourceType, $usePeer=$false){
@@ -171,14 +171,14 @@ Class Context{
 		return "stg" + $resourceType + $postfix	
 	}
 
-	[string] GetSharedStorageAccountName($resourceType, $usePeer=$false){
+	[string] GetSharedStorageAccountName($resourceCategory, $usePeer=$false){
 		if (!$usePeer){
-			$postfix = $this.sharedResourcePostfix
+			$facil = $this.facility
 		}
 		else{
-			$postfix = $this.sharedPeerResourcePostfix
+			$facil = $this.peerfacility
 		}
-		return "stg" + $resourceType + $postfix	
+		return "stg" + $resourceCategory + $this.subscription + "s0" + $facil
 	}
 
 	[string] GetLocation($usePeer = $false){
@@ -218,25 +218,25 @@ Class Context{
 
 	[string] GetSharedResourcePostfix($usePeer = $false){
 		if (!$usePeer){
-			return $this.sharedResourcePostfix
+			return $this.subscription + "s0" + $this.facility
 		}
-		return $this.sharedPeerResourcePostfix
+		return $this.subscription + "s0" + $this.peerfacility
 	}
-
+	<#
 	static [string] BuildSharedResourcePostfix([Context]$ctx, $usePeer){
 		if (!$usePeer){
 			return $ctx.subscription + "s0" + $ctx.facility
 		}
 		return $ctx.subscription + "s0" + $ctx.peerfacility
 	}
-
+	#>
 	static [object] GetFacilityUsages($primary, $secondary){
 		if (!$primary -and !$secondary){ return @($false, $true) }
 		if ($primary -and $secondary){ return @($false, $true) }
 		if ($primary -and !$secondary){ return @($false) }
 		return @($true)
 	}
-
+	
 	<#
 	[string] Getslot(){
 		return $this.environment.Substring(1, 1)
@@ -245,10 +245,6 @@ Class Context{
 	[string] GetKeyVaultName($usePeer){
 		$keyVaultName = "kv-svc-" + $this.GetResourcePostfix($usePeer)
 		return $keyVaultName
-	}
-
-	[string] GetEnvironment(){
-		return $this.environment.Substring(0, 1)
 	}
 
 	static [Context]newEnvironmentContextFrom($fromCtx, $environment, $slot){
@@ -262,8 +258,8 @@ Class Context{
 		$ctx.subscription = $fromCtx.subscription
 		$ctx.resourcePostfix = [Context]::BuildResourcePostfix($ctx, $false)
 		$ctx.peerResourcePostfix = [Context]::BuildResourcePostfix($ctx, $true)
-		$ctx.sharedResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
-		$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $true)
+		#$ctx.sharedResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
+		#$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $true)
 		$ctx.location = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.facility)
 		$ctx.peerLocation = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.peerfacility)
 		$ctx.vnetCidrPrefix = [EnvironmentAndFacilitiesInfo]::CalculateVnetCidrPrefix($ctx.environment, $ctx.slot, $ctx.facility)
@@ -341,8 +337,8 @@ function Login-WorkspaceAzureAccount{
 	$ctx.subscription = $subscription
 	$ctx.resourcePostfix = [Context]::BuildResourcePostfix($ctx, $false)
 	$ctx.peerResourcePostfix = [Context]::BuildResourcePostfix($ctx, $true)
-	$ctx.sharedResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
-	$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $true)
+	#$ctx.sharedResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $false)
+	#$ctx.sharedPeerResourcePostfix = [Context]::BuildSharedResourcePostfix($ctx, $true)
 	$ctx.location = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.facility)
 	$ctx.peerLocation = [EnvironmentAndFacilitiesInfo]::GetFacilityLocation($ctx.peerfacility)
 	$ctx.vnetCidrPrefix = [EnvironmentAndFacilitiesInfo]::CalculateVnetCidrPrefix($ctx.environment, $ctx.slot, $ctx.facility)
@@ -460,7 +456,7 @@ function Ensure-ResourceGroup{
 	if ($rg -eq $null)
 	{
 		Write-Host "Resource group did not exist.  Creating..."
-		New-AzureRmResourceGroup -Name $resourceGroupName -Location $location
+		New-AzureRmResourceGroup -Name $resourceGroupName -Location $location | Out-Null
 		Write-Host "Created " $resourceGroupName "in" $location
 	}
 	else
@@ -559,6 +555,7 @@ function Deploy-StorageAccount{
 
 function Ensure-StorageAccount{
 	param(
+		[Context]$ctx,
 		[Parameter(Mandatory=$true)]
 		[string]$resourceGroupName,
 		[Parameter(Mandatory=$true)]
@@ -880,14 +877,13 @@ function Create-Disk{
 		[Parameter(Mandatory=$true)]
 		[Context]$ctx,
 		[switch]$secondary,
-		[string]$diskNamePrefix,
+		[string]$diskName,
 		[int]$sizeInGB,
 		[string]$accountType="StandardLRS"
 	)
 
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $sizeInGB $accountType
 
-	$diskName = $diskNamePrefix + "-" + $ctx.GetResourcePostfix($usage)
 	Write-Host "Disk name:" $diskName
 	$diskconfig = New-AzureRmDiskConfig -Location $ctx.GetLocation($secondary) -DiskSizeGB $sizeInGB -AccountType $accountType -OsType Windows -CreateOption Empty
 	New-AzureRmDisk -ResourceGroupName $ctx.GetResourceGroupName("disks", $secondary) -DiskName $diskName -Disk $diskconfig
@@ -907,12 +903,14 @@ function Ensure-DiskPresent{
 	Write-Host "In:  " $MyInvocation.MyCommand  $ctx.GetResourcePostfix($secondary) $diskNamePrefix $sizeInGB $accountType
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
+	Ensure-ResourceGroup -ctx $ctx -category "disks" -secondary:$secondary
 
-	$diskPresent = Check-IfDatabaseDiskIsPresent -ctx $ctx -secondary:$secondary 
+	$diskName = $diskNamePrefix + "-" + $ctx.GetResourcePostfix($secondary)
+
+	$diskPresent = Check-IfDiskIsPresent -ctx $ctx -secondary:$secondary -diskName $diskName
 	if (!$diskPresent){
 		Write-Host "Disk did not exist - Creating"
-		#Deploy-DatabaseDiskViaInitVM -ctx $ctx -secondary:$secondary
-		Create-Disk -ctx $ctx -secondary:$secondary -sizeInGB $sizeInGB -diskNamePrefix $diskNamePrefix -accountType $accountType
+		Create-Disk -ctx $ctx -secondary:$secondary -sizeInGB $sizeInGB -diskName $diskName -accountType $accountType
 	}else{
 		Write-Host "Found the disk"
 	}
@@ -932,7 +930,7 @@ function Delete-DiskFromVM{
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $vmNamePrefix $diskNamePrefix
 
 	$diskName = $diskNamePrefix + "-" + $ctx.GetResourcePostfix($usage)
-	$virtualMachineName = $vmNamePrefix + "-" + $ctx.GetEnvironment($usage)
+	$virtualMachineName = $vmNamePrefix + "-" + $ctx.environment
 	$vmResourceGroupName = $ctx.GetResourceGroupName("db", $secondary)
 	$virtualMachine = Get-AzureRmVM -ResourceGroupName $vmResourceGroupName -Name $virtualMachineName
 
@@ -943,7 +941,7 @@ function Delete-DiskFromVM{
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
-
+<# obsolete
 function Deploy-DatabaseDiskViaInitVM{
 	param(
 		[Parameter(Mandatory=$true)]
@@ -998,6 +996,7 @@ function Deploy-DatabaseDiskViaInitVM{
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary)
 }
+#>
 
 function Create-KeyVault{
 	param(
@@ -1102,7 +1101,6 @@ function Add-LocalCertificateToKV{
 	Write-Host "In: " $MyInvocation.MyCommand $keyVaultName $certName $pfxFile
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
-
 	$pfxFilePath = $currentDir + "\Deployment-Scripts\" + $pfxFile
 	$flag = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
 	$collection = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection 
@@ -1113,7 +1111,10 @@ function Add-LocalCertificateToKV{
 	$secret = ConvertTo-SecureString -String $fileContentEncoded -AsPlainText –Force
 	$secretContentType = 'application/x-pkcs12'
 
-	Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name $secretName -SecretValue $secret -ContentType $secretContentType -ErrorAction Stop
+	Set-AzureKeyVaultSecret -VaultName $keyVaultName -Name $secretName -SecretValue $secret -ContentType $secretContentType #-ErrorAction SilentlyContinue -ErrorVariable err
+	if ($err){
+		Write-Host $err
+	}
 
 	Write-Host "Out: " $MyInvocation.MyCommand $keyVaultName $certName $pfxFile
 }
@@ -1145,8 +1146,33 @@ function Create-KeyVaultSecrets{
 	$resourcePostfix = $ctx.GetResourcePostfix($secondary)
 	$keyVaultName = "kv-svc-" + $resourcePostfix
 
+	# this has been forced by set secrets getting a DNS error on the KV name after it is created.
+	# so, we'll try a few times with a slight delay until it is available
+	$kv = $null
+	$tries = 0
+	$maxTries = 6
+	$tryDelayInSeconds = 5
+	while (($kv -eq $null) -and ($tries -lt $maxTries)){
+		Write-Host "Trying to get key vault" $keyVaultName
+		$kv = Get-AzureRmKeyVault -VaultName $keyVaultName
+		if (!$kv){
+			Write-Host "KV access failed"
+			$tries++
+			Start-Sleep -Seconds $tryDelayInSeconds
+			continue
+		}
+	}
+	if ($tries -eq $maxTries){
+		Write-Host "Could not connect to KV"
+		throw "Error connecting to key vault"
+	}
+	Write-Host "Got KV"
+
+
+	Write-Host "Setting certificate"
 	Add-LocalCertificateToKV -keyVaultName $keyVaultName -pfxFile $pfxfile -password $pfxfilePassword -secretName $webSslCertificateSecretName
 	
+	Write-Host "Setting server passwords"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName" -SecretValue "wsadmin"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword" -SecretValue "Workspace!Web!2018"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FtpVmssServerAdminName" -SecretValue "wsadmin"
@@ -1158,26 +1184,34 @@ function Create-KeyVaultSecrets{
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "AdminServerAdminName" -SecretValue "wsadmin"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "AdminServerAdminPassword" -SecretValue "Workspace!Admin!2018"
 
+	Write-Host "Setting database secrets"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaUserName" -SecretValue "wsadmin"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaPassword" -SecretValue "Workspace!DB!2017"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName" -SecretValue "wsapp"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword" -SecretValue "Workspace!DB!2017"
 	
+	Write "Setting diagnostics secrets"
 	$diagAcctResourceGroupName = $ctx.GetResourceGroupName("diag", $secondary)
 	$diagStorageAccountName = $ctx.GetStorageAccountName("diag", $secondary)
 	$diagStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $diagAcctResourceGroupName -AccountName $diagStorageAccountName
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
 
+	Write "Setting installers secrets"
 	$installersAcctResourceGroupName = $ctx.GetSharedResourceGroupName("installers", $secondary)
 	$installersStorageAccountName = $ctx.GetSharedStorageAccountName("installers", $secondary)
+	Write-Host "*****>" $installersAcctResourceGroupName $installersStorageAccountName
 	$installersStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
+	Write-Host "Setting secret"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
 
+	Write "Setting installers secrets"
 	$fileShareAcctResourceGroupName = $ctx.GetResourceGroupName("files", $secondary)
 	$fileShareStorageAccountName = $ctx.GetStorageAccountName("files", $secondary)
+	Write-Host $fileShareAcctResourceGroupName $fileShareStorageAccountName
 	$fileShareStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $fileShareAcctResourceGroupName -AccountName $fileShareStorageAccountName
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey" -SecretValue $fileShareStgAcctKeys.Value[0]
 
+	Write-Host "Setting octo and data dog secrets"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoUrl" -SecretValue $octoUrl
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoApiKey" -SecretValue $octoApiKey
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DataDogApiKey" -SecretValue $dataDogApiKey
@@ -1222,7 +1256,6 @@ function Wait-ForJobsToComplete{
 	while ($true){
 		$alldone = $true
 		foreach ($job in $jobs){
-			#Write-Host $jobs.State
 			if ($job.State -ne [System.Management.Automation.JobState]::Completed -and
 				$job.State -ne [System.Management.Automation.JobState]::Failed){
 				$alldone = $false
@@ -1235,21 +1268,35 @@ function Wait-ForJobsToComplete{
 		foreach ($job in $jobs){
 			if ($job.HasMoreData){
 				$data = Receive-Job $job
-				Write-Host $data
+				if (![string]::IsNullOrWhiteSpace($data)){
+					Write-Host $data
+				}
 			}
 		}
 
-		Write-Host "Checking jobs again a 5 seconds" $jobs.Name
+		$msg = ""
+		foreach ($job in $jobs){
+			$status = $job.Name + " (" + $job.JobStateInfo + ") "
+			$msg = $msg + $status`
+		}
+
+		Write-Host "Waiting 5 seconds:" $msg 
 		Wait-Job -Job $jobs -Timeout 5
 	}
 	
 	Write-Host "Jobs ended" $jobs.Name
 
-	foreach ($job in $jobs){
-		if ($job.HasMoreData){
-			$data = Receive-Job $job
-			Write-Host $data
+	$allNoData = $false
+	while (!$allNoData){
+		$anyWithData = $false
+		foreach ($job in $jobs){
+			if ($job.HasMoreData){
+				$data = Receive-Job $job
+				Write-Host $data
+				$anyWithData = $true
+			}
 		}
+		$allNoData = !$anyWithData
 	}
 
 	Write-Host "Done waiting for jobs:" $jobs.Name
@@ -1262,13 +1309,10 @@ function Start-ScriptJob{
 		[string]$facility, 
 		[string]$subscription, 
 		[bool]$usage,
-		[bool]$includeServices,
 		[string]$category,
 		[string]$name,
 		[scriptblock]$scriptToRun
 	)
-
-	Write-Host "====>" $environment $facility $subscription $usage $includeServices $category
 
 	$arguments = New-Object System.Collections.ArrayList
 	$arguments.Add($ctx.environment) | Out-Null
@@ -1276,7 +1320,6 @@ function Start-ScriptJob{
 	$arguments.Add($ctx.facility) | Out-Null
 	$arguments.Add($ctx.subscription) | Out-Null
 	$arguments.Add($usage) | Out-Null
-	$arguments.Add($includeServices) | Out-Null
 	$arguments.Add($category) | Out-Null
 
 	$preamble = {
@@ -1286,7 +1329,6 @@ function Start-ScriptJob{
 			[string]$facility, 
 			[string]$subscription, 
 			[bool]$usage,
-			[bool]$includeServices,
 			[string]$category
 		)
 		. D:\Workspace\Workspace\Deployment-Scripts\WorkspaceAZRM.ps1
@@ -1300,6 +1342,7 @@ function Start-ScriptJob{
 		$jobName = $((Get-PSCallStack)[1].Command) + "-" + $ctx.GetResourcePostfix($usage)
 	}
 
+	Write-Host "Starting job:" $jobName
 	$job = Start-Job -Name $jobName `
 					 -ArgumentList $arguments `
 					 -ScriptBlock $scriptBlock
@@ -1319,6 +1362,9 @@ function Create-Core{
 		[switch]$secondary,
 		[switch]$vpnOnly,
 		[switch]$computeOnly,
+		[switch]$excludeBase,
+		[switch]$baseOnly,
+		[switch]$excludeCompute,
 		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin")
 	)
 	
@@ -1328,12 +1374,12 @@ function Create-Core{
 
 	$facilities = [Context]::GetFacilityUsages($primary, $secondary)
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
-	
+
 	$jobs = New-Object System.Collections.ArrayList
-	if (!$computeOnly){
+
+	if (!$computeOnly -and !$baseOnly){
 		if (!$excludeNetwork -and !$vpnOnly){
 			foreach ($usage in $facilities){
-
 				$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
 				    	-usage $usage `
 						-name $("Deploy-VNET-" + $ctx.GetResourcePostfix($usage)) `
@@ -1342,11 +1388,31 @@ function Create-Core{
 						}
 				$jobs.Add($job) | Out-Null
 			}
-
-			Wait-ForJobsToComplete $jobs
 		}     
 	}
 
+	# KV has a bug that it can't be run in a sub-job, so we have to do it at this level
+	if (!$excludeBase){
+		foreach ($usage in $facilities){
+			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
+				    -usage $usage `
+					-name $("Create-BaseEntities-" + $ctx.GetResourcePostfix($usage)) `
+					-scriptToRun {
+		 				Create-BaseEntities -ctx $newctx -secondary:$usage -excludeKeyVault
+					}
+			$jobs.Add($job) | Out-Null
+		}
+	}
+
+	Wait-ForJobsToComplete $jobs
+
+	if (!$excludeBase -and !$computeOnly){
+		foreach ($usage in $facilities){
+		 	Create-BaseEntities -ctx $ctx -secondary:$usage -keyVaultOnly
+		}
+	}
+
+	if ($baseOnly) { return }
 	if ($networkOnly) { return }
 
 	$jobs.Clear()
@@ -1364,6 +1430,7 @@ function Create-Core{
 		}
 	}
 
+	if ($excludeCompute){ return }
 
 	if ("db" -in $computeElements){
 		foreach ($usage in $facilities){
@@ -1376,8 +1443,8 @@ function Create-Core{
 										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "data1-sql1-db" -sizeInGB 64
 										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "init1-sql1-db" -sizeInGB 64
 									   
-									    $keyVaultName = $newctx.GetKeyVaultName($usage)
 
+									    $keyVaultName = $newctx.GetKeyVaultName($usage)
 										$installersStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey"
 										$installersStorageAccountName = $newctx.GetSharedStorageAccountName("installers", $usage)
 										$diagStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey"
@@ -1396,12 +1463,12 @@ function Create-Core{
 												  -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword `
 												  -saUserName $dbSaUserName -saPassword $dbSaPassword `
 												  -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword 
-
-									    Delete-DiskFromVM -ctx $ctx -secondary:$secondary -diskNamePrefix "init1-db1-db" -vmNamePrefix "sql1-db"
+									   
+									    Delete-DiskFromVM -ctx $newctx -secondary:$secondary -diskNamePrefix "init1-sql1-db" -vmNamePrefix "sql1-db"
 
  									    Write-Host "Ending Deploy-DB subtask"
 									}
-			$jobs.Add($job)
+			$jobs.Add($job) | Out-Null
 		}
 	}
 
@@ -1440,7 +1507,7 @@ function Create-Core{
 									   -octoUrl $octoUrl -octoApiKey $octoApiKey `
 									   -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctName -fileShareName $fileShareName
 						}
-			$jobs.Add($job)
+			$jobs.Add($job) | Out-Null
 		}
 	}
 
@@ -1462,7 +1529,7 @@ function Create-Core{
 									   -scaleSetCapacity $using:ftpScaleSetSize `
 									   -adminUserName $ftpAdminUserName -adminPassword $ftpAdminPassword 
 						}
-			$jobs.Add($job)
+			$jobs.Add($job) | Out-Null
 		}
 	}
 
@@ -1484,7 +1551,7 @@ function Create-Core{
 									   -adminUserName $jumpAdminUserName -adminPassword $jumpAdminPassword `
  									   -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountName 
 			}
-			$jobs.Add($job)
+			$jobs.Add($job) | Out-Null
 		}
 	}
 
@@ -1503,7 +1570,7 @@ function Create-Core{
 									    -dataDogApiKey $dataDogApiKey `
 									    -adminUserName $adminAdminUserName -adminPassword $adminAdminPassword 
 			}
-			$jobs.Add($job)
+			$jobs.Add($job) | Out-Null
 		}
 	}
 
@@ -1540,6 +1607,7 @@ function Teardown-ResourceCategory{
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
 
+<#
 function Create-All{
 	param(
 		[Context]$ctx
@@ -1548,13 +1616,22 @@ function Create-All{
 	Create-Base -ctx $ctx
 	Create-Core -ctx $ctx
 }
-
+#>
+<#
 function Teardown-Core{
 	param(
 		[Context]$ctx,
 		[switch]$primary,
 		[switch]$secondary,
-		[switch]$includeServices
+		[switch]$excludeDiagnostics,
+		[switch]$excludeServices,
+		[switch]$excludeFiles,
+		[switch]$forceProdFilesRemoval,
+		[switch]$filesOnly,
+		[switch]$forceDataDisks,
+		[switch]$dataDisksOnly,
+		[switch]$computeOnly,
+		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin")
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.environment $ctx.facility $ctx.subscription $primary $secondary $includeServices
 
@@ -1565,7 +1642,16 @@ function Teardown-Core{
 
 	foreach ($usage in $usages){
 		$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
-			    		       -usage $usage -includeServices:$includeServices `
+			    		       -usage $usage  `
+							   -excludeDiagnostics:$excludeDiagnostics `
+								-excludeServices:$excludeServices `
+								-excludeFiles:$excludeFiles `
+								-forceProdFilesRemoval:$forceProdFilesRemoval `
+								-filesOnly:$filesOnly							 `
+								-forceDataDisks:$forceDataDisks `
+								-dataDisksOnly:$dataDisksOnly `
+								-computeOnly:$computeOnly `
+								-computeElements:$computeElements `
 							   -name $("TeardownCE-" + $ctx.GetResourcePostfix($usage)) `
  						       -scriptToRun {
 								   Teardown-CoreEntities -ctx $newctx -secondary:$usage -includeServices:$includeServices 
@@ -1578,13 +1664,21 @@ function Teardown-Core{
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true)
 }
-
+#>
+<#
 function Teardown-Base{
 	param(
 		[Context]$ctx,
 		[switch]$primary,
 		[switch]$secondary,
-		[switch]$includeFiles
+		[switch]$excludeDiagnostics,
+		[switch]$excludeServices,
+		[switch]$excludeFiles,
+		[switch]$forceProdFilesRemoval,
+		[switch]$filesOnly,
+		[switch]$includeDataDisks,
+		[switch]$dataDisksOnly,
+		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin")
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.environment $ctx.facility $ctx.subscription $primary $secondary $includeServices $includeFiles
 
@@ -1617,45 +1711,93 @@ function Teardown-All{
 		if ($includeDatabaseDisk) { Teardown-DatabaseDisk -ctx $ctx -secondary:$usage }
 	}
 }
+#>
 
-function Teardown-CoreEntities{
+function Teardown-Core{
 	param(
 		[Context]$ctx,
+		[switch]$primary,
 		[switch]$secondary,
-		[switch]$includeServices
+		[switch]$excludeDiagnostics,
+		[switch]$excludeFiles,
+		[switch]$forceProdFilesRemoval,
+		[switch]$filesOnly,
+		[switch]$includeDisks,
+		[switch]$dataDisksOnly,
+		[switch]$computeOnly,
+		[switch]$excludeCompute,
+		[array]$computeElements = @("db", "web", "ftp", "jump", "admin", "svc"),
+		[switch]$vnetOnly,
+		[switch]$excludeNetwork,
+		[switch]$baseOnly,
+		[switch]$all
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.environment $ctx.facility $ctx.subscription $secondary $includeServices
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	if ($includeServices){
-		$group2 = @("svc")
-	}
-	else
-	{
-		$group2 = @()
+	$groups = New-Object System.Collections.ArrayList
+
+	$filesElements=@()
+	if (($all -and $forceProdFilesRemoval) -or (!$excludeFiles -and ($ctx.environment -ne "p" -or  ($forceProdFilesRemoval -and ($ctx.environment -eq "p"))))){
+		$filesElements = @("files")
 	}
 
-	$group1 = @("admin", "jump", "ftp", "web", "db")
-	Write-Host $group1.Count
+	$diskElements = @()
+	if (($all -and $includeDisks) -or $includeDisks){
+		$diskElements = @("disks")
+	}
 
-	$group3 = @("vnet")
-	$groups = $group1, $group2, $group3
+	$vnetElements = @()
+	if ($all -or !$excludeNetwork){
+		$vnetElements = @("vnet")
+	}
+
+	$diagElements = @()
+	if ($all -or !$excludeDiagnostics){
+		$diagElements = @("diag", "bootdiag")
+	}
+
+	if (!$all -and $excludeCompute){ $computeElements = @() }
+
+	$group1 = @($computeElements) #, $vnetElements + $filesElements + $diskElements + $diagElements
+	$group2 = @($vnetElements + $filesElements + $diskElements + $diagElements)
+	$groups = $group1, $group2
+
+	if (!$all -and $baseOnly){
+		$groups = @()
+		$groups += $filesElements
+		$groups += $diskElements
+		$groups += $diagElements
+	}
+	if (!$all -and $computeOnly){
+		$groups = @($computeElements)
+	}
+	if (!$all -and $vnetOnly){
+		$groups = @($vnetElements)
+	}
+	if (!$all -and $dataDisksOnly){
+		$groups = @($diskElements)
+	}
+	if (!$all -and $filesOnly){
+		$groups = @($filesElements)
+	}
+
+	$usages = [Context]::GetFacilityUsages($primary, $secondary)
 
 	foreach ($group in $groups){
 		$jobs = New-Object System.Collections.ArrayList
 		foreach ($category in $group){
-			Write-Host "Category:" $category
-			$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
-				    				-usage $secondary -includeServices:$includeServices `
-									-name $("Teardown-CoreEntities" + "-" + $ctx.GetResourcePostfix($usage) + "-" + $category) `
-									-category $category `
-									-scriptToRun {
-										Teardown-ResourceCategory -ctx $newctx -secondary:$usage -category $category
-									}
-			Write-Host "Adding job to queue"
-			$jobs.Add($job) | Out-Null
-			Write-Host "added job"
+			foreach ($usage in $usages){
+				$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
+				    				   -usage $usage `
+										-name $("TCE-" + $ctx.GetResourcePostfix($usage) + "-" + $category) `
+										-category $category `
+										-scriptToRun {
+											Teardown-ResourceCategory -ctx $newctx -secondary:$usage -category $category
+										}
+				$jobs.Add($job) | Out-Null
+			}
 		}
 
 		Write-Host $jobs.Count "jobs created"
@@ -1695,14 +1837,23 @@ function Create-DiagnosticsEntities{
 
 	$resourceCategories = @("bootdiag", "diag")
 
-	$location = $ctx.GetLocation($secondary)
+	$jobs = New-Object System.Collections.ArrayList
 
 	foreach ($rc in $resourceCategories){
-		$resourceGroupName = $ctx.GetResourceGroupName($rc, $secondary)
-		$storageAccountName = $ctx.GetStorageAccountName($rc, $secondary)
-		Ensure-ResourceGroup -ctx $ctx -secondary:$secondary -category $rc
-		Ensure-StorageAccount -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
+		$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
+				    	-usage $secondary `
+						-name $("Create-Diag-Storage-Accounts" + "-" + $ctx.GetResourcePostfix($secondary)) `
+						-category $rc `
+						-scriptToRun {
+							$resourceGroupName = $newctx.GetResourceGroupName($category, $usage)
+							$storageAccountName = $newctx.GetStorageAccountName($category, $usage)
+							Ensure-ResourceGroup -ctx $newctx -secondary:$usage -category $category
+							Ensure-StorageAccount -ctx $newctx -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
+						}
+		$jobs.Add($job) | Out-Null
 	}
+
+	Wait-ForJobsToComplete $jobs
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -1767,6 +1918,7 @@ function Create-ServicesEntities{
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
 #>
+<#
 function Create-Base{
 	param(
 		[Context]$ctx,
@@ -1779,26 +1931,81 @@ function Create-Base{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
+	$jobs = New-Object System.Collections.ArrayList
+
+	$usages = [Context]::GetFacilityUsages($primary, $secondary)
 	foreach ($usage in $usages){
-		Create-BaseEntities -ctx $ctx -secondary:$usage
+		$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
+				    	-usage $usage `
+						-name $("Create-Base" + "-" + $ctx.GetResourcePostfix($usage)) `
+						-scriptToRun {
+							Create-BaseEntities -ctx $newctx -secondary:$usage
+						}
+			Write-Host "Adding job to queue"
+			$jobs.Add($job) | Out-Null
+
 	}
+
+	Wait-ForJobsToComplete $jobs
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
-
+#>
 function Create-BaseEntities{
 	param(
 		[Context]$ctx,
-		[switch]$secondary
+		[switch]$secondary,
+		[switch]$excludeKeyVault,
+		[switch]$keyVaultOnly
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary)
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Create-DiagnosticsEntities   -ctx $ctx -secondary:$secondary
-	Create-AzureFilesEntities    -ctx $ctx -secondary:$secondary
-	Build-KeyVault               -ctx $ctx -secondary:$secondary
-	Deploy-DatabaseDiskViaInitVM -ctx $ctx -secondary:$secondary -onlyIfDiskNotAvailable
+	$jobs = New-Object System.Collections.ArrayList
+
+	if (!$keyVaultOnly){
+		$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
+						-usage $secondary `
+						-name $("Create-DiagnosticsEntities" + "-" + $ctx.GetResourcePostfix($secondary)) `
+						-scriptToRun {
+							Create-DiagnosticsEntities -ctx $newctx -secondary:$usage
+						}
+		$jobs.Add($job) | Out-Null
+
+		$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
+						-usage $secondary `
+						-name $("Create-AzureFilesEntities" + "-" + $ctx.GetResourcePostfix($secondary)) `
+						-scriptToRun {
+							Create-AzureFilesEntities    -ctx $newctx -secondary:$usage
+						}
+		$jobs.Add($job) | Out-Null
+
+		Wait-ForJobsToComplete $jobs
+	}
+	$jobs.Clear()
+
+	if (!$excludeKeyVault)
+	{
+		# must do KV after the prior two as it needs keys from both
+		<#
+		$job = Start-ScriptJob -environment $ctx.environment -facility $ctx.facility -subscription $ctx.subscription `
+						-usage $secondary `
+						-name $("Build-KeyVault" + "-" + $ctx.GetResourcePostfix($secondary)) `
+						-scriptToRun {
+							Build-KeyVault -ctx $newctx -secondary:$usage
+						}
+		$jobs.Add($job) | Out-Null
+		Wait-ForJobsToComplete $jobs
+		#>
+	
+		Build-KeyVault -ctx $ctx -secondary:$secondary
+	}
+
+	#Create-DiagnosticsEntities   -ctx $ctx -secondary:$secondary
+	#Create-AzureFilesEntities    -ctx $ctx -secondary:$secondary
+	#Build-KeyVault               -ctx $ctx -secondary:$secondary
+	#Deploy-DatabaseDiskViaInitVM -ctx $ctx -secondary:$secondary -onlyIfDiskNotAvailable
 	#Create-ServicesEntities      -ctx $ctx -secondary:$secondary
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
@@ -1818,8 +2025,8 @@ function Create-AzureFilesEntities{
 	$storageAccountName = $ctx.GetStorageAccountName("files", $secondary)
 
 	Ensure-ResourceGroup -ctx $ctx -category "files" -secondary:$secondary
-	Ensure-StorageAccount -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
-	Create-AzureFilesShare -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
+	Ensure-StorageAccount -ctx $ctx -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
+	Create-AzureFilesShare -ctx $ctx -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -1837,6 +2044,7 @@ function Write-AllWorkspaceEntitiesToCSV{
 
 function Create-AzureFilesShare{
 	param(
+		[Context]$ctx,
 		[string]$resourceGroupName,
 		[string]$storageAccountName
 	)
@@ -1844,7 +2052,7 @@ function Create-AzureFilesShare{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Ensure-StorageAccount  -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
+	Ensure-StorageAccount -ctx $ctx  -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
 
 	$storageAccountKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $resourceGroupName -AccountName $storageAccountName
 	$storageAccountKey = $storageAccountKeys.Value[0]
@@ -2053,7 +2261,8 @@ function Deploy-NextEnvironmentInstance{
 		[switch]$secondary,
 		[switch]$includeBase,
 		[int]$webScaleSetSize=2,
-		[int]$ftpScaleSetSize=2
+		[int]$ftpScaleSetSize=2,
+		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin")
 	)
 
 	Write-Host "Starting deploy of next environment" $ctx.environment $ctx.facility $ctx.subscription $primary $secondary $includeBase
@@ -2064,8 +2273,8 @@ function Deploy-NextEnvironmentInstance{
 
 	$newCtx = Create-NextEnvironmentSlotContext -ctx $ctx -instanceId $instanceId
 
-	if ($includeBase) { Create-Base -ctx $newCtx }
-	Create-Core -ctx $newCtx -primary:$primary -secondary:$secondary -webScaleSetSize $webScaleSetSize -ftpScaleSetSize $ftpScaleSetSize
+	#if ($includeBase) { Create-Base -ctx $newCtx }
+	Create-Core -ctx $newCtx -primary:$primary -secondary:$secondary -webScaleSetSize $webScaleSetSize -ftpScaleSetSize $ftpScaleSetSize -computeElements $computeElements
 
 	return $newCtx
 }
@@ -2152,7 +2361,7 @@ function Set-ScaleSetSize{
 		[Parameter(Mandatory=$true)]
 		[int]$size,
 		[switch]$primary,
-		[switch]$secondar
+		[switch]$secondary
 	)
 	$usages = [Context]::GetFacilityUsages($primary, $secondary)
 	foreach ($usage in $usages){
@@ -2161,5 +2370,27 @@ function Set-ScaleSetSize{
 		$vmss = Get-AzureRmVmss -ResourceGroupName $resourceGroupName -VMScaleSetName $scaleSetName
 		$vmss.sku.capacity = $size
 		Update-AzureRmVmss -ResourceGroupName $resourceGroupNam -Name $scaleSetName -VirtualMachineScaleSet $vmss
+	}
+}
+
+function Cancel-ActiveDeployments{
+	param(
+		[Context]$ctx
+	)
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
+
+	$groups = Get-AzureRmResourceGroup
+	foreach ($group in $groups){
+		$groupName = $group.ResourceGroupName
+		Write-Host "Checking:" $groupName
+
+		$deployments = Get-AzureRmResourceGroupDeployment -ResourceGroupName $groupName
+		foreach ($deployment in $deployments){
+			if ($deployment.ProvisioningState -eq "Running"){
+				Write-Host "  Found:" $deployment.DeploymentName
+				Stop-AzureRmResourceGroupDeployment -ResourceGroupName $groupName -Name $deployment.DeploymentName | Out-Null
+				Write-Host "    Stopped"
+			}
+		}
 	}
 }

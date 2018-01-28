@@ -39,8 +39,20 @@ Try
 	Write-Log("databaseName: " + $databaseName)
 	Write-Log("databaseMdfFile: " + $databaseMdfFile)
 
+	Write-Log("Trusting PSGallery")
+	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+	Write-Log("Installing AzureRM, xSqlServer, and SqlServer")
+	Install-Module -Name AzureRM -Repository PSGallery
+	Install-Module -Name xSqlServer -Repository PSGallery
+	Install-Module -Name SqlServer -Repository PSGallery
+
+	Import-Module SqlServer
+
+	$dataDiskExisted = $true
 	$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
     if ($err -ne $null){
+		$dataDiskExisted = $false
         Write-Host "Did not find data disk so creating"
         	$dataDisk = Get-Disk | `
         		Where partitionstyle -eq 'raw' | `
@@ -59,43 +71,29 @@ Try
         Set-Acl $filename $acl	
     }
 
-	$err = $null
-	$dataVolume = Get-Volume -FileSystemLabel InitDisk -ErrorVariable err -ErrorAction SilentlyContinue
-    if ($err -ne $null){
-        Write-Host "Did not find init disk so creating"
-		$initDisk = Get-Disk | `
-			Where partitionstyle -eq 'raw' | `
-			Select-Object -first 1
+	$initVolume = $null
+	if (!$dataDiskExisted){
+		$err = $null
+		$initVolume = Get-Volume -FileSystemLabel InitDisk -ErrorVariable err -ErrorAction SilentlyContinue
+		if ($err -ne $null){
+			Write-Host "Did not find init disk so creating"
+			$initDisk = Get-Disk | `
+				Where partitionstyle -eq 'raw' | `
+				Select-Object -first 1
 
-		$initDisk | 
-			Initialize-Disk -PartitionStyle MBR -PassThru | `
-			New-Partition -AssignDriveLetter -UseMaximumSize | `
-			Format-Volume -FileSystem NTFS -NewFileSystemLabel "InitDisk" -Confirm:$false | 
-			Write-Log
-    }
+			$initDisk | 
+				Initialize-Disk -PartitionStyle MBR -PassThru | `
+				New-Partition -AssignDriveLetter -UseMaximumSize | `
+				Format-Volume -FileSystem NTFS -NewFileSystemLabel "InitDisk" -Confirm:$false | 
+				Write-Log
+		}
+	}
 
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 	Write-Log("The data disk drive letter is " + $dataDiskLetter)
 
 	$initDiskLetter = (Get-Volume -FileSystemLabel InitDisk).DriveLetter
 	Write-Log("The init disk drive letter is " + $initDiskLetter)
-
-    # make sure data disk has good permissions
-    $acl = Get-Acl $($dataDiskLetter + ":\")
-    Write-Host $acl
-    $ar = New-Object  system.security.accesscontrol.filesystemaccessrule("everyone","FullControl","Allow")
-    $acl.SetAccessRule($ar)
-    Set-Acl $($dataDiskLetter + ":\") $acl	
-
-	Write-Log("Trusting PSGallery")
-	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-	Write-Log("Installing AzureRM, xSqlServer, and SqlServer")
-	Install-Module -Name AzureRM -Repository PSGallery
-	Install-Module -Name xSqlServer -Repository PSGallery
-	Install-Module -Name SqlServer -Repository PSGallery
-
-	Import-Module SqlServer
 
 	Write-Log("Starting configuration")
 
@@ -107,10 +105,11 @@ Try
 	$storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
 	Write-Log("Starting copy of SQL Server ISO")
 	Get-AzureStorageBlobContent -Blob $sqlInstallBlobName -Container $containerName -Destination $destinationSqlIso -Context $storageContext
-    Write-Log("Copying database backup")
-	Get-AzureStorageBlobContent -Blob "av2016.bak" -Container "dbbackups" -Destination $($initDiskLetter + ":\aw2016.bak") -Context $storageContext
-#	Write-Log("Starting copy of SSMS installer")
-#	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
+    
+	if (!$dataDiskExisted){
+		Write-Log("Copying database backup")
+		Get-AzureStorageBlobContent -Blob "av2016.bak" -Container "dbbackups" -Destination $($initDiskLetter + ":\aw2016.bak") -Context $storageContext
+	}
 
 	Write-Log("Mounting SQL Server ISO")
 	Mount-DiskImage -ImagePath d:\sqlserver.iso 
@@ -141,31 +140,51 @@ Try
 
 	Write-Log("Installed SQL Server")
 
-#	Write-Log("Installing SSMS")
-#	Start-Process $destinationSSMS "/install /quiet /norestart /log d:\ssms-log.txt" -Wait
-#	Write-Log("Installed SSMS")
-
 	Write-Log("Cleaning up")
 	Dismount-DiskImage -ImagePath d:\sqlserver.iso
 	Write-Log("Cleaned up")
 	Remove-Item -Path $destinationSqlIso
-	#Remove-Item -Path $destinationSSMS
     Remove-Item -Path d:\log*.txt
-    #Remove-Item -Path d:\ssms-*.txt
-   
-#	Write-Log("Downloading database backup")
-#    wget https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2016.bak -OutFile "e:\av2016.bak" -UseBasicParsing 
-	Write-Log("Restoring database")
- 
-	$dbCommand = "RESTORE DATABASE AdventureWorks FROM DISK = N'" + $initDiskLetter + ":\aw2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO '" + $dataDiskLetter + ":\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO '" + $dataDiskLetter + ":\AdventureWorks2016.ldf',REPLACE"
-	Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
 
-    Write-Log("Cofiguring database")
+	Write-Log("Cofiguring database")
+
+	Write-Log("Creating sa account")
     $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
     $ss.ConnectionContext.LoginSecure = $false
     $ss.ConnectionContext.Login = "sa"
     $ss.ConnectionContext.Password = $saPassword
     Write-Log($ss.Information.Version)
+
+	if (!$dataDiskExisted){
+		Write-Log("Restoring database")
+		$dbCommand = "RESTORE DATABASE AdventureWorks FROM DISK = N'" + $initDiskLetter + ":\aw2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO '" + $dataDiskLetter + ":\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO '" + $dataDiskLetter + ":\AdventureWorks2016.ldf',REPLACE"
+		Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
+	}else{
+		Write-Log "Attaching database"
+
+		$ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
+		$ss.ConnectionContext.LoginSecure = $false
+		$ss.ConnectionContext.Login = "sa"
+		$ss.ConnectionContext.Password = $saPassword
+		Write-Log $ss.Information.Version
+
+		$mdf_file = $dataDiskLetter + ":\AdventureWorks2012_Data.mdf"
+		$mdfs = $ss.EnumDetachedDatabaseFiles($mdf_file)
+		$ldfs = $ss.EnumDetachedLogFiles($mdf_file)
+
+		$files = New-Object System.Collections.Specialized.StringCollection
+		Write-Log "Enumerating mdfs"
+		ForEach-Object -InputObject $mdfs {
+			Write-Log $_
+			$files.Add($_)
+		}
+		Write-Log "Enumerating ldfs"
+		ForEach-Object -InputObject $ldfs {
+			Write-Log $_
+			$files.Add($_)
+		}
+		$ss.AttachDatabase("AdventureWorks", $files)
+	}
 
 	Write-Log("Checking database info")
 	$db = $ss.Databases[$databaseName]
