@@ -1,4 +1,4 @@
-  param(
+   param(
 	[string]$installersStgAcctKey = "bB4GIR3BQI7A4EdZ1VYx38yY8ZPCthGkle38gvnQSJ9VtyBjqkzuMbBdbxxIUYeGBSZviaVVV+Pf2CQJjl9Rbw==",
 	[string]$installersStgAcctName = "stginstallersws0p",
 	[string]$saUserName = "wsadmin",
@@ -60,11 +60,12 @@ Try
 
         $dataDisk | 
 		    Initialize-Disk -PartitionStyle MBR -PassThru | `
-		    New-Partition -AssignDriveLetter -UseMaximumSize | `
+		    New-Partition -DriveLetter F -UseMaximumSize | `
 		    Format-Volume -FileSystem NTFS -NewFileSystemLabel "WorkspaceDB" -Confirm:$false | 
 		    Write-Log
 
 	    $dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+
         $filename = $dataDiskLetter + ":\"
         $acl = Get-Acl $filename
         Write-Host $acl
@@ -94,8 +95,10 @@ Try
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 	Write-Log("The data disk drive letter is " + $dataDiskLetter)
 
-	$initDiskLetter = (Get-Volume -FileSystemLabel InitDisk).DriveLetter
-	Write-Log("The init disk drive letter is " + $initDiskLetter)
+    if (!$dataDiskExisted){
+	    $initDiskLetter = (Get-Volume -FileSystemLabel InitDisk).DriveLetter
+	    Write-Log("The init disk drive letter is " + $initDiskLetter)
+    }
 
 	Write-Log("Starting configuration")
 
@@ -155,7 +158,7 @@ Try
     $ss.ConnectionContext.Login = "sa"
     $ss.ConnectionContext.Password = $saPassword
     Write-Log($ss.Information.Version)
-	<#
+	
 	if (!$dataDiskExisted){
 		Write-Log("Restoring database")
 		$dbCommand = "RESTORE DATABASE AdventureWorks FROM DISK = N'" + $initDiskLetter + ":\aw2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO '" + $dataDiskLetter + ":\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO '" + $dataDiskLetter + ":\AdventureWorks2016.ldf',REPLACE"
@@ -169,7 +172,7 @@ Try
 		$ss.ConnectionContext.Password = $saPassword
 		Write-Log $ss.Information.Version
 
-		$mdf_file = $dataDiskLetter + ":\AdventureWorks2012_Data.mdf"
+		$mdf_file = $dataDiskLetter + ":\AdventureWorks2016.mdf"
 		$mdfs = $ss.EnumDetachedDatabaseFiles($mdf_file)
 		$ldfs = $ss.EnumDetachedLogFiles($mdf_file)
 
@@ -184,6 +187,7 @@ Try
 			Write-Log $_
 			$files.Add($_)
 		}
+
 		$ss.AttachDatabase("AdventureWorks", $files)
 	}
 
@@ -234,3 +238,4 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
