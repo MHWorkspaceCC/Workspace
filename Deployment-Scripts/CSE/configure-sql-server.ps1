@@ -1,4 +1,4 @@
-   param(
+    param(
 	[string]$installersStgAcctKey = "bB4GIR3BQI7A4EdZ1VYx38yY8ZPCthGkle38gvnQSJ9VtyBjqkzuMbBdbxxIUYeGBSZviaVVV+Pf2CQJjl9Rbw==",
 	[string]$installersStgAcctName = "stginstallersws0p",
 	[string]$saUserName = "wsadmin",
@@ -48,7 +48,7 @@ Try
 	Install-Module -Name SqlServer -Repository PSGallery
 
 	Import-Module SqlServer
-	<#
+	
 	$dataDiskExisted = $true
 	$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
     if ($err -ne $null){
@@ -72,6 +72,20 @@ Try
         $ar = New-Object  system.security.accesscontrol.filesystemaccessrule("everyone","FullControl","Allow")
         $acl.SetAccessRule($ar)
         Set-Acl $filename $acl	
+    }else{
+	    $dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+        if ($dataDiskLetter -ne "F"){
+        	$dataDisk = Get-Disk | `
+        		Where partitionstyle -eq 'MBR' | `
+                Select-Object -last 1            
+            # move the CD from F to G
+            $drv = Get-WmiObject win32_volume -filter 'DriveLetter = "F:"'
+            $drv.DriveLetter = "G:"
+            $drv.Put()
+
+            # put the database disk on F:
+            Get-Partition -DiskNumber $dataDisk.DiskNumber | Set-Partition -NewDriveLetter F
+        }
     }
 
 	$initVolume = $null
@@ -230,7 +244,6 @@ Try
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 	Write-Log("All done!")
-	#>
 }
 Catch
 {
@@ -238,4 +251,5 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
  
