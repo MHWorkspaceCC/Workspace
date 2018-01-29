@@ -928,9 +928,10 @@ function Delete-DiskFromVM{
 		[string]$diskNamePrefix
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $vmNamePrefix $diskNamePrefix
-
+	
 	$diskName = $diskNamePrefix + "-" + $ctx.GetResourcePostfix($usage)
-	$virtualMachineName = $vmNamePrefix + "-" + $ctx.environment
+	<#
+	$virtualMachineName = $vmNamePrefix + "-" + $ctx.GetResourcePostfix($usage)
 	$vmResourceGroupName = $ctx.GetResourceGroupName("db", $secondary)
 	$virtualMachine = Get-AzureRmVM -ResourceGroupName $vmResourceGroupName -Name $virtualMachineName
 
@@ -938,6 +939,9 @@ function Delete-DiskFromVM{
 	Remove-AzureRmVMDataDisk -VM $virtualMachine -Name $diskName
 	Write-Host "Updating VM:"$vmResourceGroupName $virtualMachineName
 	Update-AzureRmVM -ResourceGroupName $vmResourceGroupName -VM $virtualMachine
+	#>
+	$diskResourceGroupName = $ctx.GetResourceGroupName("disks", $secondary)
+	Remove-AzureRmDisk -ResourceGroupName $diskResourceGroupName -DiskName $diskName -Force -InformationAction SilentlyContinue
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -1443,7 +1447,6 @@ function Create-Core{
 										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "data1-sql1-db" -sizeInGB 64
 										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "init1-sql1-db" -sizeInGB 64
 									   
-
 									    $keyVaultName = $newctx.GetKeyVaultName($usage)
 										$installersStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey"
 										$installersStorageAccountName = $newctx.GetSharedStorageAccountName("installers", $usage)

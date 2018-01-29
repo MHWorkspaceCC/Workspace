@@ -1,4 +1,4 @@
- param(
+  param(
 	[string]$installersStgAcctKey = "bB4GIR3BQI7A4EdZ1VYx38yY8ZPCthGkle38gvnQSJ9VtyBjqkzuMbBdbxxIUYeGBSZviaVVV+Pf2CQJjl9Rbw==",
 	[string]$installersStgAcctName = "stginstallersws0p",
 	[string]$saUserName = "wsadmin",
@@ -38,7 +38,7 @@ Try
 	Write-Log("destinationSSMS: " + $destinationSSMS)
 	Write-Log("databaseName: " + $databaseName)
 	Write-Log("databaseMdfFile: " + $databaseMdfFile)
-<#
+
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -64,6 +64,8 @@ Try
 		    Format-Volume -FileSystem NTFS -NewFileSystemLabel "WorkspaceDB" -Confirm:$false | 
 		    Write-Log
 
+	    $dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+        $filename = $dataDiskLetter + ":\"
         $acl = Get-Acl $filename
         Write-Host $acl
         $ar = New-Object  system.security.accesscontrol.filesystemaccessrule("everyone","FullControl","Allow")
@@ -99,7 +101,6 @@ Try
 
 	$ssmsInstallBlobName = "SSMS-Setup-ENU.exe"
 	$destinationSqlIso = "d:\sqlserver.iso"
-	#$destinationSSMS = "d:\SSMS-Setup-ENU.exe"
 
 	Write-Log("Starting copy of installer files")
 	$storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
@@ -154,7 +155,7 @@ Try
     $ss.ConnectionContext.Login = "sa"
     $ss.ConnectionContext.Password = $saPassword
     Write-Log($ss.Information.Version)
-
+	<#
 	if (!$dataDiskExisted){
 		Write-Log("Restoring database")
 		$dbCommand = "RESTORE DATABASE AdventureWorks FROM DISK = N'" + $initDiskLetter + ":\aw2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO '" + $dataDiskLetter + ":\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO '" + $dataDiskLetter + ":\AdventureWorks2016.ldf',REPLACE"
@@ -233,8 +234,3 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
- 
- 
- 
- 
- 
