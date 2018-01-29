@@ -38,7 +38,7 @@ Try
 	Write-Log("destinationSSMS: " + $destinationSSMS)
 	Write-Log("databaseName: " + $databaseName)
 	Write-Log("databaseMdfFile: " + $databaseMdfFile)
-
+<#
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -225,6 +225,7 @@ Try
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 	Write-Log("All done!")
+	#>
 }
 Catch
 {

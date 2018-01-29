@@ -8,10 +8,10 @@
 #$ctx = Login-WorkspacePrimaryProd
 $ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p"
 #Cancel-ActiveDeployments -ctx $ctx
-#Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("web", "db") 
+Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("web", "db") 
 #Cancel-ActiveDeployments -ctx $ctx
 #Create-Core -ctx $ctx -baseOnly -excludeNetwork 
-Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
 #Deploy-NextEnvironmentInstance -ctx $ctx -includeBase -webScaleSetSize 1 -ftpScaleSetSize 1 -computeElements @("web", "db")
 #Build-KeyVault -ctx $ctx 
 #Build-KeyVault -ctx $ctx -secondary
