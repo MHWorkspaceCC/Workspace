@@ -48,7 +48,7 @@ Try
 	Install-Module -Name SqlServer -Repository PSGallery
 
 	Import-Module SqlServer
-
+	<#
 	$dataDiskExisted = $true
 	$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
     if ($err -ne $null){
