@@ -1053,7 +1053,7 @@
               "protocol": "TCP",
               "sourcePortRange": "*",
               "destinationPortRange": "1433",
-              "sourceAddressPrefix": "[variables('webCIDR')]",
+              "sourceAddressPrefix": "*",
               "destinationAddressPrefix": "*",
               "access": "Allow",
               "priority": 1000,

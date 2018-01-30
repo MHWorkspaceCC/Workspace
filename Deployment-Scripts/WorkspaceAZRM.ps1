@@ -929,9 +929,8 @@ function Delete-DiskFromVM{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $vmNamePrefix $diskNamePrefix
 	
-	$diskName = $diskNamePrefix + "-" + $ctx.GetResourcePostfix($usage)
-	<#
-	$virtualMachineName = $vmNamePrefix + "-" + $ctx.GetResourcePostfix($usage)
+	$diskName = $diskNamePrefix + "-" + $ctx.GetResourcePostfix($secondary)
+	$virtualMachineName = $vmNamePrefix + "-" + $ctx.GetResourcePostfix($secondary)
 	$vmResourceGroupName = $ctx.GetResourceGroupName("db", $secondary)
 	$virtualMachine = Get-AzureRmVM -ResourceGroupName $vmResourceGroupName -Name $virtualMachineName
 
@@ -939,7 +938,7 @@ function Delete-DiskFromVM{
 	Remove-AzureRmVMDataDisk -VM $virtualMachine -Name $diskName
 	Write-Host "Updating VM:"$vmResourceGroupName $virtualMachineName
 	Update-AzureRmVM -ResourceGroupName $vmResourceGroupName -VM $virtualMachine
-	#>
+
 	$diskResourceGroupName = $ctx.GetResourceGroupName("disks", $secondary)
 	Remove-AzureRmDisk -ResourceGroupName $diskResourceGroupName -DiskName $diskName -Force -InformationAction SilentlyContinue
 
@@ -2225,25 +2224,33 @@ function Find-OpenDeploymentSlotNumber{
 	$env = $ctx.environment
 	$postfix = $ctx.GetResourcePostfix($false)
 	$utilized = @{
-		$($env + "0-vnet-" + $postfix) = $false
-		$($env + "1-vnet-" + $postfix) = $false
-		$($env + "2-vnet-" + $postfix) = $false
-		$($env + "3-vnet-" + $postfix) = $false
-		$($env + "4-vnet-" + $postfix) = $false
-		$($env + "5-vnet-" + $postfix) = $false
-		$($env + "6-vnet-" + $postfix) = $false
-		$($env + "7-vnet-" + $postfix) = $false
+		$($env + "0") = $false
+		$($env + "1") = $false
+		$($env + "2") = $false
+		$($env + "3") = $false
+		$($env + "4") = $false
+		$($env + "5") = $false
+		$($env + "6") = $false
+		$($env + "7") = $false
 	}
 
-	$vnetNames = Get-AzureRmVirtualNetwork | Where-Object {$_.Name.EndsWith($postfix)} | Select-Object -Property Name -ExpandProperty Name
+	$vnetNames = Get-AzureRmVirtualNetwork | Where-Object {$_.Name.StartsWith("p")} | Select-Object -Property Name -ExpandProperty Name
 
-	$vnetNames | ForEach-Object -Process { $utilized[$_] = $true }
-	$utilized | Where-Object {$_.Value}
+	foreach ($vnetName in $vnetNames)
+	{
+		$envCode = $vnetName.Split("-")[0]
+		if ($envCode -in $utilized.Keys){
+			$utilized[$envCode] = $true
+		}
+	}
+
+	#$vnetNames | ForEach-Object -Process { $utilized[$_] = $true }
+	#$utilized | Where-Object {$_.Value}
 
 	$free = $utilized.GetEnumerator() | Where-Object { !$_.Value } | Select-Object -ExpandProperty Name
 
 	$next = $free | Sort-Object | Select-Object -First 1
-	$next.split('-')[0][1]
+	$next[1]
 }
 
 function Create-NextEnvironmentSlotContext{

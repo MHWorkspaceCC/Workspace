@@ -44,6 +44,7 @@
     <Content Include="ARM\arm-db-deploy.json" />
     <Content Include="ARM\arm-jump-deploy.json" />
     <Content Include="ARM\arm-vnet-deploy.json" />
+    <Content Include="SQL\WsDbInit.sql" />
     <Content Include="workspace.json" />
     <Content Include="workspace.pfx" />
   </ItemGroup>
@@ -91,6 +92,7 @@
     <Folder Include="Bulk\" />
     <Folder Include="CSE\" />
     <Folder Include="ARM\" />
+    <Folder Include="SQL\" />
     <Folder Include="Octopus\" />
     <Folder Include="old\" />
     <Folder Include="nsg\" />

@@ -26,9 +26,9 @@ Try
 {
 	Write-Log("In configure sql server")
 	Write-Log("Installers key: " + $installersStgAcctKey)
-	Write-Log("saUsername: " + $saUsername)
+	Write-Log("saUsername: " + $saUserName)
 	Write-Log("saPassword: " + $saPassword)
-	Write-Log("loginUsername: " + $loginUsername)
+	Write-Log("loginUsername: " + $loginUserName)
 	Write-Log("loginPassword: " + $loginPassword)
 	Write-Log("installersStgAcctName: " + $installersStgAcctName)
 	Write-Log("sqlInstallBlobName: " + $sqlInstallBlobName)
