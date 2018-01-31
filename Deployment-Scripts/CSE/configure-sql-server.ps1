@@ -1,6 +1,6 @@
-    param(
-	[string]$installersStgAcctKey = "bB4GIR3BQI7A4EdZ1VYx38yY8ZPCthGkle38gvnQSJ9VtyBjqkzuMbBdbxxIUYeGBSZviaVVV+Pf2CQJjl9Rbw==",
-	[string]$installersStgAcctName = "stginstallersws0p",
+     param(
+	[string]$installersStgAcctKey = "GpIQqQPEQI4q0HQL6ultba+fMyCWJOsWejBlvNBwTfZBQeCAZZdUVJh5AhChCbcZJO6M+uUUUJ0qQiqUd31MEg==",
+	[string]$installersStgAcctName = "stginstallersss0d",
 	[string]$saUserName = "wsadmin",
 	[string]$saPassword = "Workspace!DB!2017",
 	[string]$loginUserName = "wsapp",
@@ -11,11 +11,11 @@
 	[string]$destinationSqlIso = "d:\sqlserver.iso",
 	[string]$destinationSSMS = "d:\SSMS-Setup-ENU.exe",
 	[string]$databaseName = "AdventureWorks",
-	[string]$dbBackupBlobName = "",
-	[string]$dbMdfFileName = "",
-	[string]$dbLdfFileName = "",
-	[string]$dbBackupsStorageAccountName,
-	[string]$dbBackupsStorageAccountKey
+	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
+	[string]$dbMdfFileName = "AdventureWorks2016_Data",
+	[string]$dbLdfFileName = "AdventureWorks2016_Log",
+	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0d",
+	[string]$dbBackupsStorageAccountKey = "ISTBYo7/MfyoZea4FLiPnWzmjYzwko4nOVMRLck1a1uH45VtjS0Gpo1Ew3egrdUSvcg7h3ZH0mTNOR/hbOZOHw=="
 )
 
 Function Write-Log
@@ -42,7 +42,10 @@ Try
 	Write-Log("destinationSSMS: " + $destinationSSMS)
 	Write-Log("databaseName: " + $databaseName)
 	Write-Log("dbBackupBlobName: " + $dbBackupBlobName)
-	<#
+	Write-Log("dbMdfFileName: " + $dbMdfFileName)
+	Write-Log("dbLdfFileName: " + $dbLdfFileName)
+	Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
+	Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
 
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
@@ -181,7 +184,7 @@ Try
 	
 	if (!$dataDiskExisted){
 		Write-Log("Restoring database")
-		$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $initDiskLetter + ":\db.bak' WITH MOVE '" + $initDiskLetter + ":\" + $dbMdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
+		$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $initDiskLetter + ":\db.bak' WITH MOVE '" + $dbMdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
 		Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
 	}else{
 		Write-Log "Attaching database"
@@ -250,7 +253,6 @@ Try
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 	Write-Log("All done!")
-	#>
 }
 Catch
 {
@@ -258,5 +260,6 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
  
  

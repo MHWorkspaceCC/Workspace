@@ -1247,7 +1247,7 @@ function Create-KeyVaultSecrets{
 	Write-Host "Setting installer secrets"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
 	Write-Host "Setting database backup secrets"
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey" -SecretValue $dbBackupsStgAcctKeys.Value[0]
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -1487,7 +1487,7 @@ function Create-Core{
 										$dbLoginPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword"
 										$dbAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminName"
 										$dbAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword"
-									    $dbBackupsStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey
+									    $dbBackupsStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey"
 									   
 										Deploy-DB -ctx $newctx -secondary:$usage `
 												  -diagnosticStorageAccountKey $diagStorageAccountKey `

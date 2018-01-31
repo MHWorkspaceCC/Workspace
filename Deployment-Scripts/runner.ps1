@@ -7,8 +7,8 @@
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 #$ctx = Login-WorkspacePrimaryProd
 $ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p"
-#Create-Core -ctx $ctx -webScaleSetSize 2 -ftpScaleSetSize 1 -excludeVPN -computeElements @("web", "db", "jump") 
-#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("db") 
+#Teardown-Core -ctx $ctx -includeDisks -forectProfFilesRemoval #-computeOnly -computeElements @("svc")  
 #Deploy-NextEnvironmentInstance -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -computeElements @("web", "db", "jump")
 #Stop-ComputeResources -ctx $ctx -primary -secondary
 
@@ -27,7 +27,7 @@ Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #
 #Cancel-ActiveDeployments -ctx $ctx
 #Cancel-ActiveDeployments -ctx $ctx
 #Create-Core -ctx $ctx -baseOnly -excludeNetwork 
-Build-KeyVault -ctx $ctx 
+#Build-KeyVault -ctx $ctx 
 #Build-KeyVault -ctx $ctx -secondary
 
 <#	
