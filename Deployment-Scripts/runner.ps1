@@ -6,18 +6,28 @@
  
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 #$ctx = Login-WorkspacePrimaryProd
-$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 1 -facility "p"
+$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p"
 #Create-Core -ctx $ctx -webScaleSetSize 2 -ftpScaleSetSize 1 -excludeVPN -computeElements @("web", "db", "jump") 
-Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
 #Deploy-NextEnvironmentInstance -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -computeElements @("web", "db", "jump")
 #Stop-ComputeResources -ctx $ctx -primary -secondary
 
+<#
+$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p"
+#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 1 -facility "p"
+#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 2 -facility "p"
+#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 4 -facility "p"
+Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+#>
 
 #Delete-DiskFromVM -ctx $ctx -secondary:$secondary -diskNamePrefix "init1-sql1-db" -vmNamePrefix "sql1-db"
 #Cancel-ActiveDeployments -ctx $ctx
 #Cancel-ActiveDeployments -ctx $ctx
 #Create-Core -ctx $ctx -baseOnly -excludeNetwork 
-#Build-KeyVault -ctx $ctx 
+Build-KeyVault -ctx $ctx 
 #Build-KeyVault -ctx $ctx -secondary
 
 <#	

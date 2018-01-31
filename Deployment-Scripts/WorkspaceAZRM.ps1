@@ -87,21 +87,8 @@ Class EnvironmentAndFacilitiesInfo{
 $wsAcctInfo = @{
 	"profileFile" = "workspace.json"
 	"subscriptionName" = "WS Test"
-	"subscription" = "w"
+	"sharedSubscriptionName" = "WS Shared"
 }
-
-$mhAcctInfo = @{
-	"profileFile" = "heydt.json"
-	"subscriptionName" = "Visual Studio Enterprise"
-	"subscription" = "mh"
-}
-
-$loginAccounts = @{
-	$wsAcctInfo['subscription'] = $wsAcctInfo
-	$mhAcctInfo['subscription'] = $mhAcctInfo
-}
-
-$loginAccount = $loginAccounts['w']
 
 $fileSharesName = "workspace-file-storage"
 $fileSharesQuota = 512
@@ -122,6 +109,7 @@ Class Context{
 	[string]$peerVnetCidrPrefix
 	[object]$azureCtx
 	[object]$azureSub
+	[object]$previousSub
 
 	
 	Validate(){
@@ -158,7 +146,7 @@ Class Context{
 		else{
 			$facil = $this.peerfacility
 		}
-		return "rg-" + $resourceCategory + "-" + $this.subscription + "s0" + $facil
+		return "rg-" + $resourceCategory + "-" + "s" + "s0" + $facil
 	}
 
 	[string] GetStorageAccountName($resourceType, $usePeer=$false){
@@ -178,7 +166,7 @@ Class Context{
 		else{
 			$facil = $this.peerfacility
 		}
-		return "stg" + $resourceCategory + $this.subscription + "s0" + $facil
+		return "stg" + $resourceCategory + "s" + "s0" + $facil
 	}
 
 	[string] GetLocation($usePeer = $false){
@@ -218,9 +206,9 @@ Class Context{
 
 	[string] GetSharedResourcePostfix($usePeer = $false){
 		if (!$usePeer){
-			return $this.subscription + "s0" + $this.facility
+			return "s" + "s0" + $this.facility
 		}
-		return $this.subscription + "s0" + $this.peerfacility
+		return "s" + "s0" + $this.peerfacility
 	}
 	<#
 	static [string] BuildSharedResourcePostfix([Context]$ctx, $usePeer){
@@ -309,7 +297,7 @@ function Login-WorkspaceAzureAccount{
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $environment $slot $facility $subscription
 
-	$profileFile = $currentDir + "\Deployment-Scripts\" + $loginAccount['profileFile']
+	$profileFile = $currentDir + "\Deployment-Scripts\" + $wsAcctInfo['profileFile']
 
 	Write-Host "Logging into azure account"
 	$azureCtx = Import-AzureRmContext -Path $profileFile
@@ -317,7 +305,7 @@ function Login-WorkspaceAzureAccount{
 
 	Try{
 		Write-Host "Setting subscription..."
-		$azureSub = Get-AzureRmsubscription –subscriptionName $loginAccount['subscriptionName'] | Select-AzureRmsubscription
+		$azureSub = Get-AzureRmsubscription –subscriptionName $wsAcctInfo['subscriptionName'] | Select-AzureRmsubscription
 		Write-Host "Set Azure subscription for session complete"
 		Write-Host $azureSub.Name $azureSub.subscription
 
@@ -350,6 +338,30 @@ function Login-WorkspaceAzureAccount{
 	Write-Host "Out: " $MyInvocation.MyCommand 
 
 	return $ctx
+}
+
+function Set-SharedSubscription{
+	param(
+		[Context]$ctx
+	)
+
+	$sharedSub = Get-AzureRmsubscription –subscriptionName $wsAcctInfo['sharedSubscriptionName'] 
+	Set-AzureRmContext -Subscription  $sharedSub
+	$current = Get-AzureRmContext
+	$ctx.previousSub = $ctx.azureSub
+	$ctx.azureSub = $sharedSub
+}
+
+function RevertFrom-SharedSubscription{
+	param(
+		[Context]$ctx
+	)
+
+	$azureSub = Get-AzureRmsubscription –subscriptionName $wsAcctInfo['subscriptionName'] 
+	Set-AzureRmContext -Subscription  $azureSub
+	$current = Get-AzureRmContext
+	$ctx.previousSub = $ctx.azureSub
+	$ctx.azureSub = $azureSub
 }
 
 function Dump-Ctx{
@@ -644,9 +656,11 @@ function Deploy-DB{
 		[string]$saUserName,
 		[string]$saPassword,
 		[string]$loginUserName,
-		[string]$loginPassword
+		[string]$loginPassword,
+		[string]$dbBackupsStorageAccountKey
+
 	)
-	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey $dbAdminUserName
+	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey $dbAdminUserName $dbBackupsStorageAccountKey
 
 	Dump-Ctx $ctx
 
@@ -667,6 +681,12 @@ function Deploy-DB{
 	$parameters["loginPassword"] = $loginPassword
 	$parameters["vmSize"] = "Standard_D1_v2"
 	$parameters["dbServerName"] = "sql1"
+	$parameters["dbBackupsStorageAccountKey"] = $dbBackupsStorageAccountKey
+	$parameters["dbBackupsStorageAccountName"] = $ctx.GetSharedStorageAccountName("dbbackups", $secondary)
+	$parameters["dbBackupBlobName"] = "AdventureWorks2016.bak"
+	$parameters["databaseName"] = "AdventureWorks"
+	$parameters["dbMdfFileName"] = "AdventureWorks2016_Data"
+	$parameters["dbLdfFileName"] = "AdventureWorks2016_log"
 
 	$resourceGroupName = $ctx.GetResourceGroupName("db", $secondary)
 	Execute-Deployment -templateFile "arm-db-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
@@ -1199,13 +1219,6 @@ function Create-KeyVaultSecrets{
 	$diagStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $diagAcctResourceGroupName -AccountName $diagStorageAccountName
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
 
-	Write "Setting installers secrets"
-	$installersAcctResourceGroupName = $ctx.GetSharedResourceGroupName("installers", $secondary)
-	$installersStorageAccountName = $ctx.GetSharedStorageAccountName("installers", $secondary)
-	Write-Host "*****>" $installersAcctResourceGroupName $installersStorageAccountName
-	$installersStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
-	Write-Host "Setting secret"
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
 
 	Write "Setting installers secrets"
 	$fileShareAcctResourceGroupName = $ctx.GetResourceGroupName("files", $secondary)
@@ -1218,6 +1231,23 @@ function Create-KeyVaultSecrets{
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoUrl" -SecretValue $octoUrl
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoApiKey" -SecretValue $octoApiKey
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DataDogApiKey" -SecretValue $dataDogApiKey
+
+	Write-Host "Getting secrets from shared subsription"
+	Set-SharedSubscription -ctx $ctx
+	$installersAcctResourceGroupName = $ctx.GetSharedResourceGroupName("installers", $secondary)
+	$installersStorageAccountName = $ctx.GetSharedStorageAccountName("installers", $secondary)
+	$installersStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
+
+	$dbbackupAcctResourceGroupName = $ctx.GetSharedResourceGroupName("dbbackups", $secondary)
+	$dbBackupsStorageAccountName = $ctx.GetSharedStorageAccountName("dbbackups", $secondary)
+	$dbBackupsStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $dbbackupAcctResourceGroupName -AccountName $dbBackupsStorageAccountName
+	RevertFrom-SharedSubscription -ctx $ctx
+	Write-Host "Done getting secrets from shared subsription"
+	
+	Write-Host "Setting installer secrets"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
+	Write-Host "Setting database backup secrets"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -1457,6 +1487,7 @@ function Create-Core{
 										$dbLoginPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword"
 										$dbAdminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminName"
 										$dbAdminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword"
+									    $dbBackupsStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey
 									   
 										Deploy-DB -ctx $newctx -secondary:$usage `
 												  -diagnosticStorageAccountKey $diagStorageAccountKey `
@@ -1464,7 +1495,8 @@ function Create-Core{
 												  -installersStgAcctKey $installersStorageAccountKey -installersStgAcctName $installersStorageAccountName `
 												  -adminUserName $dbAdminUserName -adminPassword $dbAdminPassword `
 												  -saUserName $dbSaUserName -saPassword $dbSaPassword `
-												  -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword 
+												  -loginUserName $dbLoginUserName -loginPassword $dbLoginPassword `
+												  -dbBackupsStorageAccountKey $dbBackupsStorageAccountKey
 									   
 									    Delete-DiskFromVM -ctx $newctx -secondary:$secondary -diskNamePrefix "init1-sql1-db" -vmNamePrefix "sql1-db"
 

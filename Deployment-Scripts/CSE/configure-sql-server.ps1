@@ -11,7 +11,11 @@
 	[string]$destinationSqlIso = "d:\sqlserver.iso",
 	[string]$destinationSSMS = "d:\SSMS-Setup-ENU.exe",
 	[string]$databaseName = "AdventureWorks",
-	[string]$databaseMdfFile = "e:\AdventureWorks2012_Data.mdf" 
+	[string]$dbBackupBlobName = "",
+	[string]$dbMdfFileName = "",
+	[string]$dbLdfFileName = "",
+	[string]$dbBackupsStorageAccountName,
+	[string]$dbBackupsStorageAccountKey
 )
 
 Function Write-Log
@@ -37,7 +41,7 @@ Try
 	Write-Log("destinationSqlIso: " + $destinationSqlIso)
 	Write-Log("destinationSSMS: " + $destinationSSMS)
 	Write-Log("databaseName: " + $databaseName)
-	Write-Log("databaseMdfFile: " + $databaseMdfFile)
+	Write-Log("dbBackupBlobName: " + $dbBackupBlobName)
 
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
@@ -126,7 +130,8 @@ Try
     
 	if (!$dataDiskExisted){
 		Write-Log("Copying database backup")
-		Get-AzureStorageBlobContent -Blob "av2016.bak" -Container "dbbackups" -Destination $($initDiskLetter + ":\aw2016.bak") -Context $storageContext
+		$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
+		Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($initDiskLetter + ":\db.bak") -Context $backupStorageContext
 	}
 
 	Write-Log("Mounting SQL Server ISO")
@@ -175,7 +180,7 @@ Try
 	
 	if (!$dataDiskExisted){
 		Write-Log("Restoring database")
-		$dbCommand = "RESTORE DATABASE AdventureWorks FROM DISK = N'" + $initDiskLetter + ":\aw2016.bak' WITH MOVE 'AdventureWorks2016_Data' TO '" + $dataDiskLetter + ":\AdventureWorks2016.mdf', MOVE 'AdventureWorks2016_log' TO '" + $dataDiskLetter + ":\AdventureWorks2016.ldf',REPLACE"
+		$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $initDiskLetter + ":\db.bak' WITH MOVE '" + $initDiskLetter + ":\" + $dbMdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
 		Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
 	}else{
 		Write-Log "Attaching database"
@@ -186,7 +191,7 @@ Try
 		$ss.ConnectionContext.Password = $saPassword
 		Write-Log $ss.Information.Version
 
-		$mdf_file = $dataDiskLetter + ":\AdventureWorks2016.mdf"
+		$mdf_file = $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf"
 		$mdfs = $ss.EnumDetachedDatabaseFiles($mdf_file)
 		$ldfs = $ss.EnumDetachedLogFiles($mdf_file)
 
@@ -202,7 +207,7 @@ Try
 			$files.Add($_)
 		}
 
-		$ss.AttachDatabase("AdventureWorks", $files)
+		$ss.AttachDatabase($databaseName, $files)
 	}
 
 	Write-Log("Checking database info")

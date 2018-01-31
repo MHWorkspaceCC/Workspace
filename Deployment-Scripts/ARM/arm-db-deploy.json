@@ -87,6 +87,30 @@
 
     "dbServerName": {
       "type": "string"
+    },
+
+    "dbBackupsStorageAccountKey": {
+      "type": "string"
+    },
+
+    "dbBackupsStorageAccountName": {
+      "type": "string"
+    },
+
+    "databaseName": {
+      "type": "string"
+    },
+
+    "dbBackupBlobName": {
+      "type": "string"
+    },
+
+    "dbMdfFileName": {
+      "type": "string"
+    },
+
+    "dbLdfFileName": {
+      "type": "string"
     }
   },
 
@@ -148,7 +172,7 @@
     "bootDiagStorageAccount": "[concat('stgbootdiag', replace(variables('baseName'), '-', ''))]",
     "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
 
-    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUserName ', parameters('saUserName'), ' -saPassword ', parameters('saPassword'), ' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'), ' -installersStgAcctName ', parameters('installersStgAcctName'))]",
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUserName ', parameters('saUserName'), ' -saPassword ', parameters('saPassword'), ' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'), ' -installersStgAcctName ', parameters('installersStgAcctName'), ' -dbBackupsStorageAccountKey ', parameters('dbBackupsStorageAccountKey'), ' -dbBackupsStorageAccountName ', parameters('dbBackupsStorageAccountName'), ' -databaseName ', parameters('databaseName'), ' -dbBackupBlobName ', parameters('dbBackupBlobName'), ' -dbMdfFileName ', parameters('dbMdfFileName'), ' -dbLdfFileName ', parameters('dbLdfFileName'))]",
 
     "dataDiskId": "[resourceId(concat('rg-disks', variables('baseName')), 'Microsoft.Compute/disks', variables('dataDiskName'))]"
   },
@@ -344,7 +368,7 @@
         },
         {
           "type": "extensions",
-          "name": "Microsoft.Insights.VMDiagnosticsSettings",
+          "name": "Microsoft.Insights.iagnosticsSettings",
           "apiVersion": "2017-03-30",
           "location": "[resourceGroup().location]",
           "scale": null,
