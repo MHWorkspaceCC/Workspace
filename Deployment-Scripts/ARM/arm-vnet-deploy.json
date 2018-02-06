@@ -417,7 +417,24 @@
               "sourceAddressPrefixes": [],
               "destinationAddressPrefixes": []
             }
-          }
+          },
+          {
+            "name": "DenyVnetInBound",
+            "properties": {
+              "description": "Deny inbound traffic from all VMs in VNET except those white listed",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "VirtualNetwork",
+              "access": "Deny",
+              "priority": 4000,
+              "direction": "Inbound",
+              "sourceAddressPrefixes": [],
+              "destinationAddressPrefixes": []
+            }
+          },
+
 
         ],
         "defaultSecurityRules": [
@@ -1053,7 +1070,7 @@
               "protocol": "TCP",
               "sourcePortRange": "*",
               "destinationPortRange": "1433",
-              "sourceAddressPrefix": "*",
+              "sourceAddressPrefix": "[variables('webCIDR')]",
               "destinationAddressPrefix": "*",
               "access": "Allow",
               "priority": 1000,

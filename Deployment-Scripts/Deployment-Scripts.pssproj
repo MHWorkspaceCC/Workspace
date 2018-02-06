@@ -28,19 +28,18 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="ARM\arm-admin-deploy.json" />
-    <Content Include="ARM\arm-db-disk-init-vm-deploy.json" />
-    <Content Include="ARM\arm-db-disks-deploy.json" />
-    <Content Include="ARM\arm-nsgs-deploy.json" />
-    <Content Include="ARM\arm-octoserver-deploy.json" />
+    <Content Include="legacy\arm-db-disk-init-vm-deploy.json" />
+    <Content Include="legacy\arm-db-disks-deploy.json" />
+    <Content Include="legacy\arm-nsgs-deploy.json" />
+    <Content Include="legacy\arm-octoserver-deploy.json" />
     <Content Include="ARM\arm-stgaccount-deploy.json" />
-    <Content Include="ARM\arm-svcvnet-deploy.json" />
+    <Content Include="legacy\arm-svcvnet-deploy.json" />
     <Content Include="ARM\arm-vmssftp-deploy.json" />
-    <Content Include="ARM\arm-pips-deploy.json" />
-    <Content Include="ARM\arm-vpn-connections-deploy.json" />
-    <Content Include="ARM\arm-vpn-deploy-backup.json" />
+    <Content Include="legacy\arm-pips-deploy.json" />
+    <Content Include="legacy\arm-vpn-connections-deploy.json" />
+    <Content Include="legacy\arm-vpn-deploy-backup.json" />
     <Content Include="ARM\arm-vpn-deploy.json" />
     <Content Include="ARM\arm-vmssweb-deploy.json" />
-    <Content Include="heydt.json" />
     <Content Include="ARM\arm-db-deploy.json" />
     <Content Include="ARM\arm-jump-deploy.json" />
     <Content Include="ARM\arm-vnet-deploy.json" />
@@ -50,28 +49,30 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CSE\configure-admin-server.ps1" />
-    <Compile Include="CSE\configure-db-disk-init-vm.ps1" />
+    <Compile Include="legacy\configure-db-disk-init-vm.ps1" />
     <Compile Include="CSE\configure-file-share.ps1" />
     <Compile Include="CSE\configure-ftp-server.ps1" />
     <Compile Include="CSE\configure-jump-server.ps1" />
-    <Compile Include="CSE\configure-octopus-server.ps1" />
+    <Compile Include="legacy\configure-octopus-server.ps1" />
     <Compile Include="CSE\configure-sql-server.ps1" />
-    <Compile Include="CSE\configure-sql-server-old.ps1" />
+    <Compile Include="legacy\configure-sql-server-old.ps1" />
     <Compile Include="CSE\configure-web-server.ps1" />
     <Compile Include="CSE\install-and-configure-iis.ps1" />
-    <Compile Include="CSE\install-octopus-server-with-dsc.ps1" />
+    <Compile Include="legacy\install-octopus-server-with-dsc.ps1" />
     <Compile Include="CSE\Install-OctopusDSC.ps1" />
-    <Compile Include="CSE\install-powershellget.ps1" />
-    <Compile Include="CSE\install-sqlserverdsc.ps1" />
-    <Compile Include="CSE\install-sqlserverwithdsc.ps1" />
+    <Compile Include="legacy\install-powershellget.ps1" />
+    <Compile Include="legacy\install-sqlserverdsc.ps1" />
+    <Compile Include="legacy\install-sqlserverwithdsc.ps1" />
     <Compile Include="CSE\install-web-app-with-octo-dsc.ps1" />
-    <Compile Include="CSE\null.ps1" />
-    <Compile Include="CSE\OctopusServerDSC.ps1" />
-    <Compile Include="CSE\SqlConfigurationData.psd1" />
-    <Compile Include="CSE\SqlStandaloneDSC.ps1" />
-    <Compile Include="Invoke-Parallel.ps1" />
-    <Compile Include="jobs.ps1" />
-    <Compile Include="misc.ps1" />
+    <Compile Include="legacy\null.ps1" />
+    <Compile Include="legacy\OctopusServerDSC.ps1" />
+    <Compile Include="legacy\SqlConfigurationData.psd1" />
+    <Compile Include="legacy\SqlStandaloneDSC.ps1" />
+    <Compile Include="legacy\Invoke-Parallel.ps1" />
+    <Compile Include="legacy\jobs.ps1" />
+    <Compile Include="legacy\misc.ps1" />
+    <Compile Include="Octopus\CreateSP-Test.ps1" />
+    <Compile Include="Octopus\Get-InstallersStorageAccountKey.ps1" />
     <Compile Include="Octopus\OctopusConfigure.ps1" />
     <Compile Include="old\deploy-db-disks.ps1" />
     <Compile Include="old\deploy-vnet.ps1" />
@@ -84,14 +85,15 @@
     <Compile Include="old\deploy-web.ps1" />
     <Compile Include="old\remove-vngs.ps1" />
     <Compile Include="runner.ps1" />
-    <Compile Include="teardown.ps1" />
-    <Compile Include="tests.ps1" />
+    <Compile Include="legacy\teardown.ps1" />
+    <Compile Include="legacy\tests.ps1" />
     <Compile Include="WorkspaceAZRM.ps1" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Bulk\" />
     <Folder Include="CSE\" />
     <Folder Include="ARM\" />
+    <Folder Include="legacy\" />
     <Folder Include="SQL\" />
     <Folder Include="Octopus\" />
     <Folder Include="old\" />

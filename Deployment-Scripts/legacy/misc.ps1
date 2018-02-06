@@ -1,3 +1,4 @@
+Write-Host "HI!"
 <#
 function Add-WebSslSelfSignedCertToKeyVault{
 	param(

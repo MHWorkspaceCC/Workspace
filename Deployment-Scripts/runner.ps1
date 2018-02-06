@@ -2,21 +2,24 @@
 # runner.ps1
 #
 
-. .\Deployment-Scripts\WorkspaceAZRM.ps1
- 
+. .\WorkspaceAZRM.ps1
+
+Write-Debug "HI"
 #Execute-Deployment -templateFile "arm-vnet-deploy.json"
 #$ctx = Login-WorkspacePrimaryProd
-$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p"
-Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -excludeVPN -computeElements @("db") 
-#Teardown-Core -ctx $ctx -includeDisks -forectProfFilesRemoval #-computeOnly -computeElements @("svc")  
+$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p" 
+#Deploy-VPN -ctx $ctx
+Create-Core -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1  -computeElements @("db", "web", "jump", "admin") -primary #-excludeVPN -excludeBase -excludeNetwork -excludeVPN 
+Teardown-Core -ctx $ctx -includeDisks -forceProdFilesRemoval #-computeElements @("svc")  #-computeOnly 
 #Deploy-NextEnvironmentInstance -ctx $ctx -webScaleSetSize 1 -ftpScaleSetSize 1 -computeElements @("web", "db", "jump")
 #Stop-ComputeResources -ctx $ctx -primary -secondary
 
+
+#$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p"
+#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
+#$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 1 -facility "p"
+#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
 <#
-$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 0 -facility "p"
-#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
-$ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 1 -facility "p"
-#Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
 $ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 2 -facility "p"
 #Teardown-Core -ctx $ctx -includeDisks #-computeOnly -computeElements @("svc")  #-forceProdFilesRemoval 
 $ctx = Login-WorkspaceAzureAccount -subscription "w" -environment "p" -slot 4 -facility "p"
