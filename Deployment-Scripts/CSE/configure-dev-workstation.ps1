@@ -28,7 +28,6 @@ Function Write-Log
 
 Try
 {
-	Write-Log("In configure sql server")
 	Write-Log("Installers key: " + $installersStgAcctKey)
 	Write-Log("saUsername: " + $saUserName)
 	Write-Log("saPassword: " + $saPassword)
@@ -46,17 +45,22 @@ Try
 	Write-Log("dbLdfFileName: " + $dbLdfFileName)
 	Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
 	Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
-
+<#
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
 	Write-Log("Installing AzureRM, xSqlServer, and SqlServer")
 	Install-Module -Name AzureRM -Repository PSGallery
 	Install-Module -Name xSqlServer -Repository PSGallery
 	Install-Module -Name SqlServer -Repository PSGallery
 
+	Write-Log("Importing module SqlServer")
 	Import-Module SqlServer
 	
+	Write-Log("Installing choclatey")
+	iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
 	$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
     if ($err -ne $null){
 		$dataDiskExisted = $false
@@ -85,6 +89,14 @@ Try
 	Write-Log("The data disk drive letter is " + $dataDiskLetter)
 
 	Write-Log("Starting configuration")
+
+
+	Write-Log('Configuring .NET 4.5')
+	Install-WindowsFeature Net-Framework-45-Features
+	Write-Log('Configuring Web Server, ASP.NET 4.5')
+	Install-WindowsFeature Web-Server, Web-Ftp-Server, Web-Asp-Net45, NET-Framework-Features
+	Write-Log("Installing management console")
+	Install-WindowsFeature Web-Mgmt-Console
 
 	$ssmsInstallBlobName = "SSMS-Setup-ENU.exe"
 	$destinationSqlIso = "d:\sqlserver.iso"
@@ -190,7 +202,14 @@ Try
 	$db.Roles['db_datareader'].AddMember($dbuser.Name)
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
+	Write-Log("Installing VS.NET 2017 Community")
+	choco install visualstudio2017community
+
+	Write-Log("Installing Chrome")
+	choco install googlechrome
+
 	Write-Log("All done!")
+	#>
 }
 Catch
 {

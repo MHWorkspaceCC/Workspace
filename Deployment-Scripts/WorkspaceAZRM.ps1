@@ -2195,7 +2195,7 @@ function Build-DevMachineImage{
 		"role" = "devworkstation"
 		"adminUserName" = "developer"
 		"adminPassword" = "Workspace!Dev!2018"
-		"vmSize" = "Standard_D1_v2"
+		"vmSize" = "Standard_D2_v3"
 		"computerName" = "dib"
 	}
 
