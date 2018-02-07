@@ -2197,7 +2197,7 @@ function Build-DevMachineImage{
 		"adminPassword" = "Workspace!Dev!2018"
 		#"vmSize" = "Standard_D2_v3"
 		"vmSize" = "Standard_B4ms"
-		"computerName" = "dib2"
+		"computerName" = "dib3"
 	}
 
 	Ensure-ResourceGroup -ctx $ctx "dev"
