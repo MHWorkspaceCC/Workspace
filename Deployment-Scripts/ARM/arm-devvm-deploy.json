@@ -22,6 +22,8 @@
       "fileUris": {
         "type": "array",
         "defaultValue": [
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/SqlConfigurationData.psd1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/SqlStandaloneDSC.ps1",
           "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-dev-workstation.ps1"
         ]
       },

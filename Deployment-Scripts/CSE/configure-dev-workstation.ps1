@@ -1,4 +1,4 @@
-     param(
+param(
 	[string]$installersStgAcctKey = "RTroekJPVf2/9tMyTfJ+LTrup0IwZIDyuus13KoQX0QuH3MCTBLt0wawD0Air2bMYF03JDV0sRSYuqYypSBxbg==",
 	[string]$installersStgAcctName = "stginstallersss0p",
 	[string]$saUserName = "wsadmin",
@@ -14,8 +14,8 @@
 	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
 	[string]$dbMdfFileName = "AdventureWorks2016_Data",
 	[string]$dbLdfFileName = "AdventureWorks2016_Log",
-	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0d",
-	[string]$dbBackupsStorageAccountKey = "ISTBYo7/MfyoZea4FLiPnWzmjYzwko4nOVMRLck1a1uH45VtjS0Gpo1Ew3egrdUSvcg7h3ZH0mTNOR/hbOZOHw=="
+	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0p",
+	[string]$dbBackupsStorageAccountKey = "MjxzzdLwmgeB6emUEcepOEko+SYiZtPE578BMXFeSMQnXHXO7PJm8EyhM9Ndk1afp94wZ55vXp656li6BlD+6w=="
 )
 
 Function Write-Log
@@ -45,7 +45,7 @@ Try
 	Write-Log("dbLdfFileName: " + $dbLdfFileName)
 	Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
 	Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
-<#
+
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -107,6 +107,8 @@ Try
 	Get-AzureStorageBlobContent -Blob $sqlInstallBlobName -Container $containerName -Destination $destinationSqlIso -Context $storageContext
 	Write-Log("Starting copy of SSMS installer")
 	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
+
+    $initDiskLetter = "F"
 
 	Write-Log("Copying database backup")
 	$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
@@ -202,14 +204,13 @@ Try
 	$db.Roles['db_datareader'].AddMember($dbuser.Name)
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
-	Write-Log("Installing VS.NET 2017 Community")
-	choco install visualstudio2017community
-
 	Write-Log("Installing Chrome")
-	choco install googlechrome
+	choco install googlechrome -y
+
+	Write-Log("Installing VS.NET 2017 Community")
+	choco install visualstudio2017community -y --all --passive --norestart 
 
 	Write-Log("All done!")
-	#>
 }
 Catch
 {
@@ -217,6 +218,7 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
  
  
  
