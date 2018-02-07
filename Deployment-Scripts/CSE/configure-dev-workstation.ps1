@@ -57,7 +57,6 @@ Try
 
 	Import-Module SqlServer
 	
-	$dataDiskExisted = $true
 	$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
     if ($err -ne $null){
 		$dataDiskExisted = $false
@@ -80,47 +79,10 @@ Try
         $ar = New-Object  system.security.accesscontrol.filesystemaccessrule("everyone","FullControl","Allow")
         $acl.SetAccessRule($ar)
         Set-Acl $filename $acl	
-    }else{
-	    $dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
-        if ($dataDiskLetter -ne "F"){
-        	$dataDisk = Get-Disk | `
-        		Where partitionstyle -eq 'MBR' | `
-                Select-Object -last 1            
-            # move the CD from F to G
-            $drv = Get-WmiObject win32_volume -filter 'DriveLetter = "F:"'
-            $drv.DriveLetter = "G:"
-            $drv.Put()
-
-            # put the database disk on F:
-            Get-Partition -DiskNumber $dataDisk.DiskNumber | Set-Partition -NewDriveLetter F
-        }
-    }
-
-	$initVolume = $null
-	if (!$dataDiskExisted){
-		$err = $null
-		$initVolume = Get-Volume -FileSystemLabel InitDisk -ErrorVariable err -ErrorAction SilentlyContinue
-		if ($err -ne $null){
-			Write-Host "Did not find init disk so creating"
-			$initDisk = Get-Disk | `
-				Where partitionstyle -eq 'raw' | `
-				Select-Object -first 1
-
-			$initDisk | 
-				Initialize-Disk -PartitionStyle MBR -PassThru | `
-				New-Partition -AssignDriveLetter -UseMaximumSize | `
-				Format-Volume -FileSystem NTFS -NewFileSystemLabel "InitDisk" -Confirm:$false | 
-				Write-Log
-		}
 	}
 
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 	Write-Log("The data disk drive letter is " + $dataDiskLetter)
-
-    if (!$dataDiskExisted){
-	    $initDiskLetter = (Get-Volume -FileSystemLabel InitDisk).DriveLetter
-	    Write-Log("The init disk drive letter is " + $initDiskLetter)
-    }
 
 	Write-Log("Starting configuration")
 
@@ -131,12 +93,16 @@ Try
 	$storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
 	Write-Log("Starting copy of SQL Server ISO")
 	Get-AzureStorageBlobContent -Blob $sqlInstallBlobName -Container $containerName -Destination $destinationSqlIso -Context $storageContext
-    
-	if (!$dataDiskExisted){
-		Write-Log("Copying database backup")
-		$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
-		Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($initDiskLetter + ":\db.bak") -Context $backupStorageContext
-	}
+	Write-Log("Starting copy of SSMS installer")
+	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
+
+	Write-Log("Copying database backup")
+	$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
+	Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($initDiskLetter + ":\db.bak") -Context $backupStorageContext
+
+	Write-Log("Installing SSMS")
+	Start-Process $destinationSSMS "/install /quiet /norestart /log d:\ssms-log.txt" -Wait
+	Write-Log("Installed SSMS")
 
 	Write-Log("Mounting SQL Server ISO")
 	Mount-DiskImage -ImagePath d:\sqlserver.iso 
@@ -182,37 +148,9 @@ Try
     $ss.ConnectionContext.Password = $saPassword
     Write-Log($ss.Information.Version)
 	
-	if (!$dataDiskExisted){
-		Write-Log("Restoring database")
-		$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $initDiskLetter + ":\db.bak' WITH MOVE '" + $dbMdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
-		Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
-	}else{
-		Write-Log "Attaching database"
-
-		$ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
-		$ss.ConnectionContext.LoginSecure = $false
-		$ss.ConnectionContext.Login = "sa"
-		$ss.ConnectionContext.Password = $saPassword
-		Write-Log $ss.Information.Version
-
-		$mdf_file = $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf"
-		$mdfs = $ss.EnumDetachedDatabaseFiles($mdf_file)
-		$ldfs = $ss.EnumDetachedLogFiles($mdf_file)
-
-		$files = New-Object System.Collections.Specialized.StringCollection
-		Write-Log "Enumerating mdfs"
-		ForEach-Object -InputObject $mdfs {
-			Write-Log $_
-			$files.Add($_)
-		}
-		Write-Log "Enumerating ldfs"
-		ForEach-Object -InputObject $ldfs {
-			Write-Log $_
-			$files.Add($_)
-		}
-
-		$ss.AttachDatabase($databaseName, $files)
-	}
+	Write-Log("Restoring database")
+	$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $initDiskLetter + ":\db.bak' WITH MOVE '" + $dbMdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
+	Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
 
 	Write-Log("Checking database info")
 	$db = $ss.Databases[$databaseName]

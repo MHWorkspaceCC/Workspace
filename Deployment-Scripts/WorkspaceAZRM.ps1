@@ -1280,7 +1280,8 @@ function Create-Core{
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true)
 
 	if ($ctx.subscription -eq "d"){
-		Create-Core-Dev -ctx $ctx
+		Create-Core-Dev -ctx $ctx -computeOnly
+		return
 	}
 
 	Dump-Ctx $ctx
@@ -2154,7 +2155,8 @@ function Create-Core-Dev{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Deploy-DevVnet -ctx $ctx
+	#Deploy-DevVnet -ctx $ctx
+	Build-DevMachineImage -ctx $ctx
 	
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -2186,6 +2188,19 @@ function Build-DevMachineImage{
 	)
 
 	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	$resourceGroupName = "rg-dev-dd0p"
+	$parameters = @{
+		"resourceNamePostfix" = "dd0p"
+		"role" = "devworkstation"
+		"adminUserName" = "developer"
+		"adminPassword" = "Workspace!Dev!2018"
+		#"computerName" = "d"
+	}
+
+	Ensure-ResourceGroup -ctx $ctx "dev"
+	Execute-Deployment -templateFile "arm-devvm-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
+
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
 
