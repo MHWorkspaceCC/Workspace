@@ -57,7 +57,7 @@
     "imageOffer": "WindowsServer",
     "osDiskName": "[concat('osdisk-', variables('boxName'))]",
     "dataDiskName": "[concat('datadisk-', variables('boxName'))]",
-    "dataDiskName": "[concat('initdisk-', variables('boxName'))]",
+    "initDiskName": "[concat('initdisk-', variables('boxName'))]",
     "vmSize": "[parameters('vmSize')]",
     "adminUserName": "[parameters('adminUserName')]",
     "adminPassword": "[parameters('adminPassword')]",

@@ -45,7 +45,7 @@ Try
 	Write-Log("dbLdfFileName: " + $dbLdfFileName)
 	Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
 	Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
-	
+	<#
 	$dataDiskExisted = $true
 	$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
     if ($err -ne $null){
@@ -251,6 +251,7 @@ Try
     choco install visualstudio2017community -y --package-parameters "--allWorkloads --includeRecommended --includeOptional --passive --locale en-US" 
 
 	Write-Log("All done!")
+	#>
 }
 Catch
 {
