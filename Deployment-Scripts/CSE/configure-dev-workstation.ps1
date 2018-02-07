@@ -45,7 +45,7 @@ Try
 	Write-Log("dbLdfFileName: " + $dbLdfFileName)
 	Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
 	Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
-
+<#
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -211,6 +211,7 @@ Try
 	choco install visualstudio2017community -y --all --passive --norestart 
 
 	Write-Log("All done!")
+	#>
 }
 Catch
 {
@@ -218,6 +219,7 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 } 
+ 
  
  
  
