@@ -30,7 +30,7 @@
 
       "commandToExecute": {
         "type": "string",
-        "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-dev-workstation.ps1"
+        "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUserName ', parameters('saUserName'), ' -saPassword ', parameters('saPassword'), ' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'), ' -installersStgAcctName ', parameters('installersStgAcctName'), ' -dbBackupsStorageAccountKey ', parameters('dbBackupsStorageAccountKey'), ' -dbBackupsStorageAccountName ', parameters('dbBackupsStorageAccountName'), ' -databaseName ', parameters('databaseName'), ' -dbBackupBlobName ', parameters('dbBackupBlobName'), ' -dbMdfFileName ', parameters('dbMdfFileName'), ' -dbLdfFileName ', parameters('dbLdfFileName'))]",
       },
 
       "vmSize":{
@@ -41,8 +41,60 @@
       "computerName":{
         "type": "string",
         "defaultValue": "dib"
+      },
+
+      "saUserName": {
+        "type": "string"
+      },
+  
+      "saPassword": {
+        "type": "securestring"
+      },
+  
+      "loginUserName": {
+        "type": "string"
+      },
+  
+      "loginPassword": {
+        "type": "securestring"
+      },
+    
+      "installersStgAcctKey": {
+        "type": "string"
+      },
+  
+      "installersStgAcctName": {
+        "type": "string"
+      },
+  
+      "dbServerName": {
+        "type": "string"
+      },
+  
+      "dbBackupsStorageAccountKey": {
+        "type": "string"
+      },
+  
+      "dbBackupsStorageAccountName": {
+        "type": "string"
+      },
+  
+      "databaseName": {
+        "type": "string"
+      },
+  
+      "dbBackupBlobName": {
+        "type": "string"
+      },
+  
+      "dbMdfFileName": {
+        "type": "string"
+      },
+  
+      "dbLdfFileName": {
+        "type": "string"
       }
-    },
+  },
 
   "variables": {
     "baseName": "[concat('dev-', parameters('resourceNamePostfix'))]",
@@ -57,7 +109,6 @@
     "imageOffer": "WindowsServer",
     "osDiskName": "[concat('osdisk-', variables('boxName'))]",
     "dataDiskName": "[concat('datadisk-', variables('boxName'))]",
-    "initDiskName": "[concat('initdisk-', variables('boxName'))]",
     "vmSize": "[parameters('vmSize')]",
     "adminUserName": "[parameters('adminUserName')]",
     "adminPassword": "[parameters('adminPassword')]",
@@ -78,7 +129,7 @@
     "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
 
     "fileUris": "[parameters('fileUris')]",
-    "commandToExecute": "[parameters('commandToExecute')]"
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUserName ', parameters('saUserName'), ' -saPassword ', parameters('saPassword'), ' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'), ' -installersStgAcctName ', parameters('installersStgAcctName'), ' -dbBackupsStorageAccountKey ', parameters('dbBackupsStorageAccountKey'), ' -dbBackupsStorageAccountName ', parameters('dbBackupsStorageAccountName'), ' -databaseName ', parameters('databaseName'), ' -dbBackupBlobName ', parameters('dbBackupBlobName'), ' -dbMdfFileName ', parameters('dbMdfFileName'), ' -dbLdfFileName ', parameters('dbLdfFileName'))]"
   },
 
   "resources": [
@@ -173,12 +224,6 @@
           "dataDisks": [
             {
               "name": "[variables('dataDiskName')]",
-              "diskSizeGB": 128,
-              "lun": 0,
-              "createOption": "Empty"
-            },
-            {
-              "name": "[variables('initDiskName')]",
               "diskSizeGB": 128,
               "lun": 0,
               "createOption": "Empty"
