@@ -64,15 +64,14 @@
     "vnetName": "[concat('d0-vnet-', parameters('resourceNamePostfix'))]",
     "vnetRgName": "[concat('rg-vnet-', parameters('resourceNamePostfix'))]",
     "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
-    "snName": "[concat('sn-dev', variables('baseName'))]",
+    "snName": "[concat('sn-', variables('baseName'))]",
     "subnetRef": "[concat(variables('vnetID'), '/subnets/', variables('snName'))]",
 
     "storageAccountContainerName": "vhds",
     "nicName": "[concat('nic1-', variables('boxName'))]",
+    "nicId": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
 
     "pipName": "[concat('pip-', variables('boxName'))]",
-
-    "pipRg": "[concat('rg-vnet', variables('baseName'))]",
     "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
 
     "fileUris": "[parameters('fileUris')]",
@@ -217,7 +216,10 @@
             }
           }
         }
-      ]
+      ],
+      "dependsOn": [
+        "[variables('nicId')]"
+      ]    
     }
   ],
 

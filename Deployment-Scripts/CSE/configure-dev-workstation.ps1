@@ -1,6 +1,6 @@
      param(
-	[string]$installersStgAcctKey = "GpIQqQPEQI4q0HQL6ultba+fMyCWJOsWejBlvNBwTfZBQeCAZZdUVJh5AhChCbcZJO6M+uUUUJ0qQiqUd31MEg==",
-	[string]$installersStgAcctName = "stginstallersss0d",
+	[string]$installersStgAcctKey = "RTroekJPVf2/9tMyTfJ+LTrup0IwZIDyuus13KoQX0QuH3MCTBLt0wawD0Air2bMYF03JDV0sRSYuqYypSBxbg==",
+	[string]$installersStgAcctName = "stginstallersss0p",
 	[string]$saUserName = "wsadmin",
 	[string]$saPassword = "Workspace!DB!2017",
 	[string]$loginUserName = "wsapp",
