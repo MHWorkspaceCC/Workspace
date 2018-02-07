@@ -1087,14 +1087,14 @@ function Create-KeyVaultSecrets{
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName" -SecretValue "wsapp"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword" -SecretValue "Workspace!DB!2017"
 	
-	Write "Setting diagnostics secrets"
+	Write-Host "Setting diagnostics secrets"
 	$diagAcctResourceGroupName = $ctx.GetResourceGroupName("diag", $secondary)
 	$diagStorageAccountName = $ctx.GetStorageAccountName("diag", $secondary)
 	$diagStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $diagAcctResourceGroupName -AccountName $diagStorageAccountName
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
 
 
-	Write "Setting installers secrets"
+	Write-Host "Setting installers secrets"
 	$fileShareAcctResourceGroupName = $ctx.GetResourceGroupName("files", $secondary)
 	$fileShareStorageAccountName = $ctx.GetStorageAccountName("files", $secondary)
 	Write-Host $fileShareAcctResourceGroupName $fileShareStorageAccountName
@@ -2204,5 +2204,3 @@ function Build-DevMachineImage{
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
-
-
