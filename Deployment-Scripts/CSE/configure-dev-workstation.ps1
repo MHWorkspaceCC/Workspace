@@ -199,7 +199,7 @@ Try
 	Remove-Item -Path d:\log*.txt
 	Remove-Item -Path d:\*.bak
 
-	Write-Log("Installing choclatey")
+	Write-Log("Installing chocolatey")
 	iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
 	Write-Log("Installing Chrome")
