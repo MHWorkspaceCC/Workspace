@@ -186,6 +186,10 @@ Try
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 
+	Write-Log("Installing SSMS")
+	Start-Process $destinationSSMS "/install /quiet /norestart /log d:\ssms-log.txt" -Wait
+	Write-Log("Installed SSMS")
+
 	Write-Log("Cleaning up database install files")
 	Dismount-DiskImage -ImagePath d:\sqlserver.iso
 	Write-Log("Cleaned up")

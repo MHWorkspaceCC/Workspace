@@ -1,6 +1,6 @@
-     param(
-	[string]$installersStgAcctKey = "GpIQqQPEQI4q0HQL6ultba+fMyCWJOsWejBlvNBwTfZBQeCAZZdUVJh5AhChCbcZJO6M+uUUUJ0qQiqUd31MEg==",
-	[string]$installersStgAcctName = "stginstallersss0d",
+param(
+	[string]$installersStgAcctKey = "RTroekJPVf2/9tMyTfJ+LTrup0IwZIDyuus13KoQX0QuH3MCTBLt0wawD0Air2bMYF03JDV0sRSYuqYypSBxbg==",
+	[string]$installersStgAcctName = "stginstallersss0p",
 	[string]$saUserName = "wsadmin",
 	[string]$saPassword = "Workspace!DB!2017",
 	[string]$loginUserName = "wsapp",
@@ -14,8 +14,8 @@
 	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
 	[string]$dbMdfFileName = "AdventureWorks2016_Data",
 	[string]$dbLdfFileName = "AdventureWorks2016_Log",
-	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0d",
-	[string]$dbBackupsStorageAccountKey = "ISTBYo7/MfyoZea4FLiPnWzmjYzwko4nOVMRLck1a1uH45VtjS0Gpo1Ew3egrdUSvcg7h3ZH0mTNOR/hbOZOHw=="
+	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0p",
+	[string]$dbBackupsStorageAccountKey = "MjxzzdLwmgeB6emUEcepOEko+SYiZtPE578BMXFeSMQnXHXO7PJm8EyhM9Ndk1afp94wZ55vXp656li6BlD+6w=="
 )
 
 Function Write-Log
@@ -28,7 +28,6 @@ Function Write-Log
 
 Try
 {
-	Write-Log("In configure sql server")
 	Write-Log("Installers key: " + $installersStgAcctKey)
 	Write-Log("saUsername: " + $saUserName)
 	Write-Log("saPassword: " + $saPassword)
@@ -46,7 +45,7 @@ Try
 	Write-Log("dbLdfFileName: " + $dbLdfFileName)
 	Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
 	Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
-
+	
 	Write-Log("Trusting PSGallery")
 	Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 	Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -56,7 +55,14 @@ Try
 	Install-Module -Name SqlServer -Repository PSGallery
 
 	Import-Module SqlServer
-	
+
+	Write-Log('Configuring .NET 4.5')
+	Install-WindowsFeature Net-Framework-45-Features
+	Write-Log('Configuring Web Server, ASP.NET 4.5')
+	Install-WindowsFeature Web-Server, Web-Ftp-Server, Web-Asp-Net45, NET-Framework-Features
+	Write-Log("Installing management console")
+	Install-WindowsFeature Web-Mgmt-Console
+
 	$dataDiskExisted = $true
 	$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
     if ($err -ne $null){
@@ -96,31 +102,8 @@ Try
         }
     }
 
-	$initVolume = $null
-	if (!$dataDiskExisted){
-		$err = $null
-		$initVolume = Get-Volume -FileSystemLabel InitDisk -ErrorVariable err -ErrorAction SilentlyContinue
-		if ($err -ne $null){
-			Write-Host "Did not find init disk so creating"
-			$initDisk = Get-Disk | `
-				Where partitionstyle -eq 'raw' | `
-				Select-Object -first 1
-
-			$initDisk | 
-				Initialize-Disk -PartitionStyle MBR -PassThru | `
-				New-Partition -AssignDriveLetter -UseMaximumSize | `
-				Format-Volume -FileSystem NTFS -NewFileSystemLabel "InitDisk" -Confirm:$false | 
-				Write-Log
-		}
-	}
-
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 	Write-Log("The data disk drive letter is " + $dataDiskLetter)
-
-    if (!$dataDiskExisted){
-	    $initDiskLetter = (Get-Volume -FileSystemLabel InitDisk).DriveLetter
-	    Write-Log("The init disk drive letter is " + $initDiskLetter)
-    }
 
 	Write-Log("Starting configuration")
 
@@ -135,8 +118,11 @@ Try
 	if (!$dataDiskExisted){
 		Write-Log("Copying database backup")
 		$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
-		Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($initDiskLetter + ":\db.bak") -Context $backupStorageContext
+		Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($dataDiskLetter + ":\db.bak") -Context $backupStorageContext
 	}
+
+	Write-Log("Starting copy of SSMS installer")
+	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
 
 	Write-Log("Mounting SQL Server ISO")
 	Mount-DiskImage -ImagePath d:\sqlserver.iso 
@@ -167,12 +153,6 @@ Try
 
 	Write-Log("Installed SQL Server")
 
-	Write-Log("Cleaning up")
-	Dismount-DiskImage -ImagePath d:\sqlserver.iso
-	Write-Log("Cleaned up")
-	Remove-Item -Path $destinationSqlIso
-    Remove-Item -Path d:\log*.txt
-
 	Write-Log("Cofiguring database")
 
 	Write-Log("Creating sa account")
@@ -182,37 +162,9 @@ Try
     $ss.ConnectionContext.Password = $saPassword
     Write-Log($ss.Information.Version)
 	
-	if (!$dataDiskExisted){
-		Write-Log("Restoring database")
-		$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $initDiskLetter + ":\db.bak' WITH MOVE '" + $dbMdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
-		Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
-	}else{
-		Write-Log "Attaching database"
-
-		$ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
-		$ss.ConnectionContext.LoginSecure = $false
-		$ss.ConnectionContext.Login = "sa"
-		$ss.ConnectionContext.Password = $saPassword
-		Write-Log $ss.Information.Version
-
-		$mdf_file = $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf"
-		$mdfs = $ss.EnumDetachedDatabaseFiles($mdf_file)
-		$ldfs = $ss.EnumDetachedLogFiles($mdf_file)
-
-		$files = New-Object System.Collections.Specialized.StringCollection
-		Write-Log "Enumerating mdfs"
-		ForEach-Object -InputObject $mdfs {
-			Write-Log $_
-			$files.Add($_)
-		}
-		Write-Log "Enumerating ldfs"
-		ForEach-Object -InputObject $ldfs {
-			Write-Log $_
-			$files.Add($_)
-		}
-
-		$ss.AttachDatabase($databaseName, $files)
-	}
+	Write-Log("Restoring database")
+	$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $dataDiskLetter + ":\db.bak' WITH MOVE '" + $dbMdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dataDiskLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
+	Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
 
 	Write-Log("Checking database info")
 	$db = $ss.Databases[$databaseName]
@@ -252,6 +204,24 @@ Try
 	$db.Roles['db_datareader'].AddMember($dbuser.Name)
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
+	Start-Process $destinationSSMS "/install /quiet /norestart /log d:\ssms-log.txt" -Wait
+	Write-Log("Installed SSMS")
+
+	Write-Log("Cleaning up database install files")
+	Dismount-DiskImage -ImagePath d:\sqlserver.iso
+	Write-Log("Cleaned up")
+	Remove-Item -Path $destinationSqlIso
+    Remove-Item -Path d:\log*.txt
+
+	Write-Log("Installing choclatey")
+	iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+	Write-Log("Installing Chrome")
+	choco install googlechrome -y
+
+	Write-Log("Installing VS.NET 2017 Community")
+    choco install visualstudio2017community -y --package-parameters "--allWorkloads --includeRecommended --includeOptional --passive --locale en-US" 
+
 	Write-Log("All done!")
 }
 Catch
@@ -259,7 +229,4 @@ Catch
 	Write-Log("Exception")
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
-} 
- 
- 
- 
+}  
