@@ -249,7 +249,7 @@
       "resources": [
         {
           "type": "extensions",
-          "name": "configure-sql-server",
+          "name": "configure-dev-workstation",
           "apiVersion": "2017-03-30",
           "location": "[resourceGroup().location]",
           "dependsOn": [

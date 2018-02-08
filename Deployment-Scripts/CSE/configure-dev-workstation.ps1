@@ -188,7 +188,6 @@ Try
 	$db.Roles['db_datareader'].AddMember($dbuser.Name)
 	$db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
-
 	Write-Log("Installing SSMS")
 	Start-Process $destinationSSMS "/install /quiet /norestart /log d:\ssms-log.txt" -Wait
 	Write-Log("Installed SSMS")
@@ -206,16 +205,14 @@ Try
 	Write-Log("Installing Chrome")
 	choco install googlechrome -y
 
-    Write-Log("Installing git")
-    choco install git.install -y -params '"/GitAndUnixToolsOnPath"'
-
 	Write-Log("Installing VS.NET 2017 Community")
-    choco install visualstudio2017community -y --package-parameters "--allWorkloads --includeRecommended --includeOptional --passive --locale en-US" 
+    choco install visualstudio2017community -y --package-parameters "--allWorkloads --includeRecommended --includeOptional --passive --locale en-US --wait" 
 
-    Write-Log("Cloning StartStore.NET")
+	Write-Log("Installing git")
+	choco install git.install -y -params '"/GitAndUnixToolsOnPath"'   Write-Log("Cloning StartStore.NET")
+	
     refreshenv
-    git clone https://github.com/smartstoreag/SmartStoreNET.git f:\SmartStore.NET
-
+    #git clone https://github.com/smartstoreag/SmartStoreNET.git f:\SmartStore.NET
 
 	Write-Log("All done!")
 }
