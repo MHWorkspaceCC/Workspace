@@ -1,4 +1,4 @@
-param(
+ param(
 	[string]$installersStgAcctKey = "RTroekJPVf2/9tMyTfJ+LTrup0IwZIDyuus13KoQX0QuH3MCTBLt0wawD0Air2bMYF03JDV0sRSYuqYypSBxbg==",
 	[string]$installersStgAcctName = "stginstallersss0p",
 	[string]$saUserName = "wsadmin",
@@ -104,6 +104,9 @@ Try
 	Write-Log("Copying database backup")
 	$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
 	Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($dataDiskLetter + ":\db.bak") -Context $backupStorageContext
+	Write-Log("Starting copy of SSMS installer")
+	$destinationSSMS = "d:\SSMS-Setup-ENU.exe"
+	Get-AzureStorageBlobContent -Blob $ssmsInstallBlobName -Container $containerName -Destination $destinationSSMS -Context $storageContext
 
 	Write-Log("Mounting SQL Server ISO")
 	Mount-DiskImage -ImagePath d:\sqlserver.iso 
@@ -203,8 +206,16 @@ Try
 	Write-Log("Installing Chrome")
 	choco install googlechrome -y
 
+    Write-Log("Installing git")
+    choco install git.install -y -params '"/GitAndUnixToolsOnPath"'
+
 	Write-Log("Installing VS.NET 2017 Community")
     choco install visualstudio2017community -y --package-parameters "--allWorkloads --includeRecommended --includeOptional --passive --locale en-US" 
+
+    Write-Log("Cloning StartStore.NET")
+    refreshenv
+    git clone https://github.com/smartstoreag/SmartStoreNET.git f:\SmartStore.NET
+
 
 	Write-Log("All done!")
 }
@@ -213,4 +224,4 @@ Catch
 	Write-Log("Exception")
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
-} 
+}  
