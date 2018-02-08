@@ -206,7 +206,7 @@ Try
 	choco install googlechrome -y
 
 	Write-Log("Installing VS.NET 2017 Community")
-    choco install visualstudio2017community -y --package-parameters "--allWorkloads --includeRecommended --includeOptional --passive --locale en-US --wait" 
+    #choco install visualstudio2017community -y --package-parameters "--allWorkloads --includeRecommended --includeOptional --passive --locale en-US --wait" 
 
 	Write-Log("Installing git")
 	choco install git.install -y -params '"/GitAndUnixToolsOnPath"'   Write-Log("Cloning StartStore.NET")
