@@ -77,7 +77,7 @@ Class EnvironmentAndFacilitiesInfo{
 }
 
 $wsAcctInfo = @{
-	"profileFile" = "workspace.json"
+	"profileFile" = "workspacecc.json"
 	"subscriptions" = @{
 		"w" = @{
 			"subscriptionName" = "WS Test";
@@ -1274,13 +1274,15 @@ function Create-Core{
 		[switch]$baseOnly,
 		[switch]$excludeCompute,
 		[switch]$excludeVnet,
-		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin")
+		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin"),
+		[string]$vmSize,
+		[string]$computerName
 	)
 	
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true)
 
 	if ($ctx.subscription -eq "d"){
-		Create-Core-Dev -ctx $ctx -computeOnly
+		Create-Core-Dev -ctx $ctx -computeOnly -vmSize $vmSize -computerName $computerName
 		return
 	}
 
@@ -2148,7 +2150,9 @@ function Cancel-ActiveDeployments{
 
 function Create-Core-Dev{
 	param(
-		[Context]$ctx
+		[Context]$ctx,
+		[string]$vmSize,
+		[string]$computerName
 	)
 
 	Write-Host "In:  " $MyInvocation.MyCommand 
@@ -2156,7 +2160,7 @@ function Create-Core-Dev{
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	#Deploy-DevVnet -ctx $ctx
-	Build-DevMachineImage -ctx $ctx
+	Build-DevMachineImage -ctx $ctx -vmSize $vmSize -computerName $computerName
 	
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -2184,7 +2188,9 @@ function Deploy-DevVnet{
 }
 function Build-DevMachineImage{
 	param(
-		[Context]$ctx
+		[Context]$ctx,
+		[string]$vmSize = "Standard_D2_v3",
+		[string]$computerName = "d2v3"
 	)
 
 	Write-Host "In:  " $MyInvocation.MyCommand 
@@ -2196,8 +2202,9 @@ function Build-DevMachineImage{
 		"adminUserName" = "wsadmin"
 		"adminPassword" = "Workspace!Dev!2018"
 		#"vmSize" = "Standard_D2_v3"
-		"vmSize" = "Standard_B4ms" 
-		"computerName" = "b4ms"
+		#"vmSize" = "Standard_B4ms" 
+		"vmSize" = $vmSize
+		"computerName" = $computerName
 		"installersStgAcctKey" = "RTroekJPVf2/9tMyTfJ+LTrup0IwZIDyuus13KoQX0QuH3MCTBLt0wawD0Air2bMYF03JDV0sRSYuqYypSBxbg=="
 		"installersStgAcctName" = "stginstallersss0p"
 		"saUserName" = "wsadmin"
@@ -2213,6 +2220,87 @@ function Build-DevMachineImage{
 	}
 
 	Ensure-ResourceGroup -ctx $ctx "dev"
+	Execute-Deployment -templateFile "arm-devvmbuild-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
+function Create-DevVM{
+	param(
+		[Context]$ctx,
+		[string]$vmSize = "Standard_D2_v3",
+		[string]$computerName = "d2v3"
+	)
+
+	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	$resourceGroupName = "rg-dev-dd0p"
+	$parameters = @{
+		"resourceNamePostfix" = "dd0p"
+		"role" = "devworkstation"
+		"adminUserName" = "wsadmin"
+		"adminPassword" = "Workspace!Dev!2018"
+		"vmSize" = $vmSize
+		"computerName" = $computerName
+	}
+
+	Ensure-ResourceGroup -ctx $ctx "dev"
+
+	#Copy-DevDataDisk -ctx $ctx -computerName $computerName
+
+	Execute-Deployment -templateFile "arm-devvm-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
+function Copy-DevDataDisk{
+	param(
+		[Context]$ctx,
+		[string]$computerName
+	)
+
+	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	$diskName = $("datadisk-" + $computerName + "-vm-dev-dd0p")
+
+	$rng = "rg-devvmimages-dd0p"
+	$disk = Get-AzureRmDisk -DiskName $$diskName -ResourceGroupName $rng -ErrorAction SilentlyContinue -ErrorVariable err
+	if ($err -ne $null) { return $false }
+
+	$disk = Get-AzureRmDisk -ResourceGroupName "rg-dev-dd0p" -DiskName "datadisk-dev-dd0p"
+
+	$diskConfig = New-AzureRmDiskConfig -SourceResourceId $disk.Id -CreateOption Copy -Location "westus" 
+	New-AzureRmDisk -ResourceGroupName "rg-devvmimages-dd0p" -Disk $diskConfig -DiskName $diskName
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
+function Create-SystemImage{
+	param(
+		[Context]$ctx,
+		[string]$vmSize = "Standard_D2_v3",
+		[string]$computerName = "d2v3"
+		[switch]$development,
+		[switch]$database,
+		[switch]$web
+	)
+
+	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	$resourceGroupName = "rg-dev-dd0p"
+	$parameters = @{
+		"resourceNamePostfix" = "dd0p"
+		"role" = "devworkstation"
+		"adminUserName" = "wsadmin"
+		"adminPassword" = "Workspace!Dev!2018"
+		"vmSize" = $vmSize
+		"computerName" = $computerName
+	}
+
+	Ensure-ResourceGroup -ctx $ctx "dev"
+
+	#Copy-DevDataDisk -ctx $ctx -computerName $computerName
+
 	Execute-Deployment -templateFile "arm-devvm-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand 

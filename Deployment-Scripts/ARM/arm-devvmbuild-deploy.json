@@ -22,13 +22,23 @@
       "fileUris": {
         "type": "array",
         "defaultValue": [
-          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/null.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/move-dvd.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-workspace-db.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-smss.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-sql-server.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-net45.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-iis.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/initialize-data-disk.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/create-user-account.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/SqlConfigurationData.psd1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/SqlStandaloneDSC.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-dev-workstation.ps1"
         ]
       },
 
       "commandToExecute": {
         "type": "string",
-        "defaultValue": "powershell -ExecutionPolicy Unrestricted -File null.ps1"
+        "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-dev-workstation.ps1"
       },
 
       "vmSize":{
@@ -39,6 +49,54 @@
       "computerName":{
         "type": "string",
         "defaultValue": "dib"
+      },
+
+      "saUserName": {
+        "type": "string"
+      },
+  
+      "saPassword": {
+        "type": "securestring"
+      },
+  
+      "loginUserName": {
+        "type": "string"
+      },
+  
+      "loginPassword": {
+        "type": "securestring"
+      },
+    
+      "installersStgAcctKey": {
+        "type": "string"
+      },
+  
+      "installersStgAcctName": {
+        "type": "string"
+      },
+  
+      "dbBackupsStorageAccountKey": {
+        "type": "string"
+      },
+  
+      "dbBackupsStorageAccountName": {
+        "type": "string"
+      },
+  
+      "databaseName": {
+        "type": "string"
+      },
+  
+      "dbBackupBlobName": {
+        "type": "string"
+      },
+  
+      "dbMdfFileName": {
+        "type": "string"
+      },
+  
+      "dbLdfFileName": {
+        "type": "string"
       }
   },
 
@@ -54,15 +112,11 @@
     "imagePublisher": "MicrosoftWindowsServer",
     "imageOffer": "WindowsServer",
     "osDiskName": "[concat('osdisk-', variables('boxName'))]",
+    "dataDiskName": "[concat('datadisk-', variables('boxName'))]",
     "vmSize": "[parameters('vmSize')]",
     "adminUserName": "[parameters('adminUserName')]",
     "adminPassword": "[parameters('adminPassword')]",
     "windowsOsVersion": "2016-Datacenter",
-
-    "vmImageId": "[resourceId('rg-devvmimages-dd0p', 'Microsoft.Compute/images', 'vm-dev-dd0p-image')]",
-    "dataDiskUri": "https://stgdevdatadisksdd0p.blob.core.windows.net/datadisks/devdatadisk.vhd",
-    "dataDiskName": "[concat('datadisk', variables('boxName'))]",
-    "dataDiskId": "[resourceId('Microsoft.Compute/disks', variables('dataDiskName'))]",
 
     "computerName": "[parameters('computerName')]",
     "vnetName": "[concat('d0-vnet-', parameters('resourceNamePostfix'))]",
@@ -79,7 +133,7 @@
     "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
 
     "fileUris": "[parameters('fileUris')]",
-    "commandToExecute": "[concat(parameters('commandToExecute'))]"
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUserName ', parameters('saUserName'), ' -saPassword ', parameters('saPassword'), ' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'), ' -installersStgAcctName ', parameters('installersStgAcctName'), ' -dbBackupsStorageAccountKey ', parameters('dbBackupsStorageAccountKey'), ' -dbBackupsStorageAccountName ', parameters('dbBackupsStorageAccountName'), ' -databaseName ', parameters('databaseName'), ' -dbBackupBlobName ', parameters('dbBackupBlobName'), ' -dbMdfFileName ', parameters('dbMdfFileName'), ' -dbLdfFileName ', parameters('dbLdfFileName'))]"
   },
 
   "resources": [
@@ -160,8 +214,25 @@
         "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
         "storageProfile": {
           "imageReference": {
-            "id": "[variables('vmImageId')]"
-          }
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('windowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "osType": "Windows",
+            "name": "[variables('osDiskName')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage" 
+          },
+          "dataDisks": [
+            {
+              "name": "[variables('dataDiskName')]",
+              "diskSizeGB": 128,
+              "lun": 0,
+              "createOption": "Empty"
+            }
+          ]
         },
         "osProfile": {
           "computerName": "[variables('computerName')]",
@@ -184,6 +255,25 @@
         }
       },
       "resources": [
+        {
+          "type": "extensions",
+          "name": "configure-dev-workstation",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[variables('boxName')]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.9",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "fileUris": "[parameters('fileUris')]",
+              "commandToExecute": "[variables('commandToExecute')]"
+            }
+          }
+        }
       ],
       "dependsOn": [
         "[variables('nicId')]"
