@@ -2279,7 +2279,7 @@ function Create-SystemImage{
 	param(
 		[Context]$ctx,
 		[string]$vmSize = "Standard_D2_v3",
-		[string]$computerName = "d2v3"
+		[string]$computerName = "d2v3",
 		[switch]$development,
 		[switch]$database,
 		[switch]$web

@@ -10,8 +10,9 @@ $ctx = Login-WorkspaceAzureAccount -subscription "d" -environment "d" -slot 0 -f
 #Create-Core -ctx $ctx -vmSize "Standard_D2s_v3" -computerName "d2sv3"
 #Create-Core -ctx $ctx -vmSize "Standard_D4s_v3" -computerName "d4sv3"
 #Create-DevVM -ctx $ctx -vmSize "Standard_B2ms" -computerName "b2ms"
+Build-DevMachineImage -ctx $ctx -vmSize "Standard_B2ms" -computerName "b2ms"
 #Create-DevVM -ctx $ctx -vmSize "Standard_B4ms" -computerName "b4ms"
 #Create-DevVM -ctx $ctx -vmSize "Standard_D2s_v3" -computerName "d2sv3"
-Create-DevVM -ctx $ctx -vmSize "Standard_D4s_v3" -computerName "d4sv3"
-Create-DevVmImage -ctx $ctx
+#Create-DevVM -ctx $ctx -vmSize "Standard_D4s_v3" -computerName "d4sv3"
+#Create-DevVmImage -ctx $ctx
 
