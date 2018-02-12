@@ -21,12 +21,12 @@ param(
 	[string]$fileShareName="c"
 )
 
-.\move-dvd.ps1
-.\init-data-disk.ps1 -driveLabel "WorkspaceDB" -driveLetter F
-.\set-drive-permissions.ps1 -driveLabel "WorkspaceDB"
-.\install-net45.ps1
-.\install-iis.ps1 -www -ftp -aspnet45 -mgmt -removeDefaultSite
-.\create-user-account -username $fileStgAcctName -password $fileShareKey
-.\install-sql-server.ps1 
-.\install-smss.ps1
-.\install-workspace-db.ps1
+#.\move-dvd.ps1
+#.\init-data-disk.ps1 -driveLabel "WorkspaceDB" -driveLetter F
+#.\set-drive-permissions.ps1 -driveLabel "WorkspaceDB"
+#.\install-net45.ps1
+#.\install-iis.ps1 -www -ftp -aspnet45 -mgmt -removeDefaultSite
+#.\create-user-account -username $fileStgAcctName -password $fileShareKey
+#.\install-sql-server.ps1 
+#.\install-smss.ps1
+#.\install-workspace-db.ps1
