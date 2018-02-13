@@ -15,6 +15,13 @@ Function Write-Log
 	Write-Host $logstring
 } 
 
+Write-Log("Trusting PSGallery")
+Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+Write-Log("Importing AzureRM")
+Install-Module -Name AzureRM -Repository PSGallery 
+
 $localInstallerPath = $tempLocation + $destinationInstallerName
 
 Write-Log("Starting copy of installer files")
@@ -28,8 +35,7 @@ Write-Log("Installed SSMS")
 
 Write-Log("Cleaning up installer files")
 Remove-Item -Path $localInstallerPath
-Remove-Item -Path $($tempLocation + "log*.txt")
-Remove-Item -Path $($tempLocation + "*.bak")
+get-childitem $tempLocation -include ssms*.txt | foreach ($_) { remove-item $_.fullname} 
 
 Write-Log("Done installing SSMS")
 

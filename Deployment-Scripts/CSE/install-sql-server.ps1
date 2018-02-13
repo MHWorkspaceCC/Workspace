@@ -30,6 +30,9 @@ Install-Module -Name xSqlServer -Repository PSGallery
 Write-Log("Importing SqlServer")
 Install-Module -Name SqlServer -Repository PSGallery
 Import-Module SqlServer
+ 
+Write-Log("Importing AzureRM")
+Install-Module -Name AzureRM -Repository PSGallery 
 
 $localIsoPath = $tempLocation + $destinationSqlIso
 
