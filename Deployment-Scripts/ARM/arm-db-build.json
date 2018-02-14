@@ -1,0 +1,404 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "type": "string"
+    },
+    "environmentCode": {
+      "type": "string"
+    },
+    "subscriptionCode": {
+      "type": "string"
+    },
+    "facility": {
+      "type": "string"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "resourceNamePostfix": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+
+    "diagStorageAccountKey": {
+      "type": "string"
+    },
+
+    "dataDogApiKey": {
+      "type": "string"
+    },
+
+    "adminUserName": {
+      "type": "string"
+    },
+
+    "adminPassword": {
+      "type": "securestring"
+    },
+
+    "saUserName": {
+      "type": "string"
+    },
+
+    "saPassword": {
+      "type": "securestring"
+    },
+
+    "loginUserName": {
+      "type": "string"
+    },
+
+    "loginPassword": {
+      "type": "securestring"
+    },
+
+    "fileUris": {
+      "type": "array",
+      "defaultValue": [
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/configure-sql-server.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/SqlConfigurationData.psd1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/SqlStandaloneDSC.ps1"
+      ]
+    },
+
+    "installersStgAcctKey": {
+      "type": "string"
+    },
+
+    "installersStgAcctName": {
+      "type": "string"
+    },
+
+    "commandToExecute": {
+      "type": "string",
+      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-sql-server.ps1"
+    },
+
+    "vmSize": {
+      "type": "string"
+    },
+
+    "dbServerName": {
+      "type": "string"
+    },
+
+    "dbBackupsStorageAccountKey": {
+      "type": "string"
+    },
+
+    "dbBackupsStorageAccountName": {
+      "type": "string"
+    },
+
+    "databaseName": {
+      "type": "string"
+    },
+
+    "dbBackupBlobName": {
+      "type": "string"
+    },
+
+    "dbMdfFileName": {
+      "type": "string"
+    },
+
+    "dbLdfFileName": {
+      "type": "string"
+    }
+  },
+
+  "variables": {
+    "location": "[parameters('location')]",
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
+
+    "dbBaseName": "[concat('-db', variables('baseName'))]",
+    "dbStgAcctName": "[concat('stg', replace(variables('dbBaseName'), '-', ''))]",
+
+    "dbID": "sql1",
+    "dbName": "[concat(variables('dbID'), variables('dbBaseName'))]",
+    "vmName": "[variables('dbName')]",
+
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "osDiskName": "[concat('osdisk-', variables('dbName'))]",
+    "vmSize": "[parameters('vmSize')]",
+
+    "adminUserName": "[parameters('adminUserName')]",
+    "adminPassword": "[parameters('adminPassword')]",
+    "windowsOsVersion": "2016-Datacenter",
+
+    "computerName": "[parameters('dbServerName')]",
+    "vnetName": "[concat(parameters('environmentCode'), '-vnet', variables('baseName'))]",
+    "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
+    "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+    "dbSnName": "[concat('sn', variables('dbBaseName'))]",
+    "subnetRef": "[concat(variables('vnetID'), '/subnets/', variables('dbSnName'))]",
+
+    "storageAccountContainerName": "vhds",
+    "dbNicName": "[concat('nic1-', variables('dbName'))]",
+
+    "dbPipName": "[concat('pip-db', variables('baseName'))]",
+
+    "dataDiskName": "[concat('data1-sql1-db', variables('baseName'))]",
+    "initDiskName": "[concat('init1-sql1-db', variables('baseName'))]",
+    "dataDiskRgName": "[concat('rg-disks', variables('baseName'))]",
+    "dataDiskID": "[resourceId(variables('dataDiskRgName'), 'Microsoft.Compute/disks', variables('dataDiskName'))]",
+    "initDiskID": "[resourceId(variables('dataDiskRgName'), 'Microsoft.Compute/disks', variables('initDiskName'))]",
+
+    "pipRg": "[concat('rg-pips', variables('baseName'))]",
+    "dbPipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('dbPipName'))]",
+
+    "dataDogApiKey": "[parameters('dataDogApiKey')]",
+
+    "wadlogs": "<WadCfg> <DiagnosticMonitorConfiguration overallQuotaInMB=\"4096\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2010/10/DiagnosticsConfiguration\"> <DiagnosticInfrastructureLogs scheduledTransferLogLevelFilter=\"Error\"/> <WindowsEventLog scheduledTransferPeriod=\"PT1M\" > <DataSource name=\"Application!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"Security!*[System[(Level = 1 or Level = 2)]]\" /> <DataSource name=\"System!*[System[(Level = 1 or Level = 2)]]\" /></WindowsEventLog>",
+    "wadperfcounters1": "<PerformanceCounters scheduledTransferPeriod=\"PT1M\"><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% Processor Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU utilization\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% Privileged Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU privileged time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor(_Total)\\% User Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"CPU user time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Processor Information(_Total)\\Processor Frequency\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"CPU frequency\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\System\\Processes\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Processes\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Process(_Total)\\Thread Count\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Threads\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Process(_Total)\\Handle Count\" sampleRate=\"PT15S\" unit=\"Count\"><annotation displayName=\"Handles\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\% Committed Bytes In Use\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Memory usage\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Available Bytes\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory available\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Committed Bytes\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory committed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\Memory\\Commit Limit\" sampleRate=\"PT15S\" unit=\"Bytes\"><annotation displayName=\"Memory commit limit\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active time\" locale=\"en-us\"/></PerformanceCounterConfiguration>",
+    "wadperfcounters2": "<PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Read Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active read time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\% Disk Write Time\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk active write time\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Transfers/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Reads/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk read operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Writes/sec\" sampleRate=\"PT15S\" unit=\"CountPerSecond\"><annotation displayName=\"Disk write operations\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk read speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec\" sampleRate=\"PT15S\" unit=\"BytesPerSecond\"><annotation displayName=\"Disk write speed\" locale=\"en-us\"/></PerformanceCounterConfiguration><PerformanceCounterConfiguration counterSpecifier=\"\\LogicalDisk(_Total)\\% Free Space\" sampleRate=\"PT15S\" unit=\"Percent\"><annotation displayName=\"Disk free space (percentage)\" locale=\"en-us\"/></PerformanceCounterConfiguration></PerformanceCounters>",
+    "wadcfgxstart": "[concat(variables('wadlogs'), variables('wadperfcounters1'), variables('wadperfcounters2'), '<Metrics resourceId=\"')]",
+    "wadmetricsresourceid": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name , '/providers/', 'Microsoft.Compute/virtualMachines/')]",
+    "wadcfgxend": "\"><MetricAggregation scheduledTransferPeriod=\"PT1H\"/><MetricAggregation scheduledTransferPeriod=\"PT1M\"/></Metrics></DiagnosticMonitorConfiguration></WadCfg>",
+
+    "diagnosticsStorageAccountName": "[concat('stgdiag', replace(variables('baseName'), '-', ''))]",
+    "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
+    "diagnosticsStorageAccountEndPoint": "https://core.windows.net",
+
+    "bootDiagBlobStorageEndpoint": "blob.core.windows.net",
+    "bootDiagStorageAccount": "[concat('stgbootdiag', replace(variables('baseName'), '-', ''))]",
+    "bootDiagStorageUrl": "[concat('http://', variables('bootDiagStorageAccount'), '.', variables('bootDiagBlobStorageEndpoint'))]",
+
+    "commandToExecute": "[concat(parameters('commandToExecute'), ' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -saUserName ', parameters('saUserName'), ' -saPassword ', parameters('saPassword'), ' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'), ' -installersStgAcctName ', parameters('installersStgAcctName'), ' -dbBackupsStorageAccountKey ', parameters('dbBackupsStorageAccountKey'), ' -dbBackupsStorageAccountName ', parameters('dbBackupsStorageAccountName'), ' -databaseName ', parameters('databaseName'), ' -dbBackupBlobName ', parameters('dbBackupBlobName'), ' -dbMdfFileName ', parameters('dbMdfFileName'), ' -dbLdfFileName ', parameters('dbLdfFileName'))]",
+
+    "dataDiskId": "[resourceId(concat('rg-disks', variables('baseName')), 'Microsoft.Compute/disks', variables('dataDiskName'))]"
+  },
+
+  "resources": [
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('dbPipName')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "PIP",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('dbPipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('dbNicName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "NIC",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
+
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": { "id": "[variables('dbPipId')]" },
+              "subnet": { "id": "[variables('subnetRef')]" },
+              "primary": true,
+              "privateIPAddressVersion": "IPv4"
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": [],
+          "appliedDnsServers": []
+        },
+        "enableAcceleratedNetworking": false,
+        "enableIPForwarding": false,
+        "primary": true,
+        "virtualMachine": {
+          "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('dbName'))]"
+        }
+      },
+      "dependsOn": [
+        "[variables('dbPipId')]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('dbName')]",
+      "apiVersion": "2017-03-30",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "Role": "[parameters('role')]",
+        "ResourceType": "Server",
+        "Environment": "[parameters('environment')]",
+        "EnvironmentCode": "[parameters('environmentCode')]",
+        "Facility": "[parameters('facility')]",
+        "Location": "[parameters('location')]",
+        "Instance": "[parameters('instance')]",
+        "ResourceNamePostfix": "[parameters('resourceNamePostfix')]",
+        "SubscriptionCode": "[parameters('subscriptionCode')]"
+      },
+      "identity": {
+        "type": "systemAssigned"
+      },
+      "properties": {
+        "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('windowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "osType": "Windows",
+            "name": "[variables('osDiskName')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+          "dataDisks": [
+            {
+              "lun": 0,
+              "createOption": "Attach",
+              "managedDisk": {
+                "id": "[variables('dataDiskId')]"
+              }
+            },
+            {
+              "lun": 1,
+              "createOption": "Attach",
+              "diskSizeGB": 64,
+              "managedDisk": {
+                "id": "[variables('initDiskId')]"
+              }
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[variables('computerName')]",
+          "adminUsername": "[variables('adminUserName')]",
+          "adminPassword": "[variables('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": false
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('dbNicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[variables('bootDiagStorageUrl')]"
+          }
+        }
+      },
+      "resources": [
+        {
+          "type": "extensions",
+          "name": "configure-sql-server",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[variables('dbName')]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.9",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "fileUris": "[parameters('fileUris')]",
+              "commandToExecute": "[variables('commandToExecute')]"
+            }
+          }
+        },
+        {
+          "type": "Microsoft.Compute/virtualMachines/extensions",
+          "name": "[concat(variables('dbName'), '/DataDogAgent')]",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "scale": null,
+          "properties": {
+            "publisher": "Datadog.Agent",
+            "type": "DatadogWindowsAgent",
+            "typeHandlerVersion": "0.4",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "api_key": "[variables('dataDogApiKey')]"
+            }
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.Compute/virtualMachines', variables('dbName'))]"
+          ]
+        },
+        {
+          "type": "extensions",
+          "name": "Microsoft.Insights.DiagnosticsSettings",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "scale": null,
+          "properties": {
+            "publisher": "Microsoft.Azure.Diagnostics",
+            "type": "IaaSDiagnostics",
+            "typeHandlerVersion": "1.11",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "xmlCfg": "[base64(concat(variables('wadcfgxstart'), variables('wadmetricsresourceid'), variables('vmName'), variables('wadcfgxend')))]",
+              "storageAccount": "[variables('diagnosticsStorageAccountName')]"
+            },
+            "protectedSettings": {
+              "storageAccountName": "[variables('diagnosticsStorageAccountName')]",
+              "storageAccountKey": "[variables('diagnosticsStorageAccountKey')]",
+              "storageAccountEndPoint": "[variables('diagnosticsStorageAccountEndPoint')]"
+            }
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+          ]
+        }
+      ],
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('dbNicName'))]"
+      ]
+    }
+  ],
+
+  "outputs": {
+  }
+}
+

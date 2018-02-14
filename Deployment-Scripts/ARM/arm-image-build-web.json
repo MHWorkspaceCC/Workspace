@@ -1,0 +1,178 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceNamePostfix": {
+      "type": "string"
+    },
+
+    "fileUris": {
+      "type": "array",
+      "defaultValue": [
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/move-dvd.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-net45.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-iis.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-OctopusDSC.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-image.ps1"
+      ]
+    },
+
+    "adminUserName": {
+      "type": "string"
+    },
+
+    "computerName": {
+      "type": "string"
+    },
+
+    "adminPassword": {
+      "type": "securestring"
+    },
+
+    "vmSize":{
+      "type": "string"
+    }
+  },
+  
+  "variables": {
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
+    "devRgName": "[concat('rg-dev', variables('baseName'))]",
+    "vmName": "[concat(parameters('computerName'), '-vm-web', variables('baseName'))]",
+    "adminUserName": "[parameters('adminUserName')]",
+    "adminPassword": "[parameters('adminPassword')]",
+    "nicName": "[concat('nic-', variables('vmName'))]",
+    "pipName": "[concat('pip-' , variables('vmName'))]",
+    "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
+
+    "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
+    "vnetName": "[concat('d0-vnet', variables('baseName'))]",
+    "subnetName": "[concat('sn-imagebuild', variables('baseName'))]",
+    "subnetId": "[concat(resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName')), '/subnets/', variables('subnetName'))]",
+
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "windowsOsVersion": "2016-Datacenter",
+    "osDiskName": "[concat('osdisk-', variables('vmName'))]",
+
+    "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File configure-web-server-image.ps1"
+  },
+  "resources": [
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('pipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('pipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": { "id": "[variables('pipId')]" },
+              "subnet": { "id": "[variables('subnetId')]" },
+              "primary": true,
+              "privateIPAddressVersion": "IPv4"
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": [],
+          "appliedDnsServers": []
+        },
+        "enableAcceleratedNetworking": false,
+        "enableIPForwarding": false,
+        "primary": true,
+        "virtualMachine": {
+          "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+        }
+      },
+      "dependsOn": [
+        "[variables('pipId')]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('vmName')]",
+      "apiVersion": "2017-03-30",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "hardwareProfile": { "vmSize": "[parameters('vmSize')]" },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('windowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "osType": "Windows",
+            "name": "[variables('osDiskName')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "osProfile": {
+          "computerName": "[parameters('computerName')]",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": false
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "type": "extensions",
+          "name": "configure-web-server-image-base",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[variables('vmName')]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.9",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "fileUris": "[parameters('fileUris')]",
+              "commandToExecute": "[variables('commandToExecute')]"
+            }
+          }
+        }
+      ],
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+      ]
+    }
+  ],
+
+  "outputs": {
+  }
+}

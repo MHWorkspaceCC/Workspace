@@ -1,12 +1,14 @@
 param(
+    [Parameter(Mandatory=$true)]
 	[string]$fileStgAcctName,
+    [Parameter(Mandatory=$true)]
+	[string]$fileShareKey,
+    [Parameter(Mandatory=$true)]
 	[string]$fileShareName,
-	[string]$fileShareKey
+	[string]$symDirPath = "c:\server\workspace\client",
+	[string]$symDirFolderName = "files",
+	[string]$filesMountDrive = "Z"
 )
-
-$symDirPath = "c:\server\workspace\client"
-$symDirFolderName = "files"
-$filesMountDrive = "Z"
 
 Function Write-Log
 {
@@ -18,9 +20,9 @@ Function Write-Log
 }
 
 Write-Log("Starting map of AZF")
+Write-Log("File share stg acct name: " + $fileStgAcctName)
 Write-Log("File share key: " + $fileShareKey)
 Write-Log("File share name: " + $fileShareName)
-Write-Log("File share stg acct name: " + $fileStgAcctName)
 
 Try
 {
@@ -51,4 +53,5 @@ Catch
 	Write-Log($_.Exception.Message)
 	Write-Log($_.Exception.InnerException)
 }
-Write-Log "Finished AZF config"
+
+Write-Log("Finished AZF config")

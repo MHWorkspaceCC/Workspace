@@ -5,12 +5,16 @@
 #Get-AzureRmSubscription
 #Save-AzureRmProfile -Path .\workspacecc.json
 $ctx = Login-WorkspaceAzureAccount -subscription "d" -environment "d" -slot 0 -facility "p" 
+#Build-KeyVault -ctx $ctx
 
 #Create-Core -ctx $ctx -vmSize "Standard_D2_v3" -computerName "d2v3"
 #Create-Core -ctx $ctx -vmSize "Standard_D2s_v3" -computerName "d2sv3"
 #Create-Core -ctx $ctx -vmSize "Standard_D4s_v3" -computerName "d4sv3"
 #Create-DevVM -ctx $ctx -vmSize "Standard_B2ms" -computerName "b2ms"
-Build-DevMachineImage -ctx $ctx -vmSize "Standard_B2ms" -computerName "b2ms"
+#Build-DevMachineImage -ctx $ctx -vmSize "Standard_B2ms" -computerName "b2ms"
+
+Build-WebServerImageBase -ctx $ctx
+
 #Create-DevVM -ctx $ctx -vmSize "Standard_B4ms" -computerName "b4ms"
 #Create-DevVM -ctx $ctx -vmSize "Standard_D2s_v3" -computerName "d2sv3"
 #Create-DevVM -ctx $ctx -vmSize "Standard_D4s_v3" -computerName "d4sv3"

@@ -1,5 +1,5 @@
 param(
-    [string]$saPassword = "Workspace!!DB!2018",
+    [string]$saPassword = "Workspace!DB!2018",
 	[string]$databaseName = "AdventureWorks",
 	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
 	[string]$dbMdfFileName = "AdventureWorks2016_Data",
@@ -19,23 +19,25 @@ Function Write-Log
 	Write-Host $logstring
 } 
 
+Write-Log("Trusting PSGallery")
+Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+Write-Log("Installing SqlServer Module")
+Install-Module -Name SqlServer -Repository PSGallery
+Import-Module SqlServer
+
+Write-Log("Importing AzureRM")
+Install-Module -Name AzureRM -Repository PSGallery
+
 $volume = Get-Volume -FileSystemLabel $databaseVolumeLabel -ErrorVariable err -ErrorAction SilentlyContinue
 if ($volume -eq $null){
     throw "Did not find volume: " + $databaseVolumeLabel
 }
 
 $dbDriveLetter = $volume.DriveLetter
-
-Write-Log("Trusting PSGallery")
-Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-
-Write-Log("Installing SqlServer")
-Install-Module -Name SqlServer -Repository PSGallery
-Import-Module SqlServer
-
-$mdfPath = $dbDriveLetter + "\" + $dbMdfFileName + ".mdf"
-$attaching = [System.IO.File]::Exists($mdfPath)
+$mdfPath = $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf"
+$attaching = [System.IO.File]::Exists($mdfPath) 
 
 $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
 
@@ -50,6 +52,9 @@ if (!$attaching){
     Write-Log($dbCommand)
     Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
     Write-Log("Restore complete")
+
+    Write-Log("Deleting backup")
+    Remove-Item -Path $($dbDriveLetter + ":\" + $dbBackupBlobName) 
 }else{
     Write-Log "Attaching database"
     $ss.ConnectionContext.LoginSecure = $false

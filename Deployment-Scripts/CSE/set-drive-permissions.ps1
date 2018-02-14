@@ -1,9 +1,10 @@
 param(
-    [string]$driveLabel,
+    [string]$driveLabel="WorkspaceDB",
     [string]$group="everyone",
     [string]$right="Fullcontrol",
     [string]$controlType="Allow"
 )
+
 Function Write-Log
 {
     Param ([string]$logstring)

@@ -6,13 +6,13 @@ param(
 	[switch]$removeDefaultSite
 )
 
-function Write-Log
+Function Write-Log
 {
-	param ([string]$logstring)
+    Param ([string]$logstring)
 
-	$Logfile = "c:\config.log"
-	Add-content $Logfile -value $logstring
-}
+    Add-Content -Path "c:\configure.log" -Value $logstring
+	Write-Host $logstring
+} 
 
 Try{
 	Write-Log "Starting installation of IIS"

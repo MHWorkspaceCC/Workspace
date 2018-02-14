@@ -24,6 +24,7 @@
         "defaultValue": [
           "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/move-dvd.ps1",
           "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-workspace-db.ps1",
+          "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/set-drive-permissions.ps1",
           "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-ssms.ps1",
           "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-sql-server.ps1",
           "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-net45.ps1",
@@ -118,6 +119,8 @@
     "adminPassword": "[parameters('adminPassword')]",
     "windowsOsVersion": "2016-Datacenter",
 
+    "dataDiskID": "[resourceId('Microsoft.Compute/disks', variables('dataDiskName'))]",
+
     "computerName": "[parameters('computerName')]",
     "vnetName": "[concat('d0-vnet-', parameters('resourceNamePostfix'))]",
     "vnetRgName": "[concat('rg-vnet-', parameters('resourceNamePostfix'))]",
@@ -137,6 +140,21 @@
   },
 
   "resources": [
+    {
+      "type": "Microsoft.Compute/disks",
+      "name": "[variables('dataDiskName')]",
+      "apiVersion": "2017-03-30",
+      "location": "[resourceGroup().location]",
+      "sku": {
+          "name": "Standard_LRS"
+      },
+      "properties": {
+          "creationData": {
+              "createOption": "Empty"
+          },
+          "diskSizeGB": 1023
+      }
+    },
     {
       "apiVersion": "2017-06-01",
       "type": "Microsoft.Network/publicIPAddresses",
@@ -227,10 +245,12 @@
           },
           "dataDisks": [
             {
-              "name": "[variables('dataDiskName')]",
-              "diskSizeGB": 128,
               "lun": 0,
-              "createOption": "Empty"
+              "name": "[variables('dataDiskName')]",
+              "createOption": "Attach",
+              "managedDisk": {
+                "id": "[variables('dataDiskId')]"
+              }
             }
           ]
         },
@@ -276,7 +296,8 @@
         }
       ],
       "dependsOn": [
-        "[variables('nicId')]"
+        "[variables('nicId')]",
+        "[variables('dataDiskId')]"
       ]    
     }
   ],

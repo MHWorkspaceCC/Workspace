@@ -79,13 +79,21 @@ Class EnvironmentAndFacilitiesInfo{
 $wsAcctInfo = @{
 	"profileFile" = "workspacecc.json"
 	"subscriptions" = @{
+		"a" = @{
+			"subscriptionName" = "WS Admin"
+			"subscriptionID" = "71e29bff-7d39-4b44-b0b2-311c290eddc8"
+		}
 		"w" = @{
-			"subscriptionName" = "WS Test";
-			"subscriptionID" = "3f7acc9e-d55d-4463-a7a8-cd8d9b01de40";
+			"subscriptionName" = "WS Test"
+			"subscriptionID" = "3f7acc9e-d55d-4463-a7a8-cd8d9b01de40"
 		}
 		"d" = @{
-			"subscriptionName" = "WS Dev";
-			"subscriptionID" = "8cc982bb-0877-4c51-aa28-6325a012e486";
+			"subscriptionName" = "WS Dev"
+			"subscriptionID" = "8cc982bb-0877-4c51-aa28-6325a012e486"
+		}
+		"s" = @{
+			"subscriptionName" = "WS Data - Platform"
+			"subscriptionID" = "687dd9cb-d46c-4dcc-abd1-6cb3d19ab063"
 		}
 	}
 }
@@ -108,7 +116,8 @@ Class Context{
 	[object]$azureCtx
 	[object]$azureSub
 	[object]$previousSub
-
+	[object]$currentAzureContext
+	[object]$previousAzureContext
 	
 	Validate(){
 		if ($this.azureCtx -eq $null) { throw "must have an azure context" }
@@ -145,6 +154,26 @@ Class Context{
 		return "rg-" + $resourceCategory + "-" + "s" + "s0" + $facil
 	}
 
+	[string] GetDataPlatformSubscriptionResourceGroupName($resourceCategory, $usePeer=$false){
+		if (!$usePeer){
+			$facil = $this.facility
+		}
+		else{
+			$facil = $this.peerfacility
+		}
+		return "rg-" + $resourceCategory + "-" + "s" + "s0" + $facil
+	}
+
+	[string] GetAdminSubscriptionResourceGroupName($resourceCategory, $usePeer=$false){
+		if (!$usePeer){
+			$facil = $this.facility
+		}
+		else{
+			$facil = $this.peerfacility
+		}
+		return "rg-" + $resourceCategory + "-" + "s" + "s0" + $facil
+	}
+
 	[string] GetStorageAccountName($resourceType, $usePeer=$false){
 		if (!$usePeer){
 			$postfix = $this.resourcePostfix
@@ -155,6 +184,39 @@ Class Context{
 		return "stg" + $resourceType + $postfix	
 	}
 
+	[string] GetDataPlatformSubscriptionStorageAccountName($resourceType, $usePeer=$false){
+		$postfix = $this.GetDataPlatformResourcePostfix($resourceType, $usePeer);
+		return "stg" + $resourceType + $postfix
+	}
+
+	[string] GetAdminSubscriptionStorageAccountName($resourceType, $usePeer=$false){
+		$postfix = $this.GetAdminResourcePostfix($resourceType, $usePeer);
+		return "stg" + $resourceType + $postfix
+	}
+
+	[string] GetDataPlatformResourcePostfix($resourceType, $usePeer = $false){
+		if (!$usePeer){
+			$postfix = "ss0p"
+		}
+		else{
+			$postfix = "ss0d"
+		}
+		return $postfix
+		
+	}
+	
+	# note that for now this is the same as the data platform
+	[string] GetAdminResourcePostfix($resourceType, $usePeer = $false){
+		if (!$usePeer){
+			$postfix = "ss0p"
+		}
+		else{
+			$postfix = "ss0d"
+		}
+		return $postfix
+		
+	}
+	
 	[string] GetSharedStorageAccountName($resourceCategory, $usePeer=$false){
 		if (!$usePeer){
 			$facil = $this.facility
@@ -215,7 +277,7 @@ Class Context{
 	}
 	
 	[string] GetKeyVaultName($usePeer){
-		$keyVaultName = "kv-svc-" + $this.GetResourcePostfix($usePeer)
+		$keyVaultName = "kv-vaults-" + $this.GetResourcePostfix($usePeer)
 		return $keyVaultName
 	}
 
@@ -252,20 +314,6 @@ Class Context{
 	}
 }
 
-function Login-WorkspacePrimaryProd{
-	param(
-		[int]$instanceId = -1
-	)
-	# instance -1 means use the newest environment in azure
-	# this will require a query of resources in azure
-	# for now, this defaults to 0
-	if ($instanceId -eq -1){
-		$instanceId = 0
-		}
-	$ctx = Login-WorkspaceAzureAccount -environment "w" -slot 0 -facility "p" -subscription "w"
-	return $ctx
-}
-
 function Login-WorkspaceAzureAccount{
 	param(
 		[Parameter(Mandatory=$true)]
@@ -291,7 +339,9 @@ function Login-WorkspaceAzureAccount{
 		$subscriptionInfo = $wsAcctInfo["subscriptions"]
 		$theSubscription = $subscriptionInfo[$subscription]
 
-		$azureSub = Get-AzureRmsubscription -SubscriptionId $theSubscription["subscriptionID"] | Select-AzureRmsubscription
+		$azureSub = Get-AzureRmsubscription -SubscriptionId $theSubscription["subscriptionID"] 
+		$sub = Select-AzureRmSubscription -SubscriptionObject $azureSub
+		$context = Set-AzureRmContext -SubscriptionObject $azureSub
 		Write-Host "Set Azure subscription for session complete"
 		Write-Host $azureSub.Name $azureSub.subscription
 
@@ -302,7 +352,7 @@ function Login-WorkspaceAzureAccount{
 	}
 
 	$ctx = [Context]::new()
-	$ctx.azureCtx = $azureCtx
+	$ctx.azureCtx = $context
 	$ctx.azureSub = $azureSub
 	$ctx.environment = $environment
 	$ctx.slot = $slot
@@ -324,28 +374,47 @@ function Login-WorkspaceAzureAccount{
 	return $ctx
 }
 
-function Set-SharedSubscription{
+function Set-DataPlatformContext{
 	param(
 		[Context]$ctx
 	)
 
-	$sharedSub = Get-AzureRmsubscription -subscriptionName $wsAcctInfo['sharedSubscriptionName'] 
-	Set-AzureRmContext -Subscription  $sharedSub
-	$current = Get-AzureRmContext
+	$subscriptionInfo = $wsAcctInfo["subscriptions"]
+	$theSubscription = $subscriptionInfo['s']
+	$dataSub = Get-AzureRmsubscription -SubscriptionId $theSubscription["subscriptionID"]
+	$context = Set-AzureRmContext -SubscriptionObject $dataSub
+	$ctx.previousAzureContext = $ctx.currentAzureContext
+	$ctx.currentAzureContext = $context
 	$ctx.previousSub = $ctx.azureSub
-	$ctx.azureSub = $sharedSub
+	$ctx.azureSub = $dataSub
 }
 
-function RevertFrom-SharedSubscription{
+function Set-AdminContext{
 	param(
 		[Context]$ctx
 	)
 
-	$azureSub = Get-AzureRmsubscription -subscriptionName $wsAcctInfo['subscriptionName'] 
-	Set-AzureRmContext -Subscription  $azureSub
-	$current = Get-AzureRmContext
+	$subscriptionInfo = $wsAcctInfo["subscriptions"]
+	$theSubscription = $subscriptionInfo['a']
+	$adminSub = Get-AzureRmsubscription -SubscriptionId $theSubscription["subscriptionID"]
+	Set-AzureRmContext -SubscriptionObject $adminSub
+	$ctx.previousAzureContext = $ctx.currentAzureContext
+	$ctx.currentAzureContext = Get-AzureRmContext
 	$ctx.previousSub = $ctx.azureSub
-	$ctx.azureSub = $azureSub
+	$ctx.azureSub = $adminSub
+}
+
+function Revert-Context{
+	param(
+		[Context]$ctx
+	)
+
+	Set-AzureRmContext -SubscriptionObject $ctx.previousSub
+	$ctx.previousAzureContext = $ctx.currentAzureContext
+	$ctx.currentAzureContext = Get-AzureRmContext
+	$ctx.previousSub = $ctx.azureSub
+	$ctx.azureSub = $ctx.previousSub
+	$ctx.previousSub = $null
 }
 
 function Dump-Ctx{
@@ -905,13 +974,13 @@ function Create-KeyVault{
 
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
-	Ensure-ResourceGroup -ctx $ctx -category "svc" -secondary:$secondary
+	Ensure-ResourceGroup -ctx $ctx -category "vaults" -secondary:$secondary
 
 	$resourcePostfix = $ctx.GetResourcePostfix($secondary)
 
-	$keyVaultName = "kv-svc-" + $resourcePostfix
+	$keyVaultName = "kv-vaults-" + $resourcePostfix
 
-	$resourceGroupName = $ctx.GetResourceGroupName("svc", $secondary)
+	$resourceGroupName = $ctx.GetResourceGroupName("vaults", $secondary)
 	$keyVault = Get-AzureRmKeyVault -VaultName $keyVaultName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
 	if (!$keyVault)
 	{
@@ -1041,7 +1110,7 @@ function Create-KeyVaultSecrets{
 
 	$resourceGroupName = $ctx.GetResourceGroupName("svc", $secondary)
 	$resourcePostfix = $ctx.GetResourcePostfix($secondary)
-	$keyVaultName = "kv-svc-" + $resourcePostfix
+	$keyVaultName = "kv-vaults-" + $resourcePostfix
 
 	# this has been forced by set secrets getting a DNS error on the KV name after it is created.
 	# so, we'll try a few times with a slight delay until it is available
@@ -1065,7 +1134,6 @@ function Create-KeyVaultSecrets{
 	}
 	Write-Host "Got KV"
 
-
 	Write-Host "Setting certificate"
 	Add-LocalCertificateToKV -keyVaultName $keyVaultName -pfxFile $pfxfile -password $pfxfilePassword -secretName $webSslCertificateSecretName
 	
@@ -1087,41 +1155,44 @@ function Create-KeyVaultSecrets{
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName" -SecretValue "wsapp"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword" -SecretValue "Workspace!DB!2017"
 	
-	Write-Host "Setting diagnostics secrets"
-	$diagAcctResourceGroupName = $ctx.GetResourceGroupName("diag", $secondary)
-	$diagStorageAccountName = $ctx.GetStorageAccountName("diag", $secondary)
-	$diagStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $diagAcctResourceGroupName -AccountName $diagStorageAccountName
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
-
-
-	Write-Host "Setting installers secrets"
-	$fileShareAcctResourceGroupName = $ctx.GetResourceGroupName("files", $secondary)
-	$fileShareStorageAccountName = $ctx.GetStorageAccountName("files", $secondary)
-	Write-Host $fileShareAcctResourceGroupName $fileShareStorageAccountName
-	$fileShareStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $fileShareAcctResourceGroupName -AccountName $fileShareStorageAccountName
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey" -SecretValue $fileShareStgAcctKeys.Value[0]
-
 	Write-Host "Setting octo and data dog secrets"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoUrl" -SecretValue $octoUrl
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoApiKey" -SecretValue $octoApiKey
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DataDogApiKey" -SecretValue $dataDogApiKey
 
-	Write-Host "Getting secrets from shared subsription"
-	Set-SharedSubscription -ctx $ctx
-	$installersAcctResourceGroupName = $ctx.GetSharedResourceGroupName("installers", $secondary)
-	$installersStorageAccountName = $ctx.GetSharedStorageAccountName("installers", $secondary)
-	$installersStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
+	Write-Host "Getting secrets from data platform subscription"
+	Set-DataPlatformContext -ctx $ctx
+	$diagAcctResourceGroupName = $ctx.GetDataPlatformSubscriptionResourceGroupName("diag", $secondary)
+	$diagStorageAccountName = $ctx.GetDataPlatformSubscriptionStorageAccountName("diag", $secondary)
+	$diagStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $diagAcctResourceGroupName -AccountName $diagStorageAccountName
 
-	$dbbackupAcctResourceGroupName = $ctx.GetSharedResourceGroupName("dbbackups", $secondary)
-	$dbBackupsStorageAccountName = $ctx.GetSharedStorageAccountName("dbbackups", $secondary)
+	Write-Host $fileShareAcctResourceGroupName $fileShareStorageAccountName
+	$fileShareAcctResourceGroupName = $ctx.GetDataPlatformSubscriptionResourceGroupName("files", $secondary)
+	$fileShareStorageAccountName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $secondary)
+	$fileShareStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $fileShareAcctResourceGroupName -AccountName $fileShareStorageAccountName
+
+	$dbbackupAcctResourceGroupName = $ctx.GetDataPlatformSubscriptionResourceGroupName("dbbackups", $secondary)
+	$dbBackupsStorageAccountName = $ctx.GetDataPlatformSubscriptionStorageAccountName("dbbackups", $secondary)
 	$dbBackupsStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $dbbackupAcctResourceGroupName -AccountName $dbBackupsStorageAccountName
-	RevertFrom-SharedSubscription -ctx $ctx
-	Write-Host "Done getting secrets from shared subsription"
+	Revert-Context -ctx $ctx
+	Write-Host "Done getting secrets from shared subscription"
 	
-	Write-Host "Setting installer secrets"
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
+	Write-Host "Setting diagnostics secrets"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey" -SecretValue $diagStgAcctKeys.Value[0]
+	Write-Host "Setting file share secrets"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey" -SecretValue $fileShareStgAcctKeys.Value[0]
 	Write-Host "Setting database backup secrets"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey" -SecretValue $dbBackupsStgAcctKeys.Value[0]
+
+	Write-Host "Getting secrets from data platform subscription"
+	Set-AdminContext -ctx $ctx
+	$installersAcctResourceGroupName = $ctx.GetAdminSubscriptionResourceGroupName("installers", $secondary)
+	$installersStorageAccountName = $ctx.GetAdminSubscriptionStorageAccountName("installers", $secondary)
+	$installersStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $installersAcctResourceGroupName -AccountName $installersStorageAccountName
+	Revert-Context -ctx $ctx
+
+	Write-Host "Setting installer secrets"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey" -SecretValue $installersStgAcctKeys.Value[0]
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -2302,6 +2373,46 @@ function Create-SystemImage{
 	#Copy-DevDataDisk -ctx $ctx -computerName $computerName
 
 	Execute-Deployment -templateFile "arm-devvm-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
+
+function Build-WebServerImageBase{
+	param(
+		[Context]$ctx,
+		[string]$vmSize = "Standard_B4ms",
+		[string]$computerName = "wwwib"
+	)
+
+	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	$keyVaultName = $ctx.GetKeyVaultName($usage)
+	$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
+	$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
+<#
+	$fileShareStorageAccountKey = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey"
+	$octoApiKey                 = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoApiKey"
+	$octoUrl                    = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoUrl"
+	$webSslCertificateId        = Get-KeyVaultSecretId -KeyVaultName $keyVaultName -SecretName "WebSslCertificate"
+
+	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
+	$fileShareName = "workspace-file-storage"
+#>
+	$resourceGroupName = "rg-dev-dd0p"
+	$parameters = @{
+		"resourceNamePostfix" = "dd0p"
+		"adminUserName" = $webAdminUserName
+		"adminPassword" =$webAdminPassword
+		"vmSize" = $vmSize
+		"computerName" = $computerName
+		#"sslCertificateUrl" = $webSslCertificateId
+		#"fileShareKey" = $fileShareStorageAccountKey
+		#"fileStgAcctName" = $fileStgAcctName
+		#"fileShareName" = $fileShareName
+	}
+
+	Execute-Deployment -templateFile "arm-image-build-web.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }

@@ -1,7 +1,7 @@
 param(
-    [string]$driveLabel,
-    [string]$driveLetter
-)
+    [string]$driveLabel="WorkspaceDB",
+    [string]$driveLetter="E"
+) 
 
 Function Write-Log
 {
@@ -38,6 +38,6 @@ $dataDisk |
 Write-Log "All done!"
 
 @{
-    "DriveLitter" = $volume.DriveLetter
+    "DriveLetter" = $volume.DriveLetter
     "Created" = $true
 }

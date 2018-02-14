@@ -8,9 +8,10 @@ param(
 
 Function Write-Log
 {
-   Param ([string]$logstring)
+    Param ([string]$logstring)
 
-   Add-Content -Path "c:\configure.log" -Value $logstring
+    Add-Content -Path "c:\configure.log" -Value $logstring
+	Write-Host $logstring
 } 
 
 Try

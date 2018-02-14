@@ -1,6 +1,8 @@
 param(
-    [string]$username = "stgfiles",
-    [string]$password = "aaaa"
+    [Parameter(Mandatory=$true)]
+    [string]$username,
+    [Parameter(Mandatory=$true)]
+    [string]$password
 )
 
 Function Write-Log

@@ -34,7 +34,8 @@ Import-Module SqlServer
 Write-Log("Importing AzureRM")
 Install-Module -Name AzureRM -Repository PSGallery 
 
-$localIsoPath = $tempLocation + $destinationSqlIso
+$localIsoPath = $tempLocation + $destinationIsoName
+ 
 
 Write-Log("Starting copy of installer files")
 $storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
@@ -62,7 +63,7 @@ Write-Log("Sourcing SqlStandaloneDSC")
 . ./SqlStandaloneDSC
 
 Write-Log("Configuring SQLServer DSC")
-SqlStandaloneDSC -ConfigurationData SQLConfigurationData.psd1 -LoginCredential $loginCred -SysAdminAccount $sysCreds -saCredential $saAcctCreds -installDisk $sqlInstallDrive
+SqlStandaloneDSC -ConfigurationData SQLConfigurationData.psd1 -LoginCredential $loginCred -SysAdminAccount $sysCreds -saCredential $saCred -installDisk $sqlInstallDrive
 
 Write-Log("Starting SQL Server Install")
 Start-DscConfiguration .\SqlStandaloneDSC -Verbose -wait -Force
