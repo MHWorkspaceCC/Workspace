@@ -22,7 +22,7 @@ Function Write-Log
 {
     Param ([string]$logstring)
 
-    Add-Content -Path "c:\configure.log" -Value $logstring
+    Add-Content -Path "c:\config.log" -Value $logstring
 	Write-Host $logstring
 } 
 

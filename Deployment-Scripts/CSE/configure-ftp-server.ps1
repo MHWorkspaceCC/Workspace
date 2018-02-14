@@ -2,8 +2,8 @@ Function Write-Log
 {
 	Param ([string]$logstring)
 
-	$Logfile = "c:\config.log"
-	Add-content $Logfile -value $logstring
+    Add-Content -Path "c:\config.log" -Value $logstring
+	Write-Host $logstring
 }
 
 Write-Log "Trusting PSGallery"

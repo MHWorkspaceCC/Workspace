@@ -1,0 +1,229 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceNamePostfix": {
+            "type": "string"
+        },
+  
+        "adminUserName": {
+          "type": "string"
+        },
+  
+        "adminPassword": {
+          "type": "securestring"
+        },
+  
+        "fileUris": {
+            "type": "array",
+            "defaultValue": [
+              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/create-user-account.ps1",
+              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-file-share.ps1",       
+              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-web-app-with-octo-dsc.ps1",
+              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-from-image.ps1"
+            ]
+          },
+  
+        "vmSize":{
+          "type": "string",
+          "defaultValue": "Standard_D1_v2"
+        },
+  
+        "computerName":{
+          "type": "string"
+        },
+
+        "sslCertificateStore": {
+            "type": "string",
+            "defaultValue": "MyCerts"
+          },
+      
+          "sslCertificateUrl": {
+            "type": "string"
+          },
+      
+          "fileStgAcctName": {
+            "type": "string"
+          },
+      
+          "fileShareKey": {
+            "type": "string"
+          },
+      
+          "fileShareName": {
+            "type": "string"
+          },
+
+
+    "octoApiKey": {
+        "type": "string"
+      },
+  
+      "octoUrl": {
+        "type": "string"
+      },
+
+      "octoEnvironment": {
+          "type": "string"
+      }
+    },
+  
+    "variables": {
+      "baseName": "[concat('dev-', parameters('resourceNamePostfix'))]",
+  
+      "stgAcctName": "[concat('stg', replace(variables('baseName'), '-', ''))]",
+      "saSkuName": "Standard_LRS",
+  
+      "boxName": "[concat(parameters('computerName'), '-vm-', variables('baseName'))]",
+      "vmName": "[variables('boxName')]",
+  
+      "imagePublisher": "MicrosoftWindowsServer",
+      "imageOffer": "WindowsServer",
+      "osDiskName": "[concat('osdisk-', variables('boxName'))]",
+      "vmSize": "[parameters('vmSize')]",
+      "adminUserName": "[parameters('adminUserName')]",
+      "adminPassword": "[parameters('adminPassword')]",
+      "windowsOsVersion": "2016-Datacenter",
+  
+      "vmImageId": "[resourceId('rg-vmimages-dd0p', 'Microsoft.Compute/images', 'image-dev')]",
+  
+      "computerName": "[parameters('computerName')]",
+      "vnetName": "[concat('d0-vnet-', parameters('resourceNamePostfix'))]",
+      "vnetRgName": "[concat('rg-vnet-', parameters('resourceNamePostfix'))]",
+      "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+      "snName": "[concat('sn-', variables('baseName'))]",
+      "subnetRef": "[concat(variables('vnetID'), '/subnets/', variables('snName'))]",
+  
+      "storageAccountContainerName": "vhds",
+      "nicName": "[concat('nic1-', variables('boxName'))]",
+      "nicId": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+  
+      "pipName": "[concat('pip-', variables('boxName'))]",
+      "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
+  
+      "kvName": "[concat('kv-vaults-', parameters('resourceNamePostfix'))]",
+      "kvRgName": "[concat('rg-vaults-', parameters('resourceNamePostfix'))]",
+      "sourceVaultId": "[resourceId(variables('kvRgName'), 'Microsoft.KeyVault/vaults', variables('kvName'))]",
+      "sslCertificateUrl": "[parameters('sslCertificateUrl')]",
+      "sslCertificateStore": "[parameters('sslCertificateStore')]",
+
+      "fileShareParameters": "[concat(' -fileStgAcctName ', 'parameters('fileStgAcctName')', ' -fileShareKey ', 'parameters('fileShareKey')', ' -fileShareName ', 'parameters('fileShareName')')]",
+      "octoParameters": "[concat(' -octoUrl ', 'parameters('octoUrl')', ' -octoApiKey ', 'parameters('octoApiKey')', ' -octoEnvironment ', 'parameters('octoEnvironment'))]",
+      
+      "fileUris": "[parameters('fileUris')]",
+      "commandToExecute": {
+        "type": "string",
+        "defaultValue": "[concat('powershell -ExecutionPolicy Unrestricted -File configure-web-server-from-image.ps1', variables('fileShareParameters'), variables('octoParameters'))]"
+      }
+    },
+  
+    "resources": [
+      {
+        "apiVersion": "2017-06-01",
+        "type": "Microsoft.Network/publicIPAddresses",
+        "name": "[variables('pipName')]",
+        "location": "[resourceGroup().location]",
+        "properties": {
+          "publicIPAddressVersion": "IPv4",
+          "publicIPAllocationMethod": "Dynamic",
+          "idleTimeoutInMinutes": 4,
+          "dnsSettings": {
+            "domainNameLabel": "[variables('pipName')]"
+          }
+        },
+        "dependsOn": []
+      },
+  
+      {
+        "type": "Microsoft.Network/networkInterfaces",
+        "name": "[variables('nicName')]",
+        "apiVersion": "2017-06-01",
+        "location": "[resourceGroup().location]",
+        "properties": {
+          "ipConfigurations": [
+            {
+              "name": "ipconfig1",
+              "properties": {
+                "privateIPAllocationMethod": "Dynamic",
+                "publicIPAddress": { "id": "[variables('pipId')]" },
+                "subnet": { "id": "[variables('subnetRef')]" },
+                "primary": true,
+                "privateIPAddressVersion": "IPv4"
+              }
+            }
+          ],
+          "dnsSettings": {
+            "dnsServers": [],
+            "appliedDnsServers": []
+          },
+          "enableAcceleratedNetworking": false,
+          "enableIPForwarding": false,
+          "primary": true,
+          "virtualMachine": {
+            "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('boxName'))]"
+          }
+        },
+        "dependsOn": [
+          "[variables('pipId')]"
+        ]
+      },
+  
+      {
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "[variables('boxName')]",
+        "apiVersion": "2017-03-30",
+        "location": "[resourceGroup().location]",
+        "identity": {
+          "type": "systemAssigned"
+        },
+        "properties": {
+          "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
+          "storageProfile": {
+            "imageReference": {
+              "id": "[variables('vmImageId')]"
+            }
+          },
+          "osProfile": {
+            "computerName": "[variables('computerName')]",
+            "adminUsername": "[variables('adminUserName')]",
+            "adminPassword": "[variables('adminPassword')]",
+            "windowsConfiguration": {
+              "provisionVMAgent": true,
+              "enableAutomaticUpdates": false
+            },
+            "secrets": [
+                {
+                    "sourceVault": {
+                        "id": "[variables('sourceVaultId')]"
+                    },
+                    "vaultCertificates": [
+                        {
+                            "certificateUrl": "[variables('sslCertificateUrl')]",
+                            "certificateStore": "[variables('sslCertificateStore')]"
+                        }
+                    ]
+                }
+            ]
+          },
+          "networkProfile": {
+            "networkInterfaces": [
+              {
+                "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+              }
+            ]
+          },
+          "diagnosticsProfile": {
+          }
+        },
+        "resources": [
+        ],
+        "dependsOn": [
+          "[variables('nicId')]"
+        ]    
+      }
+    ],
+  
+    "outputs": {
+    }
+  }
+  

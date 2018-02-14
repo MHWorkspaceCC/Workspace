@@ -7,8 +7,8 @@ function Write-Log
 {
 	param ([string]$logstring)
 
-	$Logfile = "c:\config.log"
-	Add-content $Logfile -value $logstring
+    Add-Content -Path "c:\config.log" -Value $logstring
+	Write-Host $logstring
 }
 
 Try{

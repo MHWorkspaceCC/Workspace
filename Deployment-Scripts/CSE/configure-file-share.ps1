@@ -4,18 +4,17 @@ param(
     [Parameter(Mandatory=$true)]
 	[string]$fileShareKey,
     [Parameter(Mandatory=$true)]
-	[string]$fileShareName,
+	[string]$fileShareName = "workspace-file-storage",
 	[string]$symDirPath = "c:\server\workspace\client",
 	[string]$symDirFolderName = "files",
-	[string]$filesMountDrive = "Z"
+	[string]$filesMountDrive = "Y"
 )
 
 Function Write-Log
 {
 	Param ([string]$logstring)
 
-	$Logfile = "c:\config.log"
-	Add-content $Logfile -value $logstring
+    Add-Content -Path "c:\config.log" -Value $logstring
 	Write-Host $logstring
 }
 

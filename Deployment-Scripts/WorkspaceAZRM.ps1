@@ -2399,7 +2399,7 @@ function Build-WebServerImageBase{
 	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
 	$fileShareName = "workspace-file-storage"
 #>
-	$resourceGroupName = "rg-dev-dd0p"
+	$resourceGroupName = "rg-webimagebuild-dd0p"
 	$parameters = @{
 		"resourceNamePostfix" = "dd0p"
 		"adminUserName" = $webAdminUserName
@@ -2412,7 +2412,74 @@ function Build-WebServerImageBase{
 		#"fileShareName" = $fileShareName
 	}
 
+	Ensure-ResourceGroup -ctx $ctx -category "webimagebuild"
 	Execute-Deployment -templateFile "arm-image-build-web.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
+Function Create-WebServerImage{
+	param(
+		[Context]$ctx
+	)
+
+	$vmName = "wwwib-vm-web-dd0p"
+	$vmResourceGroupName = "rg-webimagebuild-dd0p"
+	$imageResourceGroupName = "rg-vmimages-dd0p"
+	$imageName = "image-web"
+
+	Ensure-ResourceGroup -ctx $ctx -category "vmimages"
+
+	Stop-AzureRmVM -ResourceGroupName $vmResourceGroupName -Name $vmName -Force
+	Set-AzureRmVM -ResourceGroupName $vmResourceGroupName -Name $vmName -Generalized
+	$vm = Get-AzureRmVM -Name $vmName -ResourceGroupName $vmResourceGroupName
+	$image = New-AzureRmImageConfig -Location westus -SourceVirtualMachineId $vm.Id
+
+#	Set-DataPlatformContext -ctx $ctx
+	Ensure-ResourceGroup -ctx $ctx -category "vmimages"
+	New-AzureRmImage -Image $image -ImageName $imageName -ResourceGroupName $imageResourceGroupName
+#	Revert-Context
+}
+
+function Deploy-StandaloneWebServerFromImage{
+	param(
+		[Context]$ctx,
+		[string]$vmSize = "Standard_B4ms",
+		[string]$computerName = "wwww"
+	)
+
+	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	$keyVaultName = $ctx.GetKeyVaultName($usage)
+	$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
+	$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
+
+	$fileShareStorageAccountKey = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey"
+	$octoApiKey                 = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoApiKey"
+	$octoUrl                    = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoUrl"
+	$webSslCertificateId        = Get-KeyVaultSecretId -KeyVaultName $keyVaultName -SecretName "WebSslCertificate"
+
+	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
+	$fileShareName = "workspace-file-storage"
+
+	$resourceGroupName = "rg-dev-dd0p"
+	$parameters = @{
+		"resourceNamePostfix" = "dd0p"
+		"adminUserName" = $webAdminUserName
+		"adminPassword" =$webAdminPassword
+		"vmSize" = $vmSize
+		"computerName" = $computerName
+		"sslCertificateUrl" = $webSslCertificateId
+		"fileShareKey" = $fileShareStorageAccountKey
+		"fileStgAcctName" = $fileStgAcctName
+		"fileShareName" = $fileShareName
+		"octoUrl" = $octoUrl
+		"octoApiKey" = $octoApiKey
+		"octoEnvironment" = "WP0P"
+	}
+
+	Ensure-ResourceGroup -ctx $ctx -category "webimagebuild"
+	Execute-Deployment -templateFile "arm-deploy-web-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
