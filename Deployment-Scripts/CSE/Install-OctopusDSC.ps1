@@ -18,4 +18,4 @@ Write-Log('Starting install of Octopus DSC')
 
 Install-Module -Name OctopusDSC
 
-Write-Log('Finished install of Octopus DSC')
+Write-Log('Finished install of Octopus DSC') 
