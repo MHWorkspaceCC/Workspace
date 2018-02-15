@@ -3,7 +3,6 @@ param(
 	[string]$fileStgAcctName,
     [Parameter(Mandatory=$true)]
 	[string]$fileShareKey,
-    [Parameter(Mandatory=$true)]
 	[string]$fileShareName = "workspace-file-storage",
 	[string]$symDirPath = "c:\server\workspace\client",
 	[string]$symDirFolderName = "files",

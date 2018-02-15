@@ -10,9 +10,6 @@ Function Write-Log
 }
 
 Write-Log "In config"
-Write-Log $("fileStgAcctName: " + $fileStgAcctName)
-Write-Log $("fileShareKey: " + $fileShareKey)
-Write-Log $("fileShareName: " + $fileShareName)
 
 . .\move-dvd.ps1
 #. .\create-user-account.ps1 -username $fileStgAcctName -password $fileShareKey

@@ -2458,7 +2458,7 @@ function Deploy-StandaloneWebServerFromImage{
 	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
 	$fileShareName = "workspace-file-storage"
 
-	$resourceGroupName = "rg-testwebimage3-dd0p"
+	$resourceGroupName = "rg-testwebimage4-dd0p"
 	$parameters = @{
 		"resourceNamePostfix" = "dd0p"
 		"adminUserName" = $webAdminUserName
@@ -2474,7 +2474,7 @@ function Deploy-StandaloneWebServerFromImage{
 		"octoEnvironment" = "WP0P"
 	}
 
-	Ensure-ResourceGroup -ctx $ctx -category "testwebimage3"
+	Ensure-ResourceGroup -ctx $ctx -category "testwebimage4"
 	Execute-Deployment -templateFile "arm-deploy-web-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand 

@@ -24,7 +24,7 @@ Write-Log $("octoApiKey: " + $octoApiKey)
 Write-Log $("octoEnvironment: " + $octoEnvironment)
 
 .\create-user-account -username $fileStgAcctName -password $fileShareKey
-.\configure-file-share -fileStgAcctName $fileStgAcctName -fileShareKey $fileShareKey 
+.\configure-file-share -fileStgAcctName $fileStgAcctName -fileShareKey $fileShareKey -fileShareName $fileShareName
 .\install-web-app-with-octo-dsc.ps1 -octoUrl $octoUrl -octoApiKey $octoApiKey -octoEnvironment $octoEnvironment
 
 Write-Log "All done configuration!"
