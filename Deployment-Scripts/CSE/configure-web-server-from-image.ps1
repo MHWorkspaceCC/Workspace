@@ -1,5 +1,10 @@
 param(
-`
+	[string]$fileStgAcctName,
+	[string]$fileShareKey,
+	[string]$fileShareName,
+	[string]$octoUrl,
+	[string]$octoApiKey,
+	[string]$octoEnvironment
 )
 
 Function Write-Log

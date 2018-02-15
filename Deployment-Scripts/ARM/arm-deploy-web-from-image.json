@@ -20,7 +20,8 @@
               "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/create-user-account.ps1",
               "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-file-share.ps1",       
               "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-web-app-with-octo-dsc.ps1",
-              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-from-image.ps1"
+              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-from-image.ps1",
+              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/null.ps1"
             ]
           },
   
@@ -111,10 +112,7 @@
       "octoParameters": "[concat(' -octoUrl ', parameters('octoUrl'), ' -octoApiKey ', parameters('octoApiKey'), ' -octoEnvironment ', parameters('octoEnvironment'))]",
       
       "fileUris": "[parameters('fileUris')]",
-      "commandToExecute": {
-        "type": "string",
-        "defaultValue": "[concat('powershell -ExecutionPolicy Unrestricted -File configure-web-server-from-image.ps1', variables('fileShareParameters'), variables('octoParameters'))]"
-      }
+      "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File configure-web-server-from-image.ps1', variables('fileShareParameters'), variables('octoParameters'))]"
     },
   
     "resources": [

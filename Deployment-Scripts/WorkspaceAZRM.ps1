@@ -2390,7 +2390,7 @@ function Build-WebServerImageBase{
 	$keyVaultName = $ctx.GetKeyVaultName($usage)
 	$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
 	$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
-	$resourceGroupName = "rg-webimagebuild-dd0p"
+	$resourceGroupName = "rg-webimagebuild2-dd0p"
 
 	$parameters = @{
 		"resourceNamePostfix" = "dd0p"
@@ -2404,13 +2404,12 @@ function Build-WebServerImageBase{
 		#"fileShareName" = $fileShareName
 	}
 
-	Ensure-ResourceGroup -ctx $ctx -category "webimagebuild"
+	Ensure-ResourceGroup -ctx $ctx -category "webimagebuild2"
 	Execute-Deployment -templateFile "arm-image-build-web.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	$vmName = "wwwib-vm-web-dd0p"
-	$vmResourceGroupName = "rg-webimagebuild-dd0p"
 	$customScriptName = "configure-web-server-image-base"
-	Remove-AzureRmVMCustomScriptExtension -ResourceGroupName $vmResourceGroupName -VMName $vmName -Name $customScriptName -Force
+	Remove-AzureRmVMCustomScriptExtension -ResourceGroupName $resourceGroupName -VMName $vmName -Name $customScriptName -Force
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -2421,7 +2420,7 @@ Function Create-WebServerImage{
 	)
 
 	$vmName = "wwwib-vm-web-dd0p"
-	$vmResourceGroupName = "rg-webimagebuild-dd0p"
+	$vmResourceGroupName = "rg-webimagebuild2-dd0p"
 	$imageResourceGroupName = "rg-vmimages-dd0p"
 	$imageName = "image-web"
 
@@ -2459,7 +2458,7 @@ function Deploy-StandaloneWebServerFromImage{
 	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
 	$fileShareName = "workspace-file-storage"
 
-	$resourceGroupName = "rg-testwebimage-dd0p"
+	$resourceGroupName = "rg-testwebimage3-dd0p"
 	$parameters = @{
 		"resourceNamePostfix" = "dd0p"
 		"adminUserName" = $webAdminUserName
@@ -2475,7 +2474,7 @@ function Deploy-StandaloneWebServerFromImage{
 		"octoEnvironment" = "WP0P"
 	}
 
-	Ensure-ResourceGroup -ctx $ctx -category "testwebimage"
+	Ensure-ResourceGroup -ctx $ctx -category "testwebimage3"
 	Execute-Deployment -templateFile "arm-deploy-web-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
