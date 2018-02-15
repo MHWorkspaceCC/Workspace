@@ -83,7 +83,7 @@ $wsAcctInfo = @{
 			"subscriptionName" = "WS Admin"
 			"subscriptionID" = "71e29bff-7d39-4b44-b0b2-311c290eddc8"
 		}
-		"w" = @{
+		"t" = @{
 			"subscriptionName" = "WS Test"
 			"subscriptionID" = "3f7acc9e-d55d-4463-a7a8-cd8d9b01de40"
 		}
@@ -325,7 +325,7 @@ function Login-WorkspaceAzureAccount{
 		[Parameter(Mandatory=$true)]
 		[string]$subscription
 	)
-	Write-Host "In: " $MyInvocation.MyCommand $environment $slot $facility $subscription
+	Write-Host "In: " $MyInvocation.MyCommand $subscription $environment $slot $facility 
 
 	$profileFile = $currentDir + "\Deployment-Scripts\" + $wsAcctInfo['profileFile']
 
@@ -2414,6 +2414,50 @@ function Build-WebServerImageBase{
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
 
+function Build-DatabaseServerImageBase{
+	param(
+		[Context]$ctx,
+		[string]$vmSize = "Standard_D2S_v3",
+		[string]$computerName = "dbib"
+	)
+
+	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	$keyVaultName = $ctx.GetKeyVaultName($false)
+	$resourceGroupName = "rg-dbimagebuild-tp0p"
+
+	$installersStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey"
+	$installersStorageAccountName = $ctx.GetSharedStorageAccountName("installers", $false)
+	$diagStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey"
+	$dataDogApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DataDogApiKey"
+	$saUserName    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaUserName"
+	$saPassword    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaPassword"
+	$loginUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName"
+	$loginPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword"
+	$adminUserName = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminName"
+	$adminPassword = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword"
+
+	$parameters = @{
+		"installersStgAcctKey" = $installersStorageAccountKey
+		"installersStgAcctName" = $installersStorageAccountName
+		"resourceNamePostfix" = "tp0p"
+		"adminUserName" = $adminUserName
+		"adminPassword" =$adminPassword
+		"saUserName" = $saUserName
+		"saPassword" =$saPassword
+		"loginUserName" = $loginUserName
+		"loginPassword" = $loginPassword
+		"vmSize" = $vmSize
+		"computerName" = $computerName
+		"environmentCode" = $ctx.environment + $ctx.slot
+	}
+
+	Ensure-ResourceGroup -ctx $ctx -category "dbimagebuild"
+	Execute-Deployment -templateFile "arm-image-build-db.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
 Function Create-WebServerImage{
 	param(
 		[Context]$ctx
@@ -2458,7 +2502,7 @@ function Deploy-StandaloneWebServerFromImage{
 	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
 	$fileShareName = "workspace-file-storage"
 
-	$resourceGroupName = "rg-testwebimage4-dd0p"
+	$resourceGroupName = "rg-testwebimage5-dd0p"
 	$parameters = @{
 		"resourceNamePostfix" = "dd0p"
 		"adminUserName" = $webAdminUserName
@@ -2474,7 +2518,7 @@ function Deploy-StandaloneWebServerFromImage{
 		"octoEnvironment" = "WP0P"
 	}
 
-	Ensure-ResourceGroup -ctx $ctx -category "testwebimage4"
+	Ensure-ResourceGroup -ctx $ctx -category "testwebimage5"
 	Execute-Deployment -templateFile "arm-deploy-web-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand 

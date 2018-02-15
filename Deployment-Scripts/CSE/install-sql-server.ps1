@@ -36,7 +36,6 @@ Install-Module -Name AzureRM -Repository PSGallery
 
 $localIsoPath = $tempLocation + $destinationIsoName
  
-
 Write-Log("Starting copy of installer files")
 $storageContext = New-AzureStorageContext -StorageAccountName $installersStgAcctName -StorageAccountKey $installersStgAcctKey
 Write-Log("Starting copy of SQL Server ISO")

@@ -1,0 +1,206 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceNamePostfix": {
+      "type": "string"
+    },
+
+    "adminUserName": {
+      "type": "string"
+    },
+
+    "adminPassword": {
+      "type": "securestring"
+    },
+
+    "saUserName": {
+      "type": "string"
+    },
+
+    "saPassword": {
+      "type": "securestring"
+    },
+
+    "loginUserName": {
+      "type": "string"
+    },
+
+    "loginPassword": {
+      "type": "securestring"
+    },
+
+    "fileUris": {
+      "type": "array",
+      "defaultValue": [
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/move-dvd.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/install-sql-server.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/install-ssms.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/configure-sql-server-image.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/null.ps1"
+      ]
+    },
+
+    "installersStgAcctName": {
+      "type": "string"
+    },
+
+    "installersStgAcctKey": {
+      "type": "string"
+    },
+
+    "vmSize": {
+      "type": "string"
+    },
+
+    "computerName": {
+      "type": "string"
+    },
+
+    "environmentCode":{
+      "type": "string"
+    }
+  },
+
+  "variables": {
+    "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
+
+    "dbbaseName": "[concat('-db', variables('baseName'))]",
+
+    "computerName": "[parameters('computerName')]",
+    "vmName": "[concat(variables('computerName'), variables('dbBaseName'))]",
+
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "osDiskName": "[concat('osdisk-', variables('vmName'))]",
+    "vmSize": "[parameters('vmSize')]",
+    "windowsOsVersion": "2016-Datacenter",
+
+    "vnetName": "[concat(parameters('environmentCode'), '-vnet', variables('baseName'))]",
+    "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
+    "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+    "snName": "[concat('sn', variables('dbBaseName'))]",
+    "subnetRef": "[concat(variables('vnetID'), '/subnets/', variables('snName'))]",
+
+    "nicName": "[concat('nic1-', variables('vmName'))]",
+    "pipName": "[concat('pip-', variables('vmName'))]",
+
+    "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
+
+    "installerParameters": "[concat(' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -installersStgAcctName ', parameters('installersStgAcctName'))]",
+    "saParameters": "[concat(' -saUserName ', parameters('saUserName'), ' -saPassword ', parameters('saPassword'))]",
+    "sysParameters": "[concat(' -sysUserName ', parameters('adminUserName'), ' -sysPassword ', parameters('adminPassword'))]",
+    "loginParameters": "[concat(' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'))]",
+    "baseCommand": "powershell -ExecutionPolicy Unrestricted -File configure-sql-server.ps1",
+    "commandToExecute2": "[concat(variables('baseCommand'), variables('installerParameters'), variables('saParameters'), variables('sysParameters'), variables('loginParameters'))]",
+    "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File null.ps1"
+  },
+
+  "resources": [
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('pipName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAddressVersion": "IPv4",
+        "publicIPAllocationMethod": "Dynamic",
+        "idleTimeoutInMinutes": 4,
+        "dnsSettings": {
+          "domainNameLabel": "[variables('pipName')]"
+        }
+      },
+      "dependsOn": []
+    },
+
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[resourceGroup().location]",
+
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": { "id": "[variables('pipId')]" },
+              "subnet": { "id": "[variables('subnetRef')]" },
+              "primary": true,
+              "privateIPAddressVersion": "IPv4"
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": [],
+          "appliedDnsServers": []
+        },
+        "enableAcceleratedNetworking": false,
+        "enableIPForwarding": false,
+        "primary": true,
+        "virtualMachine": {
+          "id": "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+        }
+      },
+      "dependsOn": [
+        "[variables('pipId')]"
+      ]
+    },
+
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('vmName')]",
+      "apiVersion": "2017-03-30",
+      "location": "[resourceGroup().location]",
+      "identity": {
+        "type": "systemAssigned"
+      },
+      "properties": {
+        "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('windowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "osType": "Windows",
+            "name": "[variables('osDiskName')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+          "dataDisks": [
+          ]
+        },
+        "osProfile": {
+          "computerName": "[variables('computerName')]",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": false
+          },
+          "secrets": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+      ],
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+      ]
+    }
+  ],
+
+  "outputs": {
+  }
+}
+
