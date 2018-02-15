@@ -2390,16 +2390,8 @@ function Build-WebServerImageBase{
 	$keyVaultName = $ctx.GetKeyVaultName($usage)
 	$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
 	$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
-<#
-	$fileShareStorageAccountKey = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey"
-	$octoApiKey                 = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoApiKey"
-	$octoUrl                    = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoUrl"
-	$webSslCertificateId        = Get-KeyVaultSecretId -KeyVaultName $keyVaultName -SecretName "WebSslCertificate"
-
-	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
-	$fileShareName = "workspace-file-storage"
-#>
 	$resourceGroupName = "rg-webimagebuild-dd0p"
+
 	$parameters = @{
 		"resourceNamePostfix" = "dd0p"
 		"adminUserName" = $webAdminUserName
@@ -2414,6 +2406,11 @@ function Build-WebServerImageBase{
 
 	Ensure-ResourceGroup -ctx $ctx -category "webimagebuild"
 	Execute-Deployment -templateFile "arm-image-build-web.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	$vmName = "wwwib-vm-web-dd0p"
+	$vmResourceGroupName = "rg-webimagebuild-dd0p"
+	$customScriptName = "configure-web-server-image-base"
+	Remove-AzureRmVMCustomScriptExtension -ResourceGroupName $vmResourceGroupName -VMName $vmName -Name $customScriptName -Force
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -2462,7 +2459,7 @@ function Deploy-StandaloneWebServerFromImage{
 	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
 	$fileShareName = "workspace-file-storage"
 
-	$resourceGroupName = "rg-dev-dd0p"
+	$resourceGroupName = "rg-testwebimage-dd0p"
 	$parameters = @{
 		"resourceNamePostfix" = "dd0p"
 		"adminUserName" = $webAdminUserName
@@ -2478,7 +2475,7 @@ function Deploy-StandaloneWebServerFromImage{
 		"octoEnvironment" = "WP0P"
 	}
 
-	Ensure-ResourceGroup -ctx $ctx -category "webimagebuild"
+	Ensure-ResourceGroup -ctx $ctx -category "testwebimage"
 	Execute-Deployment -templateFile "arm-deploy-web-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand 

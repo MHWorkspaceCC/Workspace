@@ -13,7 +13,8 @@
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-net45.ps1",
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-iis.ps1",
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-octopusdsc.ps1",
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-image.ps1"
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-image.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/null.ps1"
       ]
     },
 
@@ -54,7 +55,7 @@
     "windowsOsVersion": "2016-Datacenter",
     "osDiskName": "[concat('osdisk-', variables('vmName'))]",
 
-    "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File configure-web-server-image.ps1"
+    "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File null.ps1"
   },
   "resources": [
     {

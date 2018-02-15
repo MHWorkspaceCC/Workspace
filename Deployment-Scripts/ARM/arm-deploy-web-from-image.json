@@ -85,7 +85,7 @@
       "adminPassword": "[parameters('adminPassword')]",
       "windowsOsVersion": "2016-Datacenter",
   
-      "vmImageId": "[resourceId('rg-vmimages-dd0p', 'Microsoft.Compute/images', 'image-dev')]",
+      "vmImageId": "[resourceId('rg-vmimages-dd0p', 'Microsoft.Compute/images', 'image-web')]",
   
       "computerName": "[parameters('computerName')]",
       "vnetName": "[concat('d0-vnet-', parameters('resourceNamePostfix'))]",
@@ -107,8 +107,8 @@
       "sslCertificateUrl": "[parameters('sslCertificateUrl')]",
       "sslCertificateStore": "[parameters('sslCertificateStore')]",
 
-      "fileShareParameters": "[concat(' -fileStgAcctName ', 'parameters('fileStgAcctName')', ' -fileShareKey ', 'parameters('fileShareKey')', ' -fileShareName ', 'parameters('fileShareName')')]",
-      "octoParameters": "[concat(' -octoUrl ', 'parameters('octoUrl')', ' -octoApiKey ', 'parameters('octoApiKey')', ' -octoEnvironment ', 'parameters('octoEnvironment'))]",
+      "fileShareParameters": "[concat(' -fileStgAcctName ', parameters('fileStgAcctName'), ' -fileShareKey ', parameters('fileShareKey'), ' -fileShareName ', parameters('fileShareName'))]",
+      "octoParameters": "[concat(' -octoUrl ', parameters('octoUrl'), ' -octoApiKey ', parameters('octoApiKey'), ' -octoEnvironment ', parameters('octoEnvironment'))]",
       
       "fileUris": "[parameters('fileUris')]",
       "commandToExecute": {
@@ -212,10 +212,30 @@
               }
             ]
           },
+
           "diagnosticsProfile": {
           }
         },
         "resources": [
+            {
+                "type": "extensions",
+                "name": "configure-standalone-web",
+                "apiVersion": "2017-03-30",
+                "location": "[resourceGroup().location]",
+                "dependsOn": [
+                  "[variables('vmName')]"
+                ],
+                "properties": {
+                  "publisher": "Microsoft.Compute",
+                  "type": "CustomScriptExtension",
+                  "typeHandlerVersion": "1.9",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "fileUris": "[parameters('fileUris')]",
+                    "commandToExecute": "[variables('commandToExecute')]"
+                  }
+                }
+              }
         ],
         "dependsOn": [
           "[variables('nicId')]"
