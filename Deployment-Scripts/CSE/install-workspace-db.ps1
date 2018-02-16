@@ -1,15 +1,14 @@
 param(
-    [string]$saUsername = "sa",
     [string]$saPassword = "Workspace!DB!2018",
-    [string]$loginUserName = "wsapp",
-	[string]$loginPassword = "Workspace!DB!2018",
-    [string]$databaseVolumeLabel = "WorkspaceDB",
 	[string]$databaseName = "AdventureWorks",
+	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
 	[string]$dbMdfFileName = "AdventureWorks2016_Data",
 	[string]$dbLdfFileName = "AdventureWorks2016_Log",
-	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
 	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0p",
-    [string]$dbBackupsStorageAccountKey = "MjxzzdLwmgeB6emUEcepOEko+SYiZtPE578BMXFeSMQnXHXO7PJm8EyhM9Ndk1afp94wZ55vXp656li6BlD+6w=="
+    [string]$dbBackupsStorageAccountKey = "dMFiKWGj8AtVR1Tf4xTgWEEqdUS0wIX/iJU/VAGrDCX/G8YfkH1mZeQUDI6h0xKQWvlVwH16nDGmzNneiMP11w==",
+    [string]$databaseVolumeLabel = "WorkspaceDB",
+    [string]$loginUserName = "wsapp",
+	[string]$loginPassword = "Workspace!DB!2018"
 )
 
 Function Write-Log
@@ -19,6 +18,19 @@ Function Write-Log
     Add-Content -Path "c:\config.log" -Value $logstring
 	Write-Host $logstring
 } 
+
+Write-Log("In configure-sql-server")
+Write-Log("saPassword: " + $saPassword)
+Write-Log("loginUserName: " + $loginUserName)
+Write-Log("loginPassword: " + $loginPassword)
+Write-Log("databaseName: " + $databaseName)
+Write-Log("dbBackupBlobName: " + $databaseName)
+Write-Log("dbMdfFileName: " + $dbMdfFileName)
+Write-Log("dbLdfFileName: " + $dbLdfFileName)
+Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
+Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
+Write-Log("databaseVolumeLabel: " + $databaseVolumeLabel)
+
 
 Write-Log("Trusting PSGallery")
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
@@ -31,16 +43,53 @@ Import-Module SqlServer
 Write-Log("Importing AzureRM")
 Install-Module -Name AzureRM -Repository PSGallery
 
-$volume = Get-Volume -FileSystemLabel $databaseVolumeLabel -ErrorVariable err -ErrorAction SilentlyContinue
-if ($volume -eq $null){
-    throw "Did not find volume: " + $databaseVolumeLabel
+$dataDiskExisted = $true
+$dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
+if ($err -ne $null){
+	$dataDiskExisted = $false
+    Write-Host "Did not find data disk so creating"
+    $dataDisk = Get-Disk | `
+        Where partitionstyle -eq 'raw' | `
+        Select-Object -first 1
+
+    $dataDisk | 
+		Initialize-Disk -PartitionStyle MBR -PassThru | `
+		New-Partition -DriveLetter F -UseMaximumSize | `
+		Format-Volume -FileSystem NTFS -NewFileSystemLabel "WorkspaceDB" -Confirm:$false | 
+		Write-Log
+
+	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+
+    $filename = $dataDiskLetter + ":\"
+    $acl = Get-Acl $filename
+    Write-Host $acl
+    $ar = New-Object  system.security.accesscontrol.filesystemaccessrule("everyone","FullControl","Allow")
+    $acl.SetAccessRule($ar)
+    Set-Acl $filename $acl	
+}else{
+	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+    if ($dataDiskLetter -ne "F"){
+        $dataDisk = Get-Disk | `
+        	Where partitionstyle -eq 'MBR' | `
+            Select-Object -last 1            
+        # move the CD from F to G
+        $drv = Get-WmiObject win32_volume -filter 'DriveLetter = "F:"'
+        $drv.DriveLetter = "G:"
+        $drv.Put()
+
+        # put the database disk on F:
+        Get-Partition -DiskNumber $dataDisk.DiskNumber | Set-Partition -NewDriveLetter F
+    }
 }
 
-$dbDriveLetter = $volume.DriveLetter
+$dbDriveLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 $mdfPath = $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf"
 $attaching = [System.IO.File]::Exists($mdfPath) 
 
 $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
+$ss.ConnectionContext.LoginSecure = $false
+$ss.ConnectionContext.Login = "sa"
+$ss.ConnectionContext.Password = $loginPassword
 
 if (!$attaching){
     Write-Log("Restoring database")
@@ -58,10 +107,6 @@ if (!$attaching){
     Remove-Item -Path $($dbDriveLetter + ":\" + $dbBackupBlobName) 
 }else{
     Write-Log "Attaching database"
-    $ss.ConnectionContext.LoginSecure = $false
-    $ss.ConnectionContext.Login = "sa"
-    $ss.ConnectionContext.Password = $loginPassword
-    Write-Log $ss.Information.Version
 
 	$mdfs = $ss.EnumDetachedDatabaseFiles($mdfPath)
 	$ldfs = $ss.EnumDetachedLogFiles($mdfPath)
@@ -117,4 +162,4 @@ Write-Log("Assigning roles")
 $db.Roles['db_datareader'].AddMember($dbuser.Name)
 $db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
-Write-Log("Done installing database")
+Write-Log("Done configure-sql-server") 
