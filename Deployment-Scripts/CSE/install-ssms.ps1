@@ -15,6 +15,15 @@ Function Write-Log
 	Write-Host $logstring
 } 
 
+Write-Log("In install-ssms")
+
+Write-Log("installersStgAcctName: " + $installersStgAcctName)
+Write-Log("installersStgAcctKey: " + $installersStgAcctKey)
+Write-Log("installContainerName: " + $installContainerName)
+Write-Log("installBlobName: " + $installBlobName)
+Write-Log("tempLocation: " + $tempLocation)
+Write-Log("destinationInstallerName: " + $destinationInstallerName)
+
 Write-Log("Trusting PSGallery")
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -37,5 +46,5 @@ Write-Log("Cleaning up installer files")
 Remove-Item -Path $localInstallerPath
 get-childitem $tempLocation -include ssms*.txt | foreach ($_) { remove-item $_.fullname} 
 
-Write-Log("Done installing SSMS")
+Write-Log("Done install-ssms")
 

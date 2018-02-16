@@ -17,10 +17,14 @@ Function Write-Log
 	Write-Host $logstring
 } 
 
+Write-Log("In configure-sql-server-image")
+
 . .\move-dvd.ps1 -drive "Z:"
 . .\install-sql-server.ps1 `
 	-installersStgAcctName $installersStgAcctName -installersStgAcctKey ]$installersStgAcctKey `
 	-loginUserName $loginUserName -loginPassword $loginPassword `
-	-saPassword $saPassword `
+	-saUsername $saUserName -saPassword $saPassword `
 	-sysUserName $sysUserName -sysPassword $sysPassword
 . .\install-smss.ps1 -installersStgAcctName $installersStgAcctName -installersStgAcctKey $installersStgAcctKey
+
+Write-Log("Done configure-sql-server-image")

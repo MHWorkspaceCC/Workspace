@@ -7,6 +7,7 @@ param(
     [string]$destinationIsoName="sqlserver.iso",
     [string]$loginUserName="wsapp",
     [string]$loginPassword="Workspace!DB!2018",
+    [string]$saUsername="sa",
     [string]$saPassword="Workspace!DB!2018",
     [string]$sysUserName="wsadmin",
     [string]$sysPassword="Workspace!DB!2018"
@@ -19,6 +20,20 @@ Function Write-Log
     Add-Content -Path "c:\config.log" -Value $logstring
 	Write-Host $logstring
 } 
+
+Write-Log("In install-sql-server")
+Write-Log("installersStgAcctName: " + $installersStgAcctName)
+Write-Log("installersStgAcctKey: " + $installersStgAcctKey)
+Write-Log("installContainerName: " + $installContainerName)
+Write-Log("installBlobName: " + $installBlobName)
+Write-Log("tempLocation: " + $tempLocation)
+Write-Log("destinationIsoName: " + $destinationIsoName)
+Write-Log("loginUserName: " + $loginUserName)
+Write-Log("loginPassword: " + $loginPassword)
+Write-Log("saUsername:" + $saUsername)
+Write-Log("saPassword: " + $saPassword)
+Write-Log("sysUserName: " + $sysUserName)
+Write-Log("sysPassword: " + $sysPassword)
 
 Write-Log("Trusting PSGallery")
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
@@ -80,4 +95,4 @@ Dismount-DiskImage -ImagePath $localIsoPath
 Write-Log("Cleaning up installer files")
 Remove-Item -Path $localIsoPath
 
-Write-Log("Finished installing SQL Server")
+Write-Log("Out install-sql-server")

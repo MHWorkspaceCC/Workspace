@@ -19,6 +19,19 @@ Function Write-Log
 	Write-Host $logstring
 } 
 
+Write-Log("In configure-sql-server")
+Write-Log("saPassword: " + $saPassword)
+Write-Log("loginUserName: " + $loginUserName)
+Write-Log("loginPassword: " + $loginPassword)
+Write-Log("databaseName: " + $databaseName)
+Write-Log("dbBackupBlobName: " + $databaseName)
+Write-Log("dbMdfFileName: " + $dbMdfFileName)
+Write-Log("dbLdfFileName: " + $dbLdfFileName)
+Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
+Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
+Write-Log("databaseVolumeLabel: " + $databaseVolumeLabel)
+
+
 Write-Log("Trusting PSGallery")
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -149,4 +162,4 @@ Write-Log("Assigning roles")
 $db.Roles['db_datareader'].AddMember($dbuser.Name)
 $db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
-Write-Log("Done installing database") 
+Write-Log("Done configure-sql-server") 
