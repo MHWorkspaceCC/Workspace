@@ -2486,7 +2486,7 @@ Function Create-DatabaseServerImage{
 		[Context]$ctx
 	)
 
-	$vmName = "dbib-db-tp0p"
+	$vmName = "dbib-vm-db-tp0p"
 	$vmResourceGroupName = "rg-dbimagebuild-tp0p"
 	$imageResourceGroupName = "rg-vmimages-tp0p"
 	$imageName = "image-db"

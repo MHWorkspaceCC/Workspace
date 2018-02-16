@@ -33,6 +33,6 @@ Write-Log("sysPassword: " + $sysPassword)
 	-loginUserName $loginUserName -loginPassword $loginPassword `
 	-saUsername $saUserName -saPassword $saPassword `
 	-sysUserName $sysUserName -sysPassword $sysPassword
-. .\install-smss.ps1 -installersStgAcctName $installersStgAcctName -installersStgAcctKey $installersStgAcctKey
+. .\install-ssms.ps1 -installersStgAcctName $installersStgAcctName -installersStgAcctKey $installersStgAcctKey
 
 Write-Log("Done configure-sql-server-image")
