@@ -70,7 +70,7 @@
     "dbbaseName": "[concat('-db', variables('baseName'))]",
 
     "computerName": "[parameters('computerName')]",
-    "vmName": "[concat(variables('computerName'), variables('dbBaseName'))]",
+    "vmName": "[concat(variables('computerName'), '-vm', variables('dbBaseName'))]",
 
     "imagePublisher": "MicrosoftWindowsServer",
     "imageOffer": "WindowsServer",

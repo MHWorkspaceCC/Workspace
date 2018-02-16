@@ -18,10 +18,18 @@ Function Write-Log
 } 
 
 Write-Log("In configure-sql-server-image")
+Write-Log("installersStgAcctKey: " + $installersStgAcctKey)
+Write-Log("installersStgAcctName: " + $installersStgAcctName)
+Write-Log("saUserName: " + $saUserName)
+Write-Log("saPassword: " + $saPassword)
+Write-Log("loginUserName: " + $loginUserName)
+Write-Log("loginPassword: " + $loginPassword)
+Write-Log("sysUserName: " + $sysUserName)
+Write-Log("sysPassword: " + $sysPassword)
 
 . .\move-dvd.ps1 -drive "Z:"
 . .\install-sql-server.ps1 `
-	-installersStgAcctName $installersStgAcctName -installersStgAcctKey ]$installersStgAcctKey `
+	-installersStgAcctName $installersStgAcctName -installersStgAcctKey $installersStgAcctKey `
 	-loginUserName $loginUserName -loginPassword $loginPassword `
 	-saUsername $saUserName -saPassword $saPassword `
 	-sysUserName $sysUserName -sysPassword $sysPassword
