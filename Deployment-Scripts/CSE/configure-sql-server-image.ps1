@@ -23,4 +23,4 @@ Function Write-Log
 	-loginUserName $loginUserName -loginPassword $loginPassword `
 	-saPassword $saPassword `
 	-sysUserName $sysUserName -sysPassword $sysPassword
-. .\install-smss.ps1 -installersStgAcctName $installersStgAcctName -installersStgAcctKey ]$installersStgAcctKey
+. .\install-smss.ps1 -installersStgAcctName $installersStgAcctName -installersStgAcctKey $installersStgAcctKey
