@@ -1143,7 +1143,7 @@ function Create-KeyVaultSecrets{
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FtpVmssServerAdminName" -SecretValue "wsadmin"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "FtpVmssServerAdminPassword" -SecretValue "Workspace!Ftp!2018"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminName" -SecretValue "wsadmin"
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword" -SecretValue "Workspace!Db!2018"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword" -SecretValue "Workspace!DB!2018"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "JumpServerAdminName" -SecretValue "wsadmin"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "JumpServerAdminPassword" -SecretValue "Workspace!Jump!2018"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "AdminServerAdminName" -SecretValue "wsadmin"
@@ -1151,9 +1151,9 @@ function Create-KeyVaultSecrets{
 
 	Write-Host "Setting database secrets"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaUserName" -SecretValue "wsadmin"
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaPassword" -SecretValue "Workspace!DB!2017"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaPassword" -SecretValue "Workspace!DB!2018"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName" -SecretValue "wsapp"
-	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword" -SecretValue "Workspace!DB!2017"
+	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword" -SecretValue "Workspace!DB!2018"
 	
 	Write-Host "Setting octo and data dog secrets"
 	Set-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "OctoUrl" -SecretValue $octoUrl
@@ -2481,28 +2481,40 @@ Function Create-WebServerImage{
 #	Revert-Context
 }
 
+Function Create-DatabaseServerImage{
+	param(
+		[Context]$ctx
+	)
+
+	$vmName = "dbib-db-tp0p"
+	$vmResourceGroupName = "rg-dbimagebuild-tp0p"
+	$imageResourceGroupName = "rg-vmimages-tp0p"
+	$imageName = "image-db"
+
+	Ensure-ResourceGroup -ctx $ctx -category "vmimages"
+
+	Stop-AzureRmVM -ResourceGroupName $vmResourceGroupName -Name $vmName -Force
+	Set-AzureRmVM -ResourceGroupName $vmResourceGroupName -Name $vmName -Generalized
+	$vm = Get-AzureRmVM -Name $vmName -ResourceGroupName $vmResourceGroupName
+	$image = New-AzureRmImageConfig -Location westus -SourceVirtualMachineId $vm.Id
+
+#	Set-DataPlatformContext -ctx $ctx
+	New-AzureRmImage -Image $image -ImageName $imageName -ResourceGroupName $imageResourceGroupName
+#	Revert-Context
+}
+
 function Deploy-StandaloneWebServerFromImage{
 	param(
 		[Context]$ctx,
 		[string]$vmSize = "Standard_B4ms",
-		[string]$computerName = "wwww"
+		[string]$computerName = "www"
 	)
 
 	Write-Host "In:  " $MyInvocation.MyCommand 
 
-	$keyVaultName = $ctx.GetKeyVaultName($usage)
-	$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
-	$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
+	$keyVaultName = $ctx.GetKeyVaultName($false)
 
-	$fileShareStorageAccountKey = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey"
-	$octoApiKey                 = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoApiKey"
-	$octoUrl                    = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoUrl"
-	$webSslCertificateId        = Get-KeyVaultSecretId -KeyVaultName $keyVaultName -SecretName "WebSslCertificate"
-
-	$fileStgAcctName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $usage)
-	$fileShareName = "workspace-file-storage"
-
-	$resourceGroupName = "rg-testwebimage5-dd0p"
+	$resourceGroupName = "rg-testwebimage-dd0p"
 	$parameters = @{
 		"resourceNamePostfix" = "dd0p"
 		"adminUserName" = $webAdminUserName
@@ -2518,8 +2530,61 @@ function Deploy-StandaloneWebServerFromImage{
 		"octoEnvironment" = "WP0P"
 	}
 
-	Ensure-ResourceGroup -ctx $ctx -category "testwebimage5"
+	Ensure-ResourceGroup -ctx $ctx -category "testwebimage"
 	Execute-Deployment -templateFile "arm-deploy-web-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
+
+function Deploy-StandaloneDatabaseServerFromImage{
+	param(
+		[Context]$ctx,
+		[string]$vmSize = "Standard_D2S_v3",
+		[string]$computerName = "sql1"
+	)
+
+	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	$keyVaultName = $ctx.GetKeyVaultName($false)
+	$adminUserName    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminName"
+	$adminPassword    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword"
+	$saUserName       = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaUserName"
+	$saPassword       = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaPassword"
+	$loginUserName    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName"
+	$loginPassword    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword"
+
+	$dbBackupsStorageAccountName = $ctx.GetDataPlatformSubscriptionStorageAccountName("dbbackups", $secondary)
+	$dbBackupsStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey"
+
+
+	$computerName = "sql1"
+
+	$resourceGroupName = "rg-testdbimage-tp0p"
+	$parameters = @{
+		"resourceNamePostfix" = "tp0p"
+		"vmSize" = $vmSize
+		"computerName" = $computerName
+		"adminUserName" = $adminUserName
+		"adminPassword" = $adminPassword
+		"loginUserName" = $loginUserName
+		"loginPassword" = $loginPassword
+		"saUserName" = $saUserName
+		"saPassword" = $saPassword
+		"dbBackupsStorageAccountName" = $dbBackupsStorageAccountName
+		"dbBackupsStorageAccountKey" = $dbBackupsStorageAccountKey
+		"databaseName" = "AdventureWorks"
+		"dbMdfFileName" = "AdventureWorks2016_Data"
+		"dbLdfFileName" = "AdventureWorks2016_log"
+		"dbBackupBlobName" = "AdventureWorks2016.bak"
+		"databaseVolumeLabel" = "WorkspaceDB"
+		"environmentCode" = "p0"
+	}
+
+	Ensure-DiskPresent -ctx $ctx -diskNamePrefix $("data1-" + $computerName + "-vm-db") -sizeInGB 128 -accountType "StandardLRS"
+
+	Ensure-ResourceGroup -ctx $ctx -category "testdbimage"
+	Execute-Deployment -templateFile "arm-deploy-db-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+

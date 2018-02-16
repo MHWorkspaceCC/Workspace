@@ -2,6 +2,15 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "vmSize": {
+      "type": "string"
+    },
+
+    "computerName": {
+      "type": "string",
+      "defaultValue": "sql1"
+    },
+
     "resourceNamePostfix": {
       "type": "string"
     },
@@ -33,29 +42,36 @@
     "fileUris": {
       "type": "array",
       "defaultValue": [
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/SqlStandaloneDSC.psd1",
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/DSC/SqlConfigurationData.ps1",
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/move-dvd.ps1",
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-sql-server.ps1",
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-ssms.ps1",
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-sql-server-image.ps1",
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-workspace-db.ps1",
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/null.ps1"
       ]
     },
 
-    "installersStgAcctName": {
+    "dbBackupsStorageAccountKey": {
       "type": "string"
     },
 
-    "installersStgAcctKey": {
+    "dbBackupsStorageAccountName": {
       "type": "string"
     },
 
-    "vmSize": {
+    "databaseName": {
       "type": "string"
     },
 
-    "computerName": {
+    "dbBackupBlobName": {
+      "type": "string"
+    },
+
+    "dbMdfFileName": {
+      "type": "string"
+    },
+
+    "dbLdfFileName": {
+      "type": "string"
+    },
+
+    "databaseVolumeLabel":{
       "type": "string"
     },
 
@@ -67,34 +83,43 @@
   "variables": {
     "baseName": "[concat('-', parameters('resourceNamePostfix'))]",
 
-    "dbbaseName": "[concat('-db', variables('baseName'))]",
+    "dbBaseName": "[concat('-db', variables('baseName'))]",
 
-    "computerName": "[parameters('computerName')]",
-    "vmName": "[concat(variables('computerName'), variables('dbBaseName'))]",
+    "vmName": "[concat(parameters('computerName'), '-vm', variables('dbBaseName'))]",
 
     "imagePublisher": "MicrosoftWindowsServer",
     "imageOffer": "WindowsServer",
     "osDiskName": "[concat('osdisk-', variables('vmName'))]",
-    "vmSize": "[parameters('vmSize')]",
     "windowsOsVersion": "2016-Datacenter",
 
+    "vmSize": "[parameters('vmSize')]",
+
+    "adminUserName": "[parameters('adminUserName')]",
+    "adminPassword": "[parameters('adminPassword')]",
+
+    "vmImageId": "[resourceId(concat('rg-vmimages-', parameters('resourceNamePostfix')), 'Microsoft.Compute/images', 'image-db')]",
+
+    "computerName": "[parameters('computerName')]",
     "vnetName": "[concat(parameters('environmentCode'), '-vnet', variables('baseName'))]",
     "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
     "vnetID": "[resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName'))]",
     "snName": "[concat('sn', variables('dbBaseName'))]",
     "subnetRef": "[concat(variables('vnetID'), '/subnets/', variables('snName'))]",
-
     "nicName": "[concat('nic1-', variables('vmName'))]",
     "pipName": "[concat('pip-', variables('vmName'))]",
-
     "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
 
-    "installerParameters": "[concat(' -installersStgAcctKey ', parameters('installersStgAcctKey'), ' -installersStgAcctName ', parameters('installersStgAcctName'))]",
+    "dataDiskName": "[concat('data1-', variables('vmName'))]",
+    "dataDiskRgName": "[concat('rg-disks', variables('baseName'))]",
+    "dataDiskID": "[resourceId(variables('dataDiskRgName'), 'Microsoft.Compute/disks', variables('dataDiskName'))]",
+
     "saParameters": "[concat(' -saUserName ', parameters('saUserName'), ' -saPassword ', parameters('saPassword'))]",
     "sysParameters": "[concat(' -sysUserName ', parameters('adminUserName'), ' -sysPassword ', parameters('adminPassword'))]",
     "loginParameters": "[concat(' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'))]",
-    "baseCommand": "powershell -ExecutionPolicy Unrestricted -File configure-sql-server.ps1",
-    "commandToExecute2": "[concat(variables('baseCommand'), variables('installerParameters'), variables('saParameters'), variables('sysParameters'), variables('loginParameters'))]",
+    "backupParameters": "[concat(' -dbBackupsStorageAccountName ', parameters('dbBackupsStorageAccountName'), ' -dbBackupsStorageAccountKey ', parameters('dbBackupsStorageAccountKey'), ' -dbBackupBlobName ', parameters('dbBackupBlobName'))]",
+    "databaseParameters": "[concat(' -databaseName ', parameters('databaseName'), ' -dbMdfFileName ', parameters('dbMdfFileName'), ' -dbLdfFileName ', parameters('dbLdfFileName'), ' -databaseVolumeLabel ', parameters('databaseVolumeLabel'))]",
+    "baseCommand": "powershell -ExecutionPolicy Unrestricted -File null.ps1",
+    "commandToExecute2": "[concat(variables('baseCommand'), variables('saParameters'), variables('loginParameters'), variables('backupParameters'), variables('databaseParameters'))]",
     "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File null.ps1"
   },
 
@@ -162,18 +187,16 @@
         "hardwareProfile": { "vmSize": "[variables('vmSize')]" },
         "storageProfile": {
           "imageReference": {
-            "publisher": "[variables('imagePublisher')]",
-            "offer": "[variables('imageOffer')]",
-            "sku": "[variables('windowsOSVersion')]",
-            "version": "latest"
-          },
-          "osDisk": {
-            "osType": "Windows",
-            "name": "[variables('osDiskName')]",
-            "caching": "ReadWrite",
-            "createOption": "FromImage"
+            "id": "[variables('vmImageId')]"
           },
           "dataDisks": [
+            {
+              "lun": 0,
+              "createOption": "Attach",
+              "managedDisk": {
+                "id": "[variables('dataDiskId')]"
+              }
+            }
           ]
         },
         "osProfile": {
@@ -192,9 +215,30 @@
               "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
             }
           ]
+        },
+        "diagnosticsProfile": {
         }
       },
       "resources": [
+        {
+          "type": "extensions",
+          "name": "configure-sql-server",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[variables('vmName')]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.9",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "fileUris": "[parameters('fileUris')]",
+              "commandToExecute": "[variables('commandToExecute')]"
+            }
+          }
+        }
       ],
       "dependsOn": [
         "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"

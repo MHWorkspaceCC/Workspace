@@ -20,8 +20,7 @@
               "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/create-user-account.ps1",
               "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-file-share.ps1",       
               "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-web-app-with-octo-dsc.ps1",
-              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-from-image.ps1",
-              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/null.ps1"
+              "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-from-image.ps1"
             ]
           },
   
@@ -81,10 +80,12 @@
       "imagePublisher": "MicrosoftWindowsServer",
       "imageOffer": "WindowsServer",
       "osDiskName": "[concat('osdisk-', variables('boxName'))]",
+      "windowsOsVersion": "2016-Datacenter",
+      
       "vmSize": "[parameters('vmSize')]",
+      
       "adminUserName": "[parameters('adminUserName')]",
       "adminPassword": "[parameters('adminPassword')]",
-      "windowsOsVersion": "2016-Datacenter",
   
       "vmImageId": "[resourceId('rg-vmimages-dd0p', 'Microsoft.Compute/images', 'image-web')]",
   

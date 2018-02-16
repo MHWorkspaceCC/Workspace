@@ -1,14 +1,15 @@
 param(
+    [string]$saUsername = "sa",
     [string]$saPassword = "Workspace!DB!2018",
+    [string]$loginUserName = "wsapp",
+	[string]$loginPassword = "Workspace!DB!2018",
+    [string]$databaseVolumeLabel = "WorkspaceDB",
 	[string]$databaseName = "AdventureWorks",
-	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
 	[string]$dbMdfFileName = "AdventureWorks2016_Data",
 	[string]$dbLdfFileName = "AdventureWorks2016_Log",
+	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
 	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0p",
-    [string]$dbBackupsStorageAccountKey = "MjxzzdLwmgeB6emUEcepOEko+SYiZtPE578BMXFeSMQnXHXO7PJm8EyhM9Ndk1afp94wZ55vXp656li6BlD+6w==",
-    [string]$databaseVolumeLabel = "WorkspaceDB",
-    [string]$loginUserName = "wsapp",
-	[string]$loginPassword = "Workspace!DB!2018"
+    [string]$dbBackupsStorageAccountKey = "MjxzzdLwmgeB6emUEcepOEko+SYiZtPE578BMXFeSMQnXHXO7PJm8EyhM9Ndk1afp94wZ55vXp656li6BlD+6w=="
 )
 
 Function Write-Log
