@@ -5,5 +5,5 @@ $ctx = Login-WorkspaceAzureAccount -subscription "t" -environment "p" -slot 0 -f
 #Build-KeyVault -ctx $ctx 
 #Build-DatabaseServerImageBase -ctx $ctx
 
-Create-DatabaseServerImage -ctx $ctx
-#Deploy-StandaloneDatabaseServerFromImage -ctx $ctx
+#Create-DatabaseServerImage -ctx $ctx
+Deploy-StandaloneDatabaseServerFromImage -ctx $ctx

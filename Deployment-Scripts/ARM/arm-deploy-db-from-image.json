@@ -118,9 +118,9 @@
     "loginParameters": "[concat(' -loginUserName ', parameters('loginUserName'), ' -loginPassword ', parameters('loginPassword'))]",
     "backupParameters": "[concat(' -dbBackupsStorageAccountName ', parameters('dbBackupsStorageAccountName'), ' -dbBackupsStorageAccountKey ', parameters('dbBackupsStorageAccountKey'), ' -dbBackupBlobName ', parameters('dbBackupBlobName'))]",
     "databaseParameters": "[concat(' -databaseName ', parameters('databaseName'), ' -dbMdfFileName ', parameters('dbMdfFileName'), ' -dbLdfFileName ', parameters('dbLdfFileName'), ' -databaseVolumeLabel ', parameters('databaseVolumeLabel'))]",
-    "baseCommand": "powershell -ExecutionPolicy Unrestricted -File null.ps1",
-    "commandToExecute2": "[concat(variables('baseCommand'), variables('saParameters'), variables('loginParameters'), variables('backupParameters'), variables('databaseParameters'))]",
-    "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File null.ps1"
+    "baseCommand": "powershell -ExecutionPolicy Unrestricted -File install-workspace-db.ps1",
+    "commandToExecute": "[concat(variables('baseCommand'), variables('saParameters'), variables('loginParameters'), variables('backupParameters'), variables('databaseParameters'))]",
+    "commandToExecute2": "powershell -ExecutionPolicy Unrestricted -File null.ps1"
   },
 
   "resources": [
