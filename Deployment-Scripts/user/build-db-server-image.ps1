@@ -6,4 +6,4 @@ $ctx = Login-WorkspaceAzureAccount -subscription "t" -environment "p" -slot 0 -f
 #Build-DatabaseServerImageBase -ctx $ctx
 
 #Create-DatabaseServerImage -ctx $ctx
-Deploy-StandaloneDatabaseServerFromImage -ctx $ctx
+Deploy-StandaloneDatabaseServerFromImage -ctx $ctx -vmSize "Standard_D16s_v3"

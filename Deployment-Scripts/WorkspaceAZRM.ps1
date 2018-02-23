@@ -26,7 +26,7 @@ Class EnvironmentAndFacilitiesInfo{
 			t = "Test"
 			s = "Staging"
 			q = "QA"
-			c = "Canary"
+			c = "Common"
 		}
 		"cidrValues" = @{
 			p = 0
@@ -185,7 +185,7 @@ Class Context{
 	}
 
 	[string] GetDataPlatformSubscriptionStorageAccountName($resourceType, $usePeer=$false){
-		$postfix = $this.GetDataPlatformResourcePostfix($resourceType, $usePeer);
+		$postfix = $this.GetDataPlatformResourcePostfix($usePeer);
 		return "stg" + $resourceType + $postfix
 	}
 
@@ -194,7 +194,7 @@ Class Context{
 		return "stg" + $resourceType + $postfix
 	}
 
-	[string] GetDataPlatformResourcePostfix($resourceType, $usePeer = $false){
+	[string] GetDataPlatformResourcePostfix($usePeer = $false){
 		if (!$usePeer){
 			$postfix = "ss0p"
 		}
@@ -382,11 +382,13 @@ function Set-DataPlatformContext{
 	$subscriptionInfo = $wsAcctInfo["subscriptions"]
 	$theSubscription = $subscriptionInfo['s']
 	$dataSub = Get-AzureRmsubscription -SubscriptionId $theSubscription["subscriptionID"]
-	$context = Set-AzureRmContext -SubscriptionObject $dataSub
+	$context = Select-AzureRmSubscription -SubscriptionId $dataSub.Id
+	#$context = Set-AzureRmContext -SubscriptionObject $dataSub
 	$ctx.previousAzureContext = $ctx.currentAzureContext
 	$ctx.currentAzureContext = $context
 	$ctx.previousSub = $ctx.azureSub
 	$ctx.azureSub = $dataSub
+	Write-Host "Set context to: " + $context.Subscription.Id
 }
 
 function Set-AdminContext{
@@ -397,6 +399,7 @@ function Set-AdminContext{
 	$subscriptionInfo = $wsAcctInfo["subscriptions"]
 	$theSubscription = $subscriptionInfo['a']
 	$adminSub = Get-AzureRmsubscription -SubscriptionId $theSubscription["subscriptionID"]
+	$dataSub = Select-AzureRmSubscription -SubscriptionId $adminSub
 	Set-AzureRmContext -SubscriptionObject $adminSub
 	$ctx.previousAzureContext = $ctx.currentAzureContext
 	$ctx.currentAzureContext = Get-AzureRmContext
@@ -410,6 +413,7 @@ function Revert-Context{
 	)
 
 	Set-AzureRmContext -SubscriptionObject $ctx.previousSub
+	Select-AzureRmSubscription -SubscriptionId $ctx.previousSub.Id
 	$ctx.previousAzureContext = $ctx.currentAzureContext
 	$ctx.currentAzureContext = Get-AzureRmContext
 	$ctx.previousSub = $ctx.azureSub
@@ -467,6 +471,36 @@ function Ensure-ResourceGroup{
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$resourceGroupName = $ctx.GetResourceGroupName($category, $secondary)
+	$location = $ctx.GetLocation($secondary)
+
+	Write-Host "Checking existence of resource group: " $resourceGroupName
+	$rg = Get-AzureRmResourceGroup -Name $resourceGroupName -ErrorVariable rgNotPresent -ErrorAction SilentlyContinue
+	if ($rg -eq $null)
+	{
+		Write-Host "Resource group did not exist.  Creating..."
+		New-AzureRmResourceGroup -Name $resourceGroupName -Location $location | Out-Null
+		Write-Host "Created " $resourceGroupName "in" $location
+	}
+	else
+	{
+		Write-Host $resourceGroupName "already exists"
+	}
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
+
+function Ensure-ResourceGroupWithName{
+	param(
+		[Parameter(Mandatory=$true)]
+		[Context]$ctx,
+		[Parameter(Mandatory=$true)]
+		[string]$resourceGroupName,
+		[switch]$secondary
+	)
+	Write-Host "In: " $MyInvocation.MyCommand $resourceGroupName
+
+	Ensure-LoggedIntoAzureAccount -ctx $ctx
+
 	$location = $ctx.GetLocation($secondary)
 
 	Write-Host "Checking existence of resource group: " $resourceGroupName
@@ -709,7 +743,8 @@ function Deploy-Web{
 		[string]$fileShareKey,
 		[string]$fileStgAcctName,
 		[string]$fileShareName,
-		[int]$scaleSetCapacity = 2
+		[int]$scaleSetCapacity = 2,
+		[switch]$dontUseImage
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey
 
@@ -733,7 +768,11 @@ function Deploy-Web{
 	$parameters["scaleSetCapacity"] = $scaleSetCapacity
 
 	$resourceGroupName = $ctx.GetResourceGroupName("web", $secondary) 
-	Execute-Deployment -templateFile "arm-vmssweb-deploy.json" -resourceGroup $resourceGroupName -parameters $parameters
+
+	$templateName = "arm-vmssweb-deploy-from-image.json"
+	if ($dontUseImage){ $templateName = "arm-vmssweb-deploy.json" }
+
+	Execute-Deployment -templateFile $templateName -resourceGroup $resourceGroupName -parameters $parameters
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey
 }
@@ -1104,7 +1143,7 @@ function Create-KeyVaultSecrets{
 	$octoUrl = "http://pip-octo-wp0p.westus.cloudapp.azure.com" 
 
 	$octoApiKey = "API-THVVH8LYEZOHYUCI7J6JESNXW"
-	$dataDogApiKey = "5ecc232442a6fa39de3c1b5f189e135d"
+	$dataDogApiKey = "01c70cf6720873928c58e2690e81417d"
 	$pfxfile = "workspace.pfx"
 	$pfxfilePassword = "workspace"
 
@@ -1352,10 +1391,10 @@ function Create-Core{
 	
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true)
 
-	if ($ctx.subscription -eq "d"){
-		Create-Core-Dev -ctx $ctx -computeOnly -vmSize $vmSize -computerName $computerName
-		return
-	}
+	#if ($ctx.subscription -eq "d"){
+	#	Create-Core-Dev -ctx $ctx -computeOnly -vmSize $vmSize -computerName $computerName
+	#	return
+	#}
 
 	Dump-Ctx $ctx
 
@@ -1378,7 +1417,7 @@ function Create-Core{
 	
 	# KV has a bug that it can't be run in a sub-job, so we have to do it at this level
 	# this does everything, but excludes KV
-	if (!$excludeBase -and !$vnetOnly){
+	if (!$excludeBase -and !$vnetOnly -and !$computeOnly){
 		foreach ($usage in $facilities){
 			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
 				    -usage $usage `
@@ -1395,7 +1434,7 @@ function Create-Core{
 	if ($vnetOnly){ return }
 	
 	# And now, unfortunately, we have to do KV top level, and serially if both regions
-	if (!$excludeBase -and !$computeOnly){
+	if (!$excludeBase -and !$computeOnly -and !$computeOnly){
 		foreach ($usage in $facilities){
 		 	Create-BaseEntities -ctx $ctx -secondary:$usage -keyVaultOnly
 		}
@@ -1472,7 +1511,6 @@ function Create-Core{
 						-scriptToRun {
 							$keyVaultName = $newctx.GetKeyVaultName($usage)
 
-							$installersStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "InstallersStorageAccountKey"
 							$diagStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey"
 							$dataDogApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DataDogApiKey"
 
@@ -2539,8 +2577,16 @@ function Deploy-StandaloneWebServerFromImage{
 function Deploy-StandaloneDatabaseServerFromImage{
 	param(
 		[Context]$ctx,
+		[switch]$secondary,
 		[string]$vmSize = "Standard_D2S_v3",
-		[string]$computerName = "sql1"
+		[string]$computerName = "sql1",
+		[int]$diskSizeInGB = 128,
+		[string]$diskType = "StandardLRS",
+		[string]$databaseName = "AdventureWorks",
+		[string]$dbMdfFileName = "AdventureWorks2016_Data",
+		[string]$dbLdfFileName = "AdventureWorks2016_log",
+		[string]$dbBackupBlobName = "AdventureWorks2016.bak",
+		[string]$databaseVolumeLabel = "WorkspaceDB"
 	)
 
 	Write-Host "In:  " $MyInvocation.MyCommand 
@@ -2556,12 +2602,12 @@ function Deploy-StandaloneDatabaseServerFromImage{
 	$dbBackupsStorageAccountName = $ctx.GetDataPlatformSubscriptionStorageAccountName("dbbackups", $secondary)
 	$dbBackupsStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey"
 
-
-	$computerName = "sql1"
+	$resourceNamePostfix = $ctx.GetResourcePostfix($secondary)
+	$dataDiskNamePrefix = $("data1-" + $computerName + "-vm-db")
 
 	$resourceGroupName = "rg-testdbimage-tp0p"
 	$parameters = @{
-		"resourceNamePostfix" = "tp0p"
+		"resourceNamePostfix" = $resourceNamePostfix
 		"vmSize" = $vmSize
 		"computerName" = $computerName
 		"adminUserName" = $adminUserName
@@ -2572,15 +2618,15 @@ function Deploy-StandaloneDatabaseServerFromImage{
 		"saPassword" = $saPassword
 		"dbBackupsStorageAccountName" = $dbBackupsStorageAccountName
 		"dbBackupsStorageAccountKey" = $dbBackupsStorageAccountKey
-		"databaseName" = "AdventureWorks"
-		"dbMdfFileName" = "AdventureWorks2016_Data"
-		"dbLdfFileName" = "AdventureWorks2016_log"
-		"dbBackupBlobName" = "AdventureWorks2016.bak"
-		"databaseVolumeLabel" = "WorkspaceDB"
-		"environmentCode" = "p0"
+		"databaseName" = $databaseName
+		"dbMdfFileName" = $dbMdfFileName
+		"dbLdfFileName" = $dbLdfFileName
+		"dbBackupBlobName" = $dbBackupBlobName
+		"databaseVolumeLabel" = $databaseVolumeLabel
+		"environmentCode" = $ctx.environment + $ctx.slot
 	}
 
-	Ensure-DiskPresent -ctx $ctx -diskNamePrefix $("data1-" + $computerName + "-vm-db") -sizeInGB 128 -accountType "StandardLRS"
+	Ensure-DiskPresent -ctx $ctx -diskNamePrefix $dataDiskNamePrefix -sizeInGB $diskSizeInGB -accountType $diskType
 
 	Ensure-ResourceGroup -ctx $ctx -category "testdbimage"
 	Execute-Deployment -templateFile "arm-deploy-db-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
@@ -2588,3 +2634,136 @@ function Deploy-StandaloneDatabaseServerFromImage{
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
 
+function Copy-DatabaseDiskFromStorageSubscription{
+	param(
+		[Context]$ctx,
+		[switch]$secondary,
+		[string]$targetDiskName
+	)
+
+	$sourceSubscriptionId = $wsAcctInfo["subscriptions"]["s"]["subscriptionID"]
+	$sourceResourceGroupName= "rg-dbdisks-ss0p"
+	$managedDiskName = 'data1-dbdisk-' + $ctx.GetResourcePostfix($secondary)
+
+	$targetSubscriptionId = $ctx.azureSub.Id
+	$targetResourceGroupName = $ctx.GetResourceGroupName("disks", $secondary)
+	
+	Select-AzureRmSubscription -SubscriptionId $sourceSubscriptionId
+
+	$managedDisk = Get-AzureRMDisk -ResourceGroupName $sourceResourceGroupName -DiskName $managedDiskName
+
+	Select-AzureRmSubscription -SubscriptionId $targetSubscriptionId
+
+	$diskConfig = New-AzureRmDiskConfig -SourceResourceId $managedDisk.Id -Location $managedDisk.Location -CreateOption Copy 
+	New-AzureRmDisk -Disk $diskConfig -DiskName $targetDiskName -ResourceGroupName $targetResourceGroupName
+}
+
+function Copy-DiskToStorageSubscription{
+	param(
+		[Context]$ctx,
+		[switch]$secondary,
+		[string]$sourceResourceGroupName,
+		[string]$sourceDiskName,
+		[string]$targetResourceCategory,
+		[string]$targetDiskName
+	)
+	
+	$managedDisk = Get-AzureRMDisk -ResourceGroupName $sourceResourceGroupName -DiskName $sourceDiskName
+
+	Set-DataPlatformContext -ctx $ctx
+
+	$targetResourceGroupName = $ctx.GetDataPlatformSubscriptionResourceGroupName($targetResourceCategory, $secondary)
+
+	Ensure-ResourceGroupWithName -ctx $ctx -secondary:$secondary -resourceGroupName $targetResourceGroupName
+
+	$diskConfig = New-AzureRmDiskConfig -SourceResourceId $managedDisk.Id -Location  $managedDisk.Location -CreateOption Copy 
+	New-AzureRmDisk -Disk $diskConfig -DiskName $targetDiskName -ResourceGroupName $targetResourceGroupName 
+
+	Revert-Context -ctx $ctx
+}
+<#
+function Copy-DiskFromStorageSubscription{
+	param(
+		[Context]$ctx,
+		[switch]$secondary,
+		[string]$sourceDiskName,
+		[string]
+	)
+	
+	$managedDisk = Get-AzureRMDisk -ResourceGroupName $sourceResourceGroupName -DiskName $sourceDiskName
+
+	Set-DataPlatformContext -ctx $ctx
+
+	$targetResourceGroupName = $ctx.GetDataPlatformSubscriptionResourceGroupName("dbdiskcopies", $secondary)
+	$targetDiskName = $sourceDiskName + "-" + $ctx.GetDataPlatformResourcePostfix($secondary)
+
+	Ensure-ResourceGroupWithName -ctx $ctx -secondary:$secondary -resourceGroupName $targetResourceGroupName
+
+	$diskConfig = New-AzureRmDiskConfig -SourceResourceId $managedDisk.Id -Location $managedDisk.Location -CreateOption Copy 
+	New-AzureRmDisk -Disk $diskConfig -DiskName $targetDiskName -ResourceGroupName $targetResourceGroupName
+
+	Revert-Context -ctx $ctx
+}
+#>
+
+function Deploy-StandaloneServerFromReferenceOsDisk{
+	param(
+		[Context]$ctx,
+		[string]$vmSize = "Standard_B4ms",
+		[string]$computerName = "www",
+		[switch]$web,
+		[switch]$db
+	)
+
+	Write-Host "In:  " $MyInvocation.MyCommand 
+
+	if ($web -and $db){
+		throw "Must select either web or db, not both"
+	}
+
+	if (!$web -and !$db){
+		throw "Must select either web or db"
+	}
+
+	$resourceGroupName = $ctx.GetResourceGroupName("testwebimage", $secondary)
+
+	$keyVaultName = $ctx.GetKeyVaultName($false)
+
+	$parameters = $null
+	if ($web){
+		$diagStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey"
+		$dataDogApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DataDogApiKey"
+
+		$fileShareStorageAccountKey = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "FileShareStorageAccountKey"
+		$octoApiKey                 = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoApiKey"
+		$octoUrl                    = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "OctoUrl"
+		$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
+		$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
+		$webSslCertificateId        = Get-KeyVaultSecretId -KeyVaultName $keyVaultName -SecretName "WebSslCertificate"
+
+		$fileStgAcctName = $ctx.GetStorageAccountName("files", $usage)
+		$fileShareName = "workspace-file-storage"
+
+		$parameters = @{
+			"resourceNamePostfix" = "dd0p"
+			"adminUserName" = $webAdminUserName
+			"adminPassword" =$webAdminPassword
+			"vmSize" = $vmSize
+			"computerName" = $computerName
+			"sslCertificateUrl" = $webSslCertificateId
+			"fileShareKey" = $fileShareStorageAccountKey
+			"fileStgAcctName" = $fileStgAcctName
+			"fileShareName" = $fileShareName
+			"octoUrl" = $octoUrl
+			"octoApiKey" = $octoApiKey
+			"octoEnvironment" = "WP0P"
+		}
+	}
+
+	$template = "arm-deploy-web-from-osdisk.json"
+
+	Ensure-ResourceGroup -ctx $ctx -category "testwebimage"
+	Execute-Deployment -templateFile $template -resourceGroup $resourceGroupName -parameters $parameters
+
+	Write-Host "Out: " $MyInvocation.MyCommand 
+}
