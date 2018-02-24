@@ -30,16 +30,14 @@
     "fileUris": {
       "type": "array",
       "defaultValue": [
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/Install-OctopusDSC.ps1",
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-and-configure-iis.ps1",
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-file-share.ps1",
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-web-app-with-octo-dsc.ps1",
-        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server.ps1"
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-from-image.ps1"
       ]
     },
     "commandToExecute": {
       "type": "string",
-      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-web-server.ps1"
+      "defaultValue": "powershell -ExecutionPolicy Unrestricted -File configure-web-server-from-image.ps1"
     },
 
     "sslCertificateStore": {

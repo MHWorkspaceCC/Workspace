@@ -2503,8 +2503,8 @@ Function Create-WebServerImage{
 
 	$vmName = "wwwib-vm-web-dd0p"
 	$vmResourceGroupName = "rg-webimagebuild2-dd0p"
-	$imageResourceGroupName = "rg-vmimages-dd0p"
-	$imageName = "image-web"
+	$imageResourceGroupName = "rg-vmimages-ss0p"
+	$imageName = "image-web2"
 
 	Ensure-ResourceGroup -ctx $ctx -category "vmimages"
 
@@ -2513,10 +2513,10 @@ Function Create-WebServerImage{
 	$vm = Get-AzureRmVM -Name $vmName -ResourceGroupName $vmResourceGroupName
 	$image = New-AzureRmImageConfig -Location westus -SourceVirtualMachineId $vm.Id
 
-#	Set-DataPlatformContext -ctx $ctx
-	Ensure-ResourceGroup -ctx $ctx -category "vmimages"
+	Set-DataPlatformContext -ctx $ctx
+	Ensure-ResourceGroupWithName -ctx $ctx -resourceGroupName $imageResourceGroupName
 	New-AzureRmImage -Image $image -ImageName $imageName -ResourceGroupName $imageResourceGroupName
-#	Revert-Context
+	Revert-Context -ctx $ctx
 }
 
 Function Create-DatabaseServerImage{
