@@ -151,7 +151,17 @@ Class Context{
 		else{
 			$facil = $this.peerfacility
 		}
-		return "rg-" + $resourceCategory + "-" + "s" + "s0" + $facil
+		return "rg-" + $resourceCategory + "-s" + "s0" + $facil
+	}
+
+	[string] GetSubscriptionSharedResourceGroupName($resourceCategory, $usePeer=$false){
+		if (!$usePeer){
+			$facil = $this.facility
+		}
+		else{
+			$facil = $this.peerfacility
+		}
+		return "rg-" + $resourceCategory + "-" + $this.subscription + "s0" + $facil
 	}
 
 	[string] GetDataPlatformSubscriptionResourceGroupName($resourceCategory, $usePeer=$false){
@@ -675,7 +685,7 @@ function Deploy-VPN{
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
-
+<# old deploy 
 function Deploy-DB{
 	param(
 		[Parameter(Mandatory=$true)]
@@ -727,6 +737,7 @@ function Deploy-DB{
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
+#>
 
 function Deploy-Web{
 	param(
@@ -1384,6 +1395,7 @@ function Create-Core{
 		[switch]$baseOnly,
 		[switch]$excludeCompute,
 		[switch]$excludeVnet,
+		[switch]$forceKeyVault,
 		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin"),
 		[string]$vmSize,
 		[string]$computerName
@@ -1431,15 +1443,16 @@ function Create-Core{
 
 	Wait-ForJobsToComplete $jobs
 
-	if ($vnetOnly){ return }
+	if ($vnetOnly -and !$forceKeyVault){ return }
 	
 	# And now, unfortunately, we have to do KV top level, and serially if both regions
-	if (!$excludeBase -and !$computeOnly -and !$computeOnly){
+	if (!$excludeBase -and !$computeOnly -and !$computeOnly -or $forceKeyVault){
 		foreach ($usage in $facilities){
 		 	Create-BaseEntities -ctx $ctx -secondary:$usage -keyVaultOnly
 		}
 	}
 
+	if ($vnetOnly){ return }
 	if ($baseOnly) { return }
 
 	$jobs.Clear()
@@ -1466,7 +1479,8 @@ function Create-Core{
 								   -usage $usage `
 								   -name $("Deploy-DB-" + $ctx.GetResourcePostfix($usage)) `
 								   -scriptToRun {
- 									    Write-Host "Starting Deploy-DB subtask"
+										 Write-Host "Starting Deploy-DB subtask"
+										 <#										 Old Task
 										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "data1-sql1-db" -sizeInGB 64
 										Ensure-DiskPresent -ctx $newctx -secondary:$usage -diskNamePrefix  "init1-sql1-db" -sizeInGB 64
 									   
@@ -1493,7 +1507,64 @@ function Create-Core{
 												  -dbBackupsStorageAccountKey $dbBackupsStorageAccountKey
 									   
 									    Delete-DiskFromVM -ctx $newctx -secondary:$secondary -diskNamePrefix "init1-sql1-db" -vmNamePrefix "sql1-db"
+										#>
 
+										$vmSize = "Standard_D2S_v3"
+										$computerName = "sql1"
+										$diskSizeInGB = 128
+										$diskType = "StandardLRS"
+										$databaseVolumeLabel = "WorkspaceDB"
+										<# for AW
+										$databaseName = "AdventureWorks"
+										$dbMdfFileName = "AdventureWorks2016_Data"
+										$dbLdfFileName = "AdventureWorks2016_log"
+										$dbBackupBlobName = "AdventureWorks2016.bak"
+										#>
+										$databaseName = "Workspace_v3.0"
+										$dbMdfFileName = "ws1"
+										$dbLdfFileName = "ws2"
+										$dbBackupBlobName = "AdventureWorks2016.bak"
+
+										
+										$keyVaultName = $newctx.GetKeyVaultName($false)
+										$adminUserName    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminName"
+										$adminPassword    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword"
+										$saUserName       = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaUserName"
+										$saPassword       = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbSaPassword"
+										$loginUserName    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginUserName"
+										$loginPassword    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbLoginPassword"
+									
+										$dbBackupsStorageAccountName = $newctx.GetDataPlatformSubscriptionStorageAccountName("dbbackups", $secondary)
+										$dbBackupsStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "dbBackupsStorageAccountKey"
+									
+										$resourceNamePostfix = $newctx.GetResourcePostfix($secondary)
+										$dataDiskNamePrefix = $("data1-" + $computerName + "-vm-db")
+									
+										$resourceGroupName = $newctx.GetResourceGroupName("db", $usage)
+										$parameters = @{
+											"resourceNamePostfix" = $resourceNamePostfix
+											"vmSize" = $vmSize
+											"computerName" = $computerName
+											"adminUserName" = $adminUserName
+											"adminPassword" = $adminPassword
+											"loginUserName" = $loginUserName
+											"loginPassword" = $loginPassword
+											"saUserName" = $saUserName
+											"saPassword" = $saPassword
+											"dbBackupsStorageAccountName" = $dbBackupsStorageAccountName
+											"dbBackupsStorageAccountKey" = $dbBackupsStorageAccountKey
+											"databaseName" = $databaseName
+											"dbMdfFileName" = $dbMdfFileName
+											"dbLdfFileName" = $dbLdfFileName
+											"dbBackupBlobName" = $dbBackupBlobName
+											"databaseVolumeLabel" = $databaseVolumeLabel
+											"environmentCode" = $newctx.environment + $newctx.slot
+										}
+									
+										Ensure-DiskPresent -ctx $newctx -diskNamePrefix $dataDiskNamePrefix -sizeInGB $diskSizeInGB -accountType $diskType
+										Ensure-ResourceGroup -ctx $newctx -category "db" -secondary:$secondary
+										Execute-Deployment -templateFile "arm-deploy-db-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
+									
  									    Write-Host "Ending Deploy-DB subtask"
 									}
 			$jobs.Add($job) | Out-Null
@@ -2428,26 +2499,28 @@ function Build-WebServerImageBase{
 	$keyVaultName = $ctx.GetKeyVaultName($usage)
 	$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
 	$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
-	$resourceGroupName = "rg-webimagebuild2-dd0p"
+	$resourceGroupName = $ctx.GetSubscriptionSharedResourceGroupName("imagebuild", $false)
 
 	$parameters = @{
-		"resourceNamePostfix" = "dd0p"
+		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
 		"adminUserName" = $webAdminUserName
 		"adminPassword" =$webAdminPassword
 		"vmSize" = $vmSize
 		"computerName" = $computerName
+		"subnetName" = "default"
+		"environmentCode" = $ctx.environment + $ctx.slot
 		#"sslCertificateUrl" = $webSslCertificateId
 		#"fileShareKey" = $fileShareStorageAccountKey
 		#"fileStgAcctName" = $fileStgAcctName
 		#"fileShareName" = $fileShareName
 	}
 
-	Ensure-ResourceGroup -ctx $ctx -category "webimagebuild2"
+	Ensure-ResourceGroupWithName -ctx $ctx -resourceGroupName $resourceGroupName
 	Execute-Deployment -templateFile "arm-image-build-web.json" -resourceGroup $resourceGroupName -parameters $parameters
 
-	$vmName = "wwwib-vm-web-dd0p"
-	$customScriptName = "configure-web-server-image-base"
-	Remove-AzureRmVMCustomScriptExtension -ResourceGroupName $resourceGroupName -VMName $vmName -Name $customScriptName -Force
+	#$vmName = "wwwib-vm-web-dd0p"
+	#$customScriptName = "configure-web-server-image-base"
+	#Remove-AzureRmVMCustomScriptExtension -ResourceGroupName $resourceGroupName -VMName $vmName -Name $customScriptName -Force
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }

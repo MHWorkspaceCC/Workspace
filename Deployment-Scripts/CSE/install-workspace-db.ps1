@@ -1,9 +1,9 @@
 param(
     [string]$saPassword = "Workspace!DB!2018",
-	[string]$databaseName = "AdventureWorks",
-	[string]$dbBackupBlobName = "AdventureWorks2016.bak",
-	[string]$dbMdfFileName = "AdventureWorks2016_Data",
-	[string]$dbLdfFileName = "AdventureWorks2016_Log",
+	[string]$databaseName = "Workspace_v3.0",
+	[string]$dbBackupBlobName = "WS-REDACTED-20180225.BAK",
+	[string]$dbMdfFileName = "ws1",
+	[string]$dbLdfFileName = "ws2",
 	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0p",
     [string]$dbBackupsStorageAccountKey = "dMFiKWGj8AtVR1Tf4xTgWEEqdUS0wIX/iJU/VAGrDCX/G8YfkH1mZeQUDI6h0xKQWvlVwH16nDGmzNneiMP11w==",
     [string]$databaseVolumeLabel = "WorkspaceDB",
@@ -98,7 +98,9 @@ if (!$attaching){
 	$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
 	Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($dbDriveLetter + ":\" + $dbBackupBlobName) -Context $backupStorageContext
 
-    $dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $($dbDriveLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE '" + $dbMdfFileName + "' TO '" + $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dbDriveLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
+    $dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $($dbDriveLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE N'b00m_new' " + " TO N'" + $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf', MOVE N'" + "b00m_new_log" + "' TO N'" + $dbDriveLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
+ 
+    #$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $($dbDriveLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE '" + $dbMdfFileName + "' TO '" + $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dbDriveLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
     Write-Log($dbCommand)
     Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
     Write-Log("Restore complete")

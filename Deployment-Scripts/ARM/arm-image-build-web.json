@@ -32,6 +32,15 @@
 
     "vmSize":{
       "type": "string"
+    },
+
+    "subnetName":{
+      "type": "string",
+      "defaultValue": "default"
+    },
+
+    "environmentCode": {
+      "type": "string"
     }
   },
   
@@ -46,8 +55,8 @@
     "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
 
     "vnetRgName": "[concat('rg-vnet', variables('baseName'))]",
-    "vnetName": "[concat('d0-vnet', variables('baseName'))]",
-    "subnetName": "[concat('sn-imagebuild', variables('baseName'))]",
+    "vnetName": "[concat(parameters('environmentCode'), '-vnet', variables('baseName'))]",
+    "subnetName": "[parameters('subnetName')]",
     "subnetId": "[concat(resourceId(variables('vnetRgName'), 'Microsoft.Network/virtualNetworks', variables('vnetName')), '/subnets/', variables('subnetName'))]",
 
     "imagePublisher": "MicrosoftWindowsServer",

@@ -30,6 +30,7 @@
     "fileUris": {
       "type": "array",
       "defaultValue": [
+        "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/create-user-account.ps1",
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-file-share.ps1",
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/install-web-app-with-octo-dsc.ps1",
         "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/CSE/configure-web-server-from-image.ps1"
@@ -115,7 +116,7 @@
     "webRgName": "[concat('rg-web', variables('baseName'))]",
     "vmssPrefix": "vmss-web",
     "vmssName": "[concat(variables('vmssPrefix'), variables('baseName'))]",
-    "computerNamePrefix": "[concat('w', parameters('environmentCode'), parameters('facility'), '-')]",
+    "computerNamePrefix": "[concat(parameters('resourceNamePostfix'), '-')]",
     "adminUserName": "[parameters('adminUserName')]",
     "adminPassword": "[parameters('adminPassword')]",
     "kvName": "[concat('kv-vaults', variables('baseName'))]",
