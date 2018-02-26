@@ -133,7 +133,7 @@
     "pipName": "[concat('pip-web' , variables('baseName'))]",
     "pipId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
 
-    "vmImageId": "/subscriptions/parameters('imageSubscriptionId')/resourceGroups/parameters('imageResourceGroup')/providers/Microsoft.Compute/images/parameters('imageName')]",
+    "vmImageId": "[resourceId('rg-vmimages-ts0p', 'Microsoft.Compute/images', 'image-web')]",
 
     "loadBalancerName": "[concat('lb-web', variables('baseName'))]",
     "backendAddressPoolName": "LB-Backend",
@@ -335,7 +335,7 @@
           },
           "storageProfile":{
             "imageReference": {
-              "id": "/subscriptions/8cc982bb-0877-4c51-aa28-6325a012e486/resourceGroups/rg-vmimages-dd0p/providers/Microsoft.Compute/images/image-web"
+              "id": "[variables('vmImageId')]"
             }
           },
           "diagnosticsProfile": {

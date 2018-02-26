@@ -87,7 +87,7 @@
       "adminUserName": "[parameters('adminUserName')]",
       "adminPassword": "[parameters('adminPassword')]",
   
-      "vmImageId": "[resourceId('rg-vmimages-dd0p', 'Microsoft.Compute/images', 'image-web')]",
+      "vmImageId": "[resourceId('rg-vmimages-ts0p', 'Microsoft.Compute/images', 'image-web')]",
   
       "computerName": "[parameters('computerName')]",
       "vnetName": "[concat('d0-vnet-', parameters('resourceNamePostfix'))]",

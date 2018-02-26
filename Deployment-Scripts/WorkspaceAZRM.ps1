@@ -2499,7 +2499,7 @@ function Build-WebServerImageBase{
 	$keyVaultName = $ctx.GetKeyVaultName($usage)
 	$webAdminUserName           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminName"
 	$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
-	$resourceGroupName = $ctx.GetSubscriptionSharedResourceGroupName("imagebuild", $false)
+	$resourceGroupName = $ctx.GetResourceGroupName("imagebuild", $false)
 
 	$parameters = @{
 		"resourceNamePostfix" = $ctx.GetResourcePostfix($false)
