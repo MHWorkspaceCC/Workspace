@@ -1509,10 +1509,10 @@ function Create-Core{
 									    Delete-DiskFromVM -ctx $newctx -secondary:$secondary -diskNamePrefix "init1-sql1-db" -vmNamePrefix "sql1-db"
 										#>
 
-										$vmSize = "Standard_D2S_v3"
+										$vmSize = "Standard_DS13_v2"
 										$computerName = "sql1"
-										$diskSizeInGB = 128
-										$diskType = "StandardLRS"
+										$diskSizeInGB = 256
+										$diskType = "PremiumLRS"
 										$databaseVolumeLabel = "WorkspaceDB"
 										<# for AW
 										$databaseName = "AdventureWorks"
@@ -1523,7 +1523,7 @@ function Create-Core{
 										$databaseName = "Workspace_v3.0"
 										$dbMdfFileName = "ws1"
 										$dbLdfFileName = "ws2"
-										$dbBackupBlobName = "AdventureWorks2016.bak"
+										$dbBackupBlobName = "WS-REDACTED-20180225.BAK"
 
 										
 										$keyVaultName = $newctx.GetKeyVaultName($false)
@@ -2574,10 +2574,10 @@ Function Create-WebServerImage{
 		[Context]$ctx
 	)
 
-	$vmName = "wwwib-vm-web-dd0p"
-	$vmResourceGroupName = "rg-webimagebuild2-dd0p"
-	$imageResourceGroupName = "rg-vmimages-ss0p"
-	$imageName = "image-web2"
+	$vmName = "wwwib-vm-web-tp0p"
+	$vmResourceGroupName = "rg-imagebuild-ts0p"
+	$imageResourceGroupName = "rg-vmimages-ts0p"
+	$imageName = "image-web"
 
 	Ensure-ResourceGroup -ctx $ctx -category "vmimages"
 
@@ -2586,10 +2586,9 @@ Function Create-WebServerImage{
 	$vm = Get-AzureRmVM -Name $vmName -ResourceGroupName $vmResourceGroupName
 	$image = New-AzureRmImageConfig -Location westus -SourceVirtualMachineId $vm.Id
 
-	Set-DataPlatformContext -ctx $ctx
+	#Set-DataPlatformContext -ctx $ctx
 	Ensure-ResourceGroupWithName -ctx $ctx -resourceGroupName $imageResourceGroupName
 	New-AzureRmImage -Image $image -ImageName $imageName -ResourceGroupName $imageResourceGroupName
-	Revert-Context -ctx $ctx
 }
 
 Function Create-DatabaseServerImage{

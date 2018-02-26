@@ -4,7 +4,7 @@ $ctx = Login-WorkspaceAzureAccount -subscription "t" -environment "p" -slot 0 -f
 #Create-Core -$ctx
 #Build-WebServerImageBase -ctx $ctx
 
-#Create-WebServerImage -ctx $ctx
+Create-WebServerImage -ctx $ctx
 #Deploy-StandaloneWebServerFromImage -ctx $ctx
 
 #Copy-DiskToStorageSubscription -ctx $ctx -sourceDiskName "osdisk-wwwib-vm-web-dd0p" -sourceResourceGroupName "RG-WEBIMAGEBUILD2-DD0P" `
@@ -12,5 +12,5 @@ $ctx = Login-WorkspaceAzureAccount -subscription "t" -environment "p" -slot 0 -f
 
 #Deploy-StandaloneServerFromReferenceOsDisk -ctx $ctx -web
 #Create-Core -ctx $ctx -webScaleSetSize 1 -computeOnly -computeElements(@("web")) -primary 
-Create-Core -ctx $ctx -computeOnly -computeElements(@("db")) -primary 
+#Create-Core -ctx $ctx -computeOnly -computeElements(@("db")) -primary 
 #Deploy-StandaloneDatabaseServerFromImage -ctx $ctx
