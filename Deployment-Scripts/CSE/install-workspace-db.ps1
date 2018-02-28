@@ -82,10 +82,16 @@ if ($err -ne $null){
     }
 }
 
+Write-Log(Get-ChildItem -Path $($dataDiskLetter + ":\"))
+
 $fullMdfPath = $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf"
 $fullLdfPath = $dataDiskLetter + ":\" + $dbLdfFileName + ".ldf"
 
+Write-Log(Test-Path -Path $fullMdfPath)
+Write-Log(Test-Path -Path $fullLdfPath)
+
 $attaching = $(Test-Path -Path $fullMdfPath) -and $(Test-Path -Path $fullLdfPath)
+Write-Log($attaching)
 
 $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
 $ss.ConnectionContext.LoginSecure = $false
@@ -186,5 +192,6 @@ $db.Roles['db_datareader'].AddMember($dbuser.Name)
 $db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 Write-Log("Done install-workspace-db") 
+ 
  
  
