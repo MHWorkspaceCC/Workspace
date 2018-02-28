@@ -1,4 +1,4 @@
-$currentDir = "D:\Workspace\Workspace"
+$currentDir = "d:\Workspace\workspace"
 
 $facilitiesLocationMap = @{
 	"p" = "westus"
@@ -1509,10 +1509,10 @@ function Create-Core{
 									    Delete-DiskFromVM -ctx $newctx -secondary:$secondary -diskNamePrefix "init1-sql1-db" -vmNamePrefix "sql1-db"
 										#>
 
-										$vmSize = "Standard_DS13_v2"
+										$vmSize = "Standard_D2_v3"
 										$computerName = "sql1"
 										$diskSizeInGB = 256
-										$diskType = "PremiumLRS"
+										$diskType = "StandrdLRS"
 										$databaseVolumeLabel = "WorkspaceDB"
 										<# for AW
 										$databaseName = "AdventureWorks"

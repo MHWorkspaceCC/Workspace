@@ -24,13 +24,12 @@ Write-Log("saPassword: " + $saPassword)
 Write-Log("loginUserName: " + $loginUserName)
 Write-Log("loginPassword: " + $loginPassword)
 Write-Log("databaseName: " + $databaseName)
-Write-Log("dbBackupBlobName: " + $databaseName)
+Write-Log("dbBackupBlobName: " + $dbBackupBlobName)
 Write-Log("dbMdfFileName: " + $dbMdfFileName)
 Write-Log("dbLdfFileName: " + $dbLdfFileName)
 Write-Log("dbBackupsStorageAccountName: " + $dbBackupsStorageAccountName)
 Write-Log("dbBackupsStorageAccountKey: " + $dbBackupsStorageAccountKey)
 Write-Log("databaseVolumeLabel: " + $databaseVolumeLabel)
-
 
 Write-Log("Trusting PSGallery")
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
@@ -82,9 +81,7 @@ if ($err -ne $null){
     }
 }
 
-$dbDriveLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
-$mdfPath = $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf"
-$attaching = [System.IO.File]::Exists($mdfPath) 
+$attaching
 
 $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
 $ss.ConnectionContext.LoginSecure = $false
@@ -98,18 +95,37 @@ if (!$attaching){
 	$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
 	Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($dbDriveLetter + ":\" + $dbBackupBlobName) -Context $backupStorageContext
 
-    $dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $($dbDriveLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE N'b00m_new' " + " TO N'" + $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf', MOVE N'" + "b00m_new_log" + "' TO N'" + $dbDriveLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
+    Write-Log("Copied backup, now restoring")
+
+    $dbCommand = "RESTORE DATABASE """ + $databaseName + """ FROM DISK = N'" + $($dbDriveLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE N'b00m_new' " + " TO N'" + $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf', MOVE N'" + "b00m_new_log" + "' TO N'" + $dbDriveLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
  
-    #$dbCommand = "RESTORE DATABASE " + $databaseName + " FROM DISK = N'" + $($dbDriveLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE '" + $dbMdfFileName + "' TO '" + $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf', MOVE '" + $dbLdfFileName + "' TO '" + $dbDriveLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
     Write-Log($dbCommand)
-    Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword
+    Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword -QueryTimeout 3600
     Write-Log("Restore complete")
 
     Write-Log("Deleting backup")
     Remove-Item -Path $($dbDriveLetter + ":\" + $dbBackupBlobName) 
 }else{
+    #
+    # Attach SQL Server database
+    #
+    Add-PSSnapin SqlServerCmdletSnapin* -ErrorAction SilentlyContinue
+    Import-Module SQLPS -WarningAction SilentlyContinue
+
     Write-Log "Attaching database"
 
+    $mdfFilename = "ws1"
+    $ldfFilename = "ws1"
+$attachSQLCMD = @"
+USE [master]
+GO
+CREATE DATABASE [$databaseName] ON (FILENAME = 'f:\$mdfFilename.mdf'),(FILENAME = 'f:\$ldfFilename.ldf') for ATTACH
+GO
+"@ 
+    Invoke-Sqlcmd $attachSQLCMD  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword -QueryTimeout 3600
+ 
+}
+<#
 	$mdfs = $ss.EnumDetachedDatabaseFiles($mdfPath)
 	$ldfs = $ss.EnumDetachedLogFiles($mdfPath)
 
@@ -124,8 +140,10 @@ if (!$attaching){
         Write-Log $_
 		$files.Add($_)
 	}
-	$ss.AttachDatabase($databaseName, $files)
+    $ss.AttachDatabase($databaseName, $files)
+    
 }
+#>
 
 Write-Log("Checking database info")
 $db = $ss.Databases[$databaseName]
@@ -165,3 +183,4 @@ $db.Roles['db_datareader'].AddMember($dbuser.Name)
 $db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 Write-Log("Done configure-sql-server") 
+ 

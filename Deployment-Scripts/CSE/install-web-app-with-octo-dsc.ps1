@@ -1,11 +1,11 @@
-
+ 
 #
 # install_web_app_with_octo_dsc.ps1
 #
 param(
-	[string]$octoUrl,
-	[string]$octoApiKey,
-	[string]$octoEnvironment
+	[string]$octoUrl = "http://pip-octo-wp0p.westus.cloudapp.azure.com",
+	[string]$octoApiKey = "API-THVVH8LYEZOHYUCI7J6JESNXW",
+	[string]$octoEnvironment = "TP0P"
 )
 
 Function Write-Log
@@ -58,3 +58,4 @@ WebAppConfig -ApiKey $octoApiKey -OctopusServerUrl $octoUrl -Environments @($oct
 
 Write-Log('Built config - starting configuration')
 Start-DscConfiguration .\WebAppConfig -Verbose -wait
+ 
