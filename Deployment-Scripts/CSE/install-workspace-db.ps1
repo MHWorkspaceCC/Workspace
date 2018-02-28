@@ -82,8 +82,6 @@ if ($err -ne $null){
     }
 }
 
-$dbLdfFileName = "ws1"
-
 $fullMdfPath = $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf"
 $fullLdfPath = $dataDiskLetter + ":\" + $dbLdfFileName + ".ldf"
 
@@ -120,8 +118,6 @@ if (!$attaching){
 
     Write-Log "Attaching database"
 
-    $mdfFilename = "ws1"
-    $ldfFilename = "ws1"
 $attachSQLCMD = @"
 USE [master]
 GO
