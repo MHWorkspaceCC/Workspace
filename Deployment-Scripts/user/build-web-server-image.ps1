@@ -11,6 +11,6 @@ $ctx = Login-WorkspaceAzureAccount -subscription "t" -environment "p" -slot 0 -f
 #    -targetResourceCategory "diskcopies" -targetDiskName "os-web"
 
 #Deploy-StandaloneServerFromReferenceOsDisk -ctx $ctx -web
-Create-Core -ctx $ctx -webScaleSetSize 1 -computeOnly -computeElements(@("web")) -primary 
-#Create-Core -ctx $ctx -computeOnly -computeElements(@("db")) -primary -webScaleSetSize 1
+#Create-Core -ctx $ctx -webScaleSetSize 1 -computeOnly -computeElements(@("web")) -primary 
+Create-Core -ctx $ctx -computeOnly -computeElements(@("db")) -primary 
 #Deploy-StandaloneDatabaseServerFromImage -ctx $ctx

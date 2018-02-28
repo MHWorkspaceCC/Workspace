@@ -1509,7 +1509,7 @@ function Create-Core{
 									    Delete-DiskFromVM -ctx $newctx -secondary:$secondary -diskNamePrefix "init1-sql1-db" -vmNamePrefix "sql1-db"
 										#>
 
-										$vmSize = "Standard_D2_v3"
+										$vmSize = "Standard_DS13_v2"
 										$computerName = "sql1"
 										$diskSizeInGB = 256
 										$diskType = "StandrdLRS"
@@ -1522,7 +1522,7 @@ function Create-Core{
 										#>
 										$databaseName = "Workspace_v3.0"
 										$dbMdfFileName = "ws1"
-										$dbLdfFileName = "ws2"
+										$dbLdfFileName = "ws1"
 										$dbBackupBlobName = "WS-REDACTED-20180225.BAK"
 
 										

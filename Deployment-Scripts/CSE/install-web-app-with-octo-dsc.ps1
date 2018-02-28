@@ -1,4 +1,4 @@
- 
+  
 #
 # install_web_app_with_octo_dsc.ps1
 #
@@ -15,6 +15,12 @@ Function Write-Log
     Add-Content -Path "c:\config.log" -Value $logstring
 	Write-Host $logstring
 }
+
+Write-Log("Trusting PSGallery")
+Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+Install-Module -Name OctopusDSC
 
 Configuration WebAppConfig
 {
@@ -58,4 +64,5 @@ WebAppConfig -ApiKey $octoApiKey -OctopusServerUrl $octoUrl -Environments @($oct
 
 Write-Log('Built config - starting configuration')
 Start-DscConfiguration .\WebAppConfig -Verbose -wait
+ 
  
