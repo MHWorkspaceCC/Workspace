@@ -3,7 +3,7 @@ param(
 	[string]$databaseName = "Workspace_v3.0",
 	[string]$dbBackupBlobName = "WS-REDACTED-20180225.BAK",
 	[string]$dbMdfFileName = "ws1",
-	[string]$dbLdfFileName = "ws2",
+	[string]$dbLdfFileName = "ws1",
 	[string]$dbBackupsStorageAccountName = "stgdbbackupsss0p",
     [string]$dbBackupsStorageAccountKey = "dMFiKWGj8AtVR1Tf4xTgWEEqdUS0wIX/iJU/VAGrDCX/G8YfkH1mZeQUDI6h0xKQWvlVwH16nDGmzNneiMP11w==",
     [string]$databaseVolumeLabel = "WorkspaceDB",
@@ -67,6 +67,7 @@ if ($err -ne $null){
     Set-Acl $filename $acl	
 }else{
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+    Write-Log("Found data disk: " + $dataDiskLetter)
     if ($dataDiskLetter -ne "F"){
         $dataDisk = Get-Disk | `
         	Where partitionstyle -eq 'MBR' | `
@@ -81,7 +82,12 @@ if ($err -ne $null){
     }
 }
 
-$attaching
+$dbLdfFileName = "ws1"
+
+$fullMdfPath = $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf"
+$fullLdfPath = $dataDiskLetter + ":\" + $dbLdfFileName + ".ldf"
+
+$attaching = $(Test-Path -Path $fullMdfPath) -and $(Test-Path -Path $fullLdfPath)
 
 $ss = New-Object "Microsoft.SqlServer.Management.Smo.Server" "localhost"
 $ss.ConnectionContext.LoginSecure = $false
@@ -119,9 +125,10 @@ if (!$attaching){
 $attachSQLCMD = @"
 USE [master]
 GO
-CREATE DATABASE [$databaseName] ON (FILENAME = 'f:\$mdfFilename.mdf'),(FILENAME = 'f:\$ldfFilename.ldf') for ATTACH
+CREATE DATABASE [$databaseName] ON (FILENAME = '$fullMdfPath'),(FILENAME = '$fullLdfPath') for ATTACH
 GO
 "@ 
+    Write-Log($attachSQLCMD)
     Invoke-Sqlcmd $attachSQLCMD  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword -QueryTimeout 3600
  
 }
@@ -182,5 +189,6 @@ Write-Log("Assigning roles")
 $db.Roles['db_datareader'].AddMember($dbuser.Name)
 $db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
-Write-Log("Done configure-sql-server") 
+Write-Log("Done install-workspace-db") 
+ 
  

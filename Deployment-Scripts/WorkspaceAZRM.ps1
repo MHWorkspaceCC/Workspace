@@ -2575,7 +2575,7 @@ Function Create-WebServerImage{
 	)
 
 	$vmName = "wwwib-vm-web-tp0p"
-	$vmResourceGroupName = "rg-imagebuild-ts0p"
+	$vmResourceGroupName = "rg-imagebuild-tp0p"
 	$imageResourceGroupName = "rg-vmimages-ts0p"
 	$imageName = "image-web"
 
