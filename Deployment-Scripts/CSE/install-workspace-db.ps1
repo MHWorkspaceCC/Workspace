@@ -42,10 +42,8 @@ Import-Module SqlServer
 Write-Log("Importing AzureRM")
 Install-Module -Name AzureRM -Repository PSGallery
 
-$dataDiskExisted = $true
 $dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
 if ($err -ne $null){
-	$dataDiskExisted = $false
     Write-Host "Did not find data disk so creating"
     $dataDisk = Get-Disk | `
         Where partitionstyle -eq 'raw' | `
@@ -67,18 +65,27 @@ if ($err -ne $null){
     Set-Acl $filename $acl	
 }else{
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+
     Write-Log("Found data disk: " + $dataDiskLetter)
     if ($dataDiskLetter -ne "F"){
+        write-Log("Was not F, so moving")
+
         $dataDisk = Get-Disk | `
         	Where partitionstyle -eq 'MBR' | `
-            Select-Object -last 1            
-        # move the CD from F to G
+            Select-Object -last 1         
+            
+        Write-Log($dataDisk)
+           
+        # move the CD from F to G (assuming CD has taken F)
         $drv = Get-WmiObject win32_volume -filter 'DriveLetter = "F:"'
+        Write-Log($drv)
         $drv.DriveLetter = "G:"
         $drv.Put()
 
         # put the database disk on F:
         Get-Partition -DiskNumber $dataDisk.DiskNumber | Set-Partition -NewDriveLetter F
+
+        $dataDiskLetter = "F"
     }
 }
 
@@ -192,6 +199,3 @@ $db.Roles['db_datareader'].AddMember($dbuser.Name)
 $db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 Write-Log("Done install-workspace-db") 
- 
- 
- 
