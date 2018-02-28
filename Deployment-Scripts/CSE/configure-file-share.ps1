@@ -6,7 +6,7 @@ param(
 	[string]$fileShareName = "workspace-file-storage",
 	[string]$symDirPath = "c:\server\workspace\client",
 	[string]$symDirFolderName = "files",
-	[string]$filesMountDrive = "Y"
+	[string]$filesMountDrive = "Z"
 )
 
 Function Write-Log
