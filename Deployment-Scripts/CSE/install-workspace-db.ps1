@@ -108,6 +108,9 @@ Write-Log(Get-ChildItem -Path $($dataDiskLetter + ":\"))
 $fullMdfPath = $dataDiskLetter + ":\" + $dbMdfFileName + ".mdf"
 $fullLdfPath = $dataDiskLetter + ":\" + $dbLdfFileName + ".ldf"
 
+Write-Log("MDF: " + $fullMdfPath)
+Write-Log("LDF: " + $fullLdfPath)
+
 Write-Log(Test-Path -Path $fullMdfPath)
 Write-Log(Test-Path -Path $fullLdfPath)
 
@@ -124,18 +127,18 @@ if (!$attaching){
 
     Write-Log("Copying database backup")
 	$backupStorageContext = New-AzureStorageContext -StorageAccountName $dbBackupsStorageAccountName -StorageAccountKey $dbBackupsStorageAccountKey
-	Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($dbDriveLetter + ":\" + $dbBackupBlobName) -Context $backupStorageContext
+	Get-AzureStorageBlobContent -Blob $dbBackupBlobName -Container "current" -Destination $($dataDiskLetter + ":\" + $dbBackupBlobName) -Context $backupStorageContext
 
     Write-Log("Copied backup, now restoring")
 
-    $dbCommand = "RESTORE DATABASE """ + $databaseName + """ FROM DISK = N'" + $($dbDriveLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE N'b00m_new' " + " TO N'" + $dbDriveLetter + ":\" + $dbMdfFileName + ".mdf', MOVE N'" + "b00m_new_log" + "' TO N'" + $dbDriveLetter + ":\" + $dbMdfFileName + ".ldf',REPLACE"
+    $dbCommand = "RESTORE DATABASE """ + $databaseName + """ FROM DISK = N'" + $($dataDiskLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE N'b00m_new' " + " TO N'" + $fullMdfPath + "', MOVE N'" + "b00m_new_log" + "' TO N'" + $fullMdfPath + "',REPLACE"
  
     Write-Log($dbCommand)
     Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword -QueryTimeout 3600
     Write-Log("Restore complete")
 
     Write-Log("Deleting backup")
-    Remove-Item -Path $($dbDriveLetter + ":\" + $dbBackupBlobName) 
+    Remove-Item -Path $($dataDiskLetter + ":\" + $dbBackupBlobName) 
 }else{
     #
     # Attach SQL Server database
