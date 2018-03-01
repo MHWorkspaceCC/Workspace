@@ -60,11 +60,14 @@ if ($err -ne $null){
 		Format-Volume -FileSystem NTFS -NewFileSystemLabel "WorkspaceDB" -Confirm:$false | 
 		Write-Log
 
-	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+    $dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
+    Write-Log("Data disk letter: " + $dataDiskLetter)
 
     Write-Log("Setting ACL's")
 
     $filename = $dataDiskLetter + ":\"
+    Write-Log("Filename: " + $filename)
+
     $acl = Get-Acl $filename
     Write-Log($acl)
 
