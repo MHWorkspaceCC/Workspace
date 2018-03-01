@@ -43,11 +43,16 @@ Write-Log("Importing AzureRM")
 Install-Module -Name AzureRM -Repository PSGallery
 
 $dataVolume = Get-Volume -FileSystemLabel WorkspaceDB -ErrorVariable err -ErrorAction SilentlyContinue
+Write-Log("Data volume: " + $dataVolume)
+
 if ($err -ne $null){
-    Write-Host "Did not find data disk so creating"
+    Write-Log("Did not find data disk so creating")
     $dataDisk = Get-Disk | `
         Where partitionstyle -eq 'raw' | `
         Select-Object -first 1
+
+    Write-Log("Data disk:")
+    Write-Log($dataDisk)
 
     $dataDisk | 
 		Initialize-Disk -PartitionStyle MBR -PassThru | `
@@ -57,13 +62,19 @@ if ($err -ne $null){
 
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 
+    Write-Log("Setting ACL's")
+
     $filename = $dataDiskLetter + ":\"
     $acl = Get-Acl $filename
-    Write-Host $acl
+    Write-Log($acl)
+
     $ar = New-Object  system.security.accesscontrol.filesystemaccessrule("everyone","FullControl","Allow")
     $acl.SetAccessRule($ar)
     Set-Acl $filename $acl	
+
 }else{
+    Write-Log("Found data disk")
+
 	$dataDiskLetter = (Get-Volume -FileSystemLabel WorkspaceDB).DriveLetter
 
     Write-Log("Found data disk: " + $dataDiskLetter)
@@ -171,14 +182,14 @@ Write-log($db.Users)
 Write-Log("Configuring database login")
 if ($db.Users.Contains($loginUserName))
 {
-    Write-Host "User exists, dropping"
+    Write-Log "User exists, dropping"
     $db.Users[$loginUserName].Drop()
 }
 
 Write-Log("Deleting login")
 if ($ss.Logins.Contains($loginUsername))
 {
-    Write-Host "Login exists, dropping"
+    Write-Log "Login exists, dropping"
     $ss.Logins[$loginUsername].Drop() 
 }
 
@@ -199,3 +210,4 @@ $db.Roles['db_datareader'].AddMember($dbuser.Name)
 $db.Roles['db_datawriter'].AddMember($dbuser.Name)
 
 Write-Log("Done install-workspace-db") 
+ 

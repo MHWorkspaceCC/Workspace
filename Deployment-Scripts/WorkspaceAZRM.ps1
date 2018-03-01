@@ -980,6 +980,8 @@ function Ensure-DiskPresent{
 	$diskPresent = Check-IfDiskIsPresent -ctx $ctx -secondary:$secondary -diskName $diskName
 	if (!$diskPresent){
 		Write-Host "Disk did not exist - Creating"
+		Write-Host $sizeInGB $diskName $accountType
+
 		Create-Disk -ctx $ctx -secondary:$secondary -sizeInGB $sizeInGB -diskName $diskName -accountType $accountType
 	}else{
 		Write-Host "Found the disk"
@@ -1512,7 +1514,7 @@ function Create-Core{
 										$vmSize = "Standard_DS13_v2"
 										$computerName = "sql1"
 										$diskSizeInGB = 256
-										$diskType = "StandrdLRS"
+										$diskType = "StandardLRS"
 										$databaseVolumeLabel = "WorkspaceDB"
 										<# for AW
 										$databaseName = "AdventureWorks"
