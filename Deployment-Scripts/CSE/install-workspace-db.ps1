@@ -131,7 +131,7 @@ if (!$attaching){
 
     Write-Log("Copied backup, now restoring")
 
-    $dbCommand = "RESTORE DATABASE """ + $databaseName + """ FROM DISK = N'" + $($dataDiskLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE N'b00m_new' " + " TO N'" + $fullMdfPath + "', MOVE N'" + "b00m_new_log" + "' TO N'" + $fullMdfPath + "',REPLACE"
+    $dbCommand = "RESTORE DATABASE """ + $databaseName + """ FROM DISK = N'" + $($dataDiskLetter + ":\" + $dbBackupBlobName) + "' WITH MOVE N'b00m_new' TO N'" + $fullMdfPath + "', MOVE N'b00m_new_log' TO N'" + $fullLdfPath + "',REPLACE"
  
     Write-Log($dbCommand)
     Invoke-Sqlcmd -Query $dbCommand  -ServerInstance 'localhost' -Username 'sa' -Password $saPassword -QueryTimeout 3600
