@@ -194,6 +194,38 @@ Class Context{
 		return "stg" + $resourceType + $postfix	
 	}
 
+	[string] GetFilesStorageAccountName($usePeer=$false){
+		# force prod into shared data storage
+		if ($this.environment -eq 'p'){
+			return "stgfiles" + $this.GetDataPlatformResourcePostfix($usePeer)
+		}
+
+		if (!$usePeer){
+			$postfix = $this.resourcePostfix
+		}
+		else{
+			$postfix = $this.peerResourcePostfix
+		}
+
+		return "stgfiles" + $postfix
+	}
+
+	[string] GetFilesResourceGroupName($usePeer=$false){
+		# force prod into shared data storage
+		if ($this.environment -eq 'p'){
+			return "rg-files-" + $this.GetDataPlatformResourcePostfix($usePeer)
+		}
+
+		if (!$usePeer){
+			$postfix = $this.resourcePostfix
+		}
+		else{
+			$postfix = $this.peerResourcePostfix
+		}
+
+		return "rg-files-" + $postfix	
+	}
+
 	[string] GetDataPlatformSubscriptionStorageAccountName($resourceType, $usePeer=$false){
 		$postfix = $this.GetDataPlatformResourcePostfix($usePeer);
 		return "stg" + $resourceType + $postfix
@@ -755,7 +787,8 @@ function Deploy-Web{
 		[string]$fileStgAcctName,
 		[string]$fileShareName,
 		[int]$scaleSetCapacity = 2,
-		[switch]$dontUseImage
+		[switch]$dontUseImage,
+		[string]$vmSku = "Standard_DS2_v2"
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey
 
@@ -775,7 +808,7 @@ function Deploy-Web{
 	$parameters["fileShareKey"] = $fileShareKey
 	$parameters["fileStgAcctName"] = $fileStgAcctName
 	$parameters["fileShareName"] = $fileShareName
-	$parameters["vmSku"] = "Standard_DS1_v2"
+	$parameters["vmSku"] = $vmSku
 	$parameters["scaleSetCapacity"] = $scaleSetCapacity
 
 	$resourceGroupName = $ctx.GetResourceGroupName("web", $secondary) 
@@ -1219,8 +1252,8 @@ function Create-KeyVaultSecrets{
 	$diagStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $diagAcctResourceGroupName -AccountName $diagStorageAccountName
 
 	Write-Host $fileShareAcctResourceGroupName $fileShareStorageAccountName
-	$fileShareAcctResourceGroupName = $ctx.GetDataPlatformSubscriptionResourceGroupName("files", $secondary)
-	$fileShareStorageAccountName = $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $secondary)
+	$fileShareAcctResourceGroupName = $ctx.GetFilesResourceGroupName($secondary) # $ctx.GetDataPlatformSubscriptionResourceGroupName("files", $secondary)
+	$fileShareStorageAccountName = $ctx.GetFilesStorageAccountName($secondary) # $ctx.GetDataPlatformSubscriptionStorageAccountName("files", $secondary)
 	$fileShareStgAcctKeys = Get-AzureRmStorageAccountKey -ResourceGroupName $fileShareAcctResourceGroupName -AccountName $fileShareStorageAccountName
 
 	$dbbackupAcctResourceGroupName = $ctx.GetDataPlatformSubscriptionResourceGroupName("dbbackups", $secondary)
@@ -1399,8 +1432,12 @@ function Create-Core{
 		[switch]$excludeVnet,
 		[switch]$forceKeyVault,
 		[array]$computeElements=@("db", "web", "ftp", "jump", "ftp", "admin"),
-		[string]$vmSize,
-		[string]$computerName
+		[string]$webVmSku = "Standard_DS2_v2",
+		[string]$dbVmSku = "Standard_DS13_v2",
+		[string]$dbComputerName = "sql1",
+		[int]$dbDiskSizeInGB = 256,
+		[string]$dbDiskType = "StandardLRS",
+		[string]$fileShareName = "workspace-file-storage"
 	)
 	
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true)
@@ -1409,8 +1446,6 @@ function Create-Core{
 	#	Create-Core-Dev -ctx $ctx -computeOnly -vmSize $vmSize -computerName $computerName
 	#	return
 	#}
-
-	Dump-Ctx $ctx
 
 	$facilities = [Context]::GetFacilityUsages($primary, $secondary)
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
@@ -1460,7 +1495,6 @@ function Create-Core{
 	$jobs.Clear()
 
 	if ($vpnOnly -or (!$excludeVPN -and !$computeOnly) -and ($facilities.length -ne 1)){
-
 		$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
 				-name $("Deploy-VPN-" + $ctx.GetResourcePostfix($false) + "-" + $ctx.GetResourcePostfix($true)) `
 				-scriptToRun {
@@ -1511,10 +1545,6 @@ function Create-Core{
 									    Delete-DiskFromVM -ctx $newctx -secondary:$secondary -diskNamePrefix "init1-sql1-db" -vmNamePrefix "sql1-db"
 										#>
 
-										$vmSize = "Standard_DS13_v2"
-										$computerName = "sql1"
-										$diskSizeInGB = 256
-										$diskType = "StandardLRS"
 										$databaseVolumeLabel = "WorkspaceDB"
 										<# for AW
 										$databaseName = "AdventureWorks"
@@ -1527,7 +1557,6 @@ function Create-Core{
 										$dbLdfFileName = "ws1"
 										$dbBackupBlobName = "WS-REDACTED-20180225.BAK"
 
-										
 										$keyVaultName = $newctx.GetKeyVaultName($false)
 										$adminUserName    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminName"
 										$adminPassword    = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DbServerAdminPassword"
@@ -1545,8 +1574,8 @@ function Create-Core{
 										$resourceGroupName = $newctx.GetResourceGroupName("db", $usage)
 										$parameters = @{
 											"resourceNamePostfix" = $resourceNamePostfix
-											"vmSize" = $vmSize
-											"computerName" = $computerName
+											"vmSize" = $dbVmSku
+											"computerName" = $dbComputerName
 											"adminUserName" = $adminUserName
 											"adminPassword" = $adminPassword
 											"loginUserName" = $loginUserName
@@ -1563,7 +1592,7 @@ function Create-Core{
 											"environmentCode" = $newctx.environment + $newctx.slot
 										}
 									
-										Ensure-DiskPresent -ctx $newctx -diskNamePrefix $dataDiskNamePrefix -sizeInGB $diskSizeInGB -accountType $diskType
+										Ensure-DiskPresent -ctx $newctx -diskNamePrefix $dataDiskNamePrefix -sizeInGB $dbDiskSizeInGB -accountType $dbDiskType
 										Ensure-ResourceGroup -ctx $newctx -category "db" -secondary:$secondary
 										Execute-Deployment -templateFile "arm-deploy-db-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
 									
@@ -1574,8 +1603,6 @@ function Create-Core{
 	}
 
 	if ("web" -in $computeElements -and !$excludeCompute -and !$networkOnly){
-		$fileShareName = "workspace-file-storage"
-
 		foreach ($usage in $facilities){
 
 			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
@@ -1594,10 +1621,8 @@ function Create-Core{
 							$webAdminPassword           = Get-KeyVaultSecret   -KeyVaultName $keyVaultName -SecretName "WebVmssServerAdminPassword"
 							$webSslCertificateId        = Get-KeyVaultSecretId -KeyVaultName $keyVaultName -SecretName "WebSslCertificate"
 
-							$fileStgAcctName = $newctx.GetStorageAccountName("files", $usage)
-							$fileShareName = "workspace-file-storage"
-
-							Write-Host "Using octourl:" $octoUrl
+							$fileStgAcctName = $newctx.GetFilesStorageAccountName($usage)
+							#$fileShareName = "workspace-file-storage"
 
 							Deploy-Web -ctx $newctx -secondary:$usage `
 									   -diagnosticStorageAccountKey $diagStorageAccountKey `
@@ -1605,7 +1630,8 @@ function Create-Core{
 									   -scaleSetCapacity $using:webScaleSetSize `
 									   -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateId `
 									   -octoUrl $octoUrl -octoApiKey $octoApiKey `
-									   -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctName -fileShareName $fileShareName
+									   -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctName -fileShareName $fileShareName `
+									   -vmSku $webVmSku
 						}
 			$jobs.Add($job) | Out-Null
 		}
@@ -1921,7 +1947,7 @@ function Create-BaseEntities{
 						-usage $secondary `
 						-name $("Create-AzureFilesEntities" + "-" + $ctx.GetResourcePostfix($secondary)) `
 						-scriptToRun {
-							Create-AzureFilesEntities    -ctx $newctx -secondary:$usage
+							Create-AzureFilesEntities -ctx $newctx -secondary:$usage
 						}
 		$jobs.Add($job) | Out-Null
 
@@ -1948,12 +1974,21 @@ function Create-AzureFilesEntities{
 	Ensure-LoggedIntoAzureAccount -ctx $ctx
 
 	$location = $ctx.GetLocation($secondary)
-	$resourceGroupName = $ctx.GetResourceGroupName("files", $secondary)
-	$storageAccountName = $ctx.GetStorageAccountName("files", $secondary)
+	$resourceGroupName = $ctx.GetFilesResourceGroupName($secondary)
+	$storageAccountName = $ctx.GetFilesStorageAccountName($secondary)
+
+	$useDataPlatform = $resourceGroupName.EndsWith("ss0p") -or $resourceGroupName.EndsWith("ss0d")
+	if ($useDataPlatform) {
+		Set-DataPlatformContext -ctx $ctx
+	}
 
 	Ensure-ResourceGroup -ctx $ctx -category "files" -secondary:$secondary
 	Ensure-StorageAccount -ctx $ctx -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
 	Create-AzureFilesShare -ctx $ctx -resourceGroupName $resourceGroupName -storageAccountName $storageAccountName
+
+	if ($useDataPlatform){
+		Revert-Context -ctx $ctx
+	}
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 }
@@ -2755,6 +2790,7 @@ function Copy-DiskToStorageSubscription{
 
 	Revert-Context -ctx $ctx
 }
+
 <#
 function Copy-DiskFromStorageSubscription{
 	param(
