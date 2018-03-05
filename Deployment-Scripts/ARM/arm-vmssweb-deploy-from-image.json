@@ -383,15 +383,15 @@
           "extensionProfile": {
             "extensions": [
               {
-                "name": "[concat(variables('vmssName'), '-DataDogAgent')]",
-                "location": "[variables('location')]",
+                "name": "ConfigureWebVMSS",
                 "properties": {
-                  "publisher": "Datadog.Agent",
-                  "type": "DatadogWindowsAgent",
-                  "typeHandlerVersion": "0.4",
-                  "autoUpgradeMinorVersion": true,
+                  "publisher": "Microsoft.Compute",
+                  "type": "CustomScriptExtension",
+                  "typeHandlerVersion": "1.9",
+                  "autoUpgradeMinorVersion": false,
                   "settings": {
-                    "api_key": "[variables('dataDogApiKey')]"
+                    "fileUris": "[parameters('fileUris')]",
+                    "commandToExecute": "[variables('commandToExecute')]"
                   }
                 }
               }

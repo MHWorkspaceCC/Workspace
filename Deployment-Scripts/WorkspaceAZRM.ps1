@@ -1627,7 +1627,7 @@ Write-Host "*******>" $webVmSku
 							$webSslCertificateId        = Get-KeyVaultSecretId -KeyVaultName $keyVaultName -SecretName "WebSslCertificate"
 
 							$fileStgAcctName = $newctx.GetFilesStorageAccountName($usage)
-							#$fileShareName = "workspace-file-storage"
+							$fileShareName = "workspace-file-storage"
 
 							Write-Host "========>" $webVmSku
 							Deploy-Web -ctx $newctx -secondary:$usage `
