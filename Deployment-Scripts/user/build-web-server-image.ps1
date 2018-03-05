@@ -1,10 +1,10 @@
 . ..\WorkspaceAZRM.ps1
 
-$ctx = Login-WorkspaceAzureAccount -subscription "d" -environment "p" -slot 0 -facility "p" 
+$ctx = Login-WorkspaceAzureAccount -subscription "t" -environment "p" -slot 0 -facility "p" 
 
-Ensure-ResourceGroupWithName -ctx $ctx -resourceGroupName "rg-vaults-tp0p"
-New-AzureRmKeyVault -VaultName "fookv" -ResourceGroupName "rg-vaults-tp0p" -Location "westus" -EnabledForDeployment
-Set-AzureRmKeyVaultAccessPolicy -VaultName "fookv" -ResourceGroupName "rg-vaults-tp0p"
+#Ensure-ResourceGroupWithName -ctx $ctx -resourceGroupName "rg-vaults-tp0p"
+#New-AzureRmKeyVault -VaultName "fookv" -ResourceGroupName "rg-vaults-tp0p" -Location "westus" -EnabledForDeployment
+#Set-AzureRmKeyVaultAccessPolicy -VaultName "fookv" -ResourceGroupName "rg-vaults-tp0p"
 
 #Create-Core -$ctx
 #Build-WebServerImageBase -ctx $ctx
@@ -16,6 +16,6 @@ Set-AzureRmKeyVaultAccessPolicy -VaultName "fookv" -ResourceGroupName "rg-vaults
 #    -targetResourceCategory "diskcopies" -targetDiskName "os-web"
 
 #Deploy-StandaloneServerFromReferenceOsDisk -ctx $ctx -web
-Create-Core -ctx $ctx -webScaleSetSize 1 -computeOnly -forceKeyVault -computeElements(@("web")) -primary 
+Create-Core -ctx $ctx -webScaleSetSize 1 -computeOnly -computeElements(@("web")) -primary 
 #Create-Core -ctx $ctx -computeOnly -computeElements(@("db")) -primary 
 #Deploy-StandaloneDatabaseServerFromImage -ctx $ctx

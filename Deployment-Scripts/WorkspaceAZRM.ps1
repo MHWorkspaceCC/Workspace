@@ -811,6 +811,8 @@ function Deploy-Web{
 	$parameters["vmSku"] = $vmSku
 	$parameters["scaleSetCapacity"] = $scaleSetCapacity
 
+	Write-Host "-------->" $parameters["vmSku"] $vmSku
+
 	$resourceGroupName = $ctx.GetResourceGroupName("web", $secondary) 
 
 	$templateName = "arm-vmssweb-deploy-from-image.json"
@@ -1186,9 +1188,9 @@ function Create-KeyVaultSecrets{
 	# force this to the west region octo for now
 	$postfix = $ctx.GetSharedResourcePostfix($false)
 	$region = $ctx.GetLocation($false)
-	$octoUrl = "http://pip-octo-wp0p.westus.cloudapp.azure.com" 
+	$octoUrl = "http://pip-octo-as0p.westus.cloudapp.azure.com" 
 
-	$octoApiKey = "API-THVVH8LYEZOHYUCI7J6JESNXW"
+	$octoApiKey = "API-5TAPS5LFLRT6VV5T90A41XDR0"
 	$dataDogApiKey = "01c70cf6720873928c58e2690e81417d"
 	$pfxfile = "workspace.pfx"
 	$pfxfilePassword = "workspace"
@@ -1374,7 +1376,8 @@ function Start-ScriptJob{
 		[bool]$usage,
 		[string]$category,
 		[string]$name,
-		[scriptblock]$scriptToRun
+		[scriptblock]$scriptToRun,
+		[string]$vmSku
 	)
 
 	$arguments = New-Object System.Collections.ArrayList
@@ -1384,6 +1387,7 @@ function Start-ScriptJob{
 	$arguments.Add($ctx.subscription) | Out-Null
 	$arguments.Add($usage) | Out-Null
 	$arguments.Add($category) | Out-Null
+	$arguments.Add($vmSku) | Out-Null
 
 	$preamble = {
 		param(
@@ -1392,10 +1396,11 @@ function Start-ScriptJob{
 			[string]$facility, 
 			[string]$subscription, 
 			[bool]$usage,
-			[string]$category
+			[string]$category,
+			[string]$vmSku
 		)
 		. D:\Workspace\Workspace\Deployment-Scripts\WorkspaceAZRM.ps1
-		$newctx = Login-WorkspaceAzureAccount -environment $environment -slot $slot -facility $facility -subscription $subscription
+		$newctx = Login-WorkspaceAzureAccount -environment $environment -slot $slot -facility $facility -subscription $subscription 
 	}
 
 	$scriptBlock = [scriptblock]::Create($preamble.ToString() + " " + $scriptToRun.ToString())
@@ -1601,11 +1606,11 @@ function Create-Core{
 			$jobs.Add($job) | Out-Null
 		}
 	}
-
+Write-Host "*******>" $webVmSku
 	if ("web" -in $computeElements -and !$excludeCompute -and !$networkOnly){
 		foreach ($usage in $facilities){
 
-			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
+			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription -vmSku $webVmSku `
 						-usage $usage `
 						-name $("Deploy-WEB-" + $ctx.GetResourcePostfix($usage)) `
 						-scriptToRun {
@@ -1624,6 +1629,7 @@ function Create-Core{
 							$fileStgAcctName = $newctx.GetFilesStorageAccountName($usage)
 							#$fileShareName = "workspace-file-storage"
 
+							Write-Host "========>" $webVmSku
 							Deploy-Web -ctx $newctx -secondary:$usage `
 									   -diagnosticStorageAccountKey $diagStorageAccountKey `
 									   -dataDogApiKey $dataDogApiKey `
@@ -1631,7 +1637,7 @@ function Create-Core{
 									   -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateId `
 									   -octoUrl $octoUrl -octoApiKey $octoApiKey `
 									   -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctName -fileShareName $fileShareName `
-									   -vmSku $webVmSku
+									   -vmSku $vmSku
 						}
 			$jobs.Add($job) | Out-Null
 		}
