@@ -50,6 +50,10 @@
       "type": "string"
     },
 
+    "diagStorageAccountName": {
+      "type": "string"
+    },
+
     "dataDogApiKey": {
       "type": "string"
     },
@@ -154,7 +158,7 @@
 
     "dataDogApiKey": "[parameters('dataDogApiKey')]",
 
-    "diagnosticsStorageAccountName": "[concat('stgdiag', replace(variables('baseName'), '-', ''))]",
+    "diagnosticsStorageAccountName": "[parameters('diagStorageAccountName')]",
     "diagnosticsStorageAccountKey": "[parameters('diagStorageAccountKey')]",
     "diagnosticsStorageAccountEndPoint": "https://core.windows.net",
 
@@ -392,6 +396,24 @@
                   "settings": {
                     "fileUris": "[parameters('fileUris')]",
                     "commandToExecute": "[variables('commandToExecute')]"
+                  }
+                }
+              },
+              {
+                "name": "[concat(variables('vmssName'), '-IaaSDiagnostics')]",
+                "properties": {
+                  "publisher": "Microsoft.Azure.Diagnostics",
+                  "type": "IaaSDiagnostics",
+                  "typeHandlerVersion": "1.11",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "xmlCfg": "[base64(concat(variables('wadcfgxstart'), variables('wadmetricsresourceid'), variables('vmssName'), variables('wadcfgxend')))]",
+                    "storageAccount": "[variables('diagnosticsStorageAccountName')]"
+                  },
+                  "protectedSettings": {
+                    "storageAccountName": "[variables('diagnosticsStorageAccountName')]",
+                    "storageAccountKey": "[variables('diagnosticsStorageAccountKey')]",
+                    "storageAccountEndPoint": "[variables('diagnosticsStorageAccountEndPoint')]"
                   }
                 }
               }

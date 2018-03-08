@@ -588,7 +588,8 @@ function Execute-Deployment{
 		[Parameter(Mandatory=$true)]
 		[string]$resourceGroupName,
 		[Parameter(Mandatory=$true)]
-		[hashtable]$parameters
+		[hashtable]$parameters,
+		[switch]$simulate
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $templateFile $resourceGroupName
 
@@ -600,20 +601,27 @@ function Execute-Deployment{
 	
 	$name = ((Get-ChildItem $fullTemplateFileName).BaseName + '-' + $resourceGroupName + "-" + ((Get-Date).ToUniversalTime()).ToString('MMdd-HHmm'))
 	Write-Host "Deployment name: " $name
-	$result = New-AzureRmResourceGroupDeployment `
-		-Name $name `
-		-ResourceGroupName $resourceGroupName `
-		-TemplateFile $fullTemplateFileName `
-		-TemplateParameterObject $parameters `
-		-Force -Verbose `
-		-InformationAction Continue `
-		-ErrorVariable errorMessages
 
-	if ($errorMessages) {
-		$exceptionMessage = 'Template deployment returned the following errors:', @(@($ErrorMessages) | ForEach-Object { $_.Exception.Message.TrimEnd("`r`n") })
-		Write-Output $exceptionMessage
-		throw $exceptionMessage
+	if (!$simulate){
+		$result = New-AzureRmResourceGroupDeployment `
+			-Name $name `
+			-ResourceGroupName $resourceGroupName `
+			-TemplateFile $fullTemplateFileName `
+			-TemplateParameterObject $parameters `
+			-Force -Verbose `
+			-InformationAction Continue `
+			-ErrorVariable errorMessages
+
+		if ($errorMessages) {
+			$exceptionMessage = 'Template deployment returned the following errors:', @(@($ErrorMessages) | ForEach-Object { $_.Exception.Message.TrimEnd("`r`n") })
+			Write-Output $exceptionMessage
+			throw $exceptionMessage
+		}
 	}
+	else {
+		Write-Host "Skipped deployment because of simulation flag" -ForegroundColor Yellow
+	}
+
 
 	Write-Host "Out: " $MyInvocation.MyCommand 
 
@@ -776,6 +784,7 @@ function Deploy-Web{
 		[Parameter(Mandatory=$true)]
 		[Context]$ctx,
 		[switch]$secondary,
+		[string]$diagnosticStorageAccountName,
 		[string]$diagnosticStorageAccountKey,
 		[string]$dataDogApiKey,
 		[string]$adminUserName,
@@ -788,7 +797,8 @@ function Deploy-Web{
 		[string]$fileShareName,
 		[int]$scaleSetCapacity = 2,
 		[switch]$dontUseImage,
-		[string]$vmSku = "Standard_DS2_v2"
+		[string]$vmSku = "Standard_DS2_v2",
+		[switch]$simulate
 	)
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey
 
@@ -797,6 +807,7 @@ function Deploy-Web{
 	Ensure-ResourceGroup -ctx $ctx -category "web" -secondary:$secondary
 
 	$parameters = $ctx.GetTags($secondary, "WEB")
+	$parameters["diagStorageAccountName"] = $diagnosticStorageAccountName
 	$parameters["diagStorageAccountKey"] = $diagnosticStorageAccountKey
 	$parameters["dataDogApiKey"] = $dataDogApiKey
 	$parameters["sslCertificateUrl"] = $sslCertificateUrl
@@ -818,7 +829,7 @@ function Deploy-Web{
 	$templateName = "arm-vmssweb-deploy-from-image.json"
 	if ($dontUseImage){ $templateName = "arm-vmssweb-deploy.json" }
 
-	Execute-Deployment -templateFile $templateName -resourceGroup $resourceGroupName -parameters $parameters
+	Execute-Deployment -templateFile $templateName -resourceGroup $resourceGroupName -parameters $parameters -simulate:$simulate
 
 	Write-Host "Out: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($secondary) $diagnosticStorageAccountKey $dataDogApiKey
 }
@@ -1377,8 +1388,15 @@ function Start-ScriptJob{
 		[string]$category,
 		[string]$name,
 		[scriptblock]$scriptToRun,
-		[string]$vmSku
+		[string]$vmSku,
+		[switch]$simulate,
+		[string]$dataDiskNamePrefix,
+		[int]$dbDiskSizeInGB,
+		[string]$dbDiskType,
+		[string]$computerName
 	)
+
+	Write-Host "\\\\\\\\=>" $simulate
 
 	$arguments = New-Object System.Collections.ArrayList
 	$arguments.Add($ctx.environment) | Out-Null
@@ -1388,6 +1406,11 @@ function Start-ScriptJob{
 	$arguments.Add($usage) | Out-Null
 	$arguments.Add($category) | Out-Null
 	$arguments.Add($vmSku) | Out-Null
+	$arguments.Add($simulate) | Out-Null
+	$arguments.Add($dataDiskNamePrefix) | Out-Null
+	$arguments.Add($dbDiskSizeInGB) | Out-Null
+	$arguments.Add($dbDiskType) | Out-Null
+	$arguments.Add($computerName) | Out-Null
 
 	$preamble = {
 		param(
@@ -1397,8 +1420,15 @@ function Start-ScriptJob{
 			[string]$subscription, 
 			[bool]$usage,
 			[string]$category,
-			[string]$vmSku
+			[string]$vmSku,
+			[bool]$simulate,
+			[string]$dataDiskNamePrefix,
+			[int]$dbDiskSizeInGB,
+			[string]$dbDiskType,
+			[string]$computerName
 		)
+		
+		Write-Host "_____>" $simulate
 		. D:\Workspace\Workspace\Deployment-Scripts\WorkspaceAZRM.ps1
 		$newctx = Login-WorkspaceAzureAccount -environment $environment -slot $slot -facility $facility -subscription $subscription 
 	}
@@ -1442,7 +1472,8 @@ function Create-Core{
 		[string]$dbComputerName = "sql1",
 		[int]$dbDiskSizeInGB = 256,
 		[string]$dbDiskType = "StandardLRS",
-		[string]$fileShareName = "workspace-file-storage"
+		[string]$fileShareName = "workspace-file-storage",
+		[switch]$simulate
 	)
 	
 	Write-Host "In: " $MyInvocation.MyCommand $ctx.GetResourcePostfix($false) $ctx.GetResourcePostfix($true) $ctx.GetVnetCidrPrefix($false) $ctx.GetVnetCidrPrefix($true)
@@ -1515,8 +1546,12 @@ function Create-Core{
 
 	if ("db" -in $computeElements -and !$excludeCompute -and !$networkOnly){
 		foreach ($usage in $facilities){
+			Write-Host "#########" $dbVmSku
 
-			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription `
+			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription -vmSku $dbVmSku -simulate:$simulate `
+				-dataDiskNamePrefix $dataDiskNamePrefix `
+				-dbDiskSizeInGB $dbDiskSizeInGB -dbDiskType $dbDiskType `
+				-computerName $dbComputerName `
 								   -usage $usage `
 								   -name $("Deploy-DB-" + $ctx.GetResourcePostfix($usage)) `
 								   -scriptToRun {
@@ -1576,11 +1611,16 @@ function Create-Core{
 										$resourceNamePostfix = $newctx.GetResourcePostfix($secondary)
 										$dataDiskNamePrefix = $("data1-" + $computerName + "-vm-db")
 									
+										$diagStorageAccountName = $newctx.GetSharedStorageAccountName("diag", $usage)
+										$diagStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey"
+
+										Write-Host "##########" $vmSku $diagStorageAccountName $diagStorageAccountKey $computerName $dataDiskNamePrefix $dbDiskSizeInGB $dbDiskType
+
 										$resourceGroupName = $newctx.GetResourceGroupName("db", $usage)
 										$parameters = @{
 											"resourceNamePostfix" = $resourceNamePostfix
-											"vmSize" = $dbVmSku
-											"computerName" = $dbComputerName
+											"vmSize" = $vmSku
+											"computerName" = $computerName
 											"adminUserName" = $adminUserName
 											"adminPassword" = $adminPassword
 											"loginUserName" = $loginUserName
@@ -1595,27 +1635,32 @@ function Create-Core{
 											"dbBackupBlobName" = $dbBackupBlobName
 											"databaseVolumeLabel" = $databaseVolumeLabel
 											"environmentCode" = $newctx.environment + $newctx.slot
+											"diagStorageAccountName" = $diagStorageAccountName
+											"diagStorageAccountKey" = $diagStorageAccountKey
 										}
 									
 										Ensure-DiskPresent -ctx $newctx -diskNamePrefix $dataDiskNamePrefix -sizeInGB $dbDiskSizeInGB -accountType $dbDiskType
 										Ensure-ResourceGroup -ctx $newctx -category "db" -secondary:$secondary
-										Execute-Deployment -templateFile "arm-deploy-db-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters
+										Execute-Deployment -templateFile "arm-deploy-db-from-image.json" -resourceGroup $resourceGroupName -parameters $parameters -simulate:$simulate
 									
  									    Write-Host "Ending Deploy-DB subtask"
 									}
 			$jobs.Add($job) | Out-Null
 		}
 	}
-Write-Host "*******>" $webVmSku
+Write-Host "*******>" $simulate $webVmSku
 	if ("web" -in $computeElements -and !$excludeCompute -and !$networkOnly){
 		foreach ($usage in $facilities){
 
-			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription -vmSku $webVmSku `
+			$job = Start-ScriptJob -environment $ctx.environment -slot $ctx.slot -facility $ctx.facility -subscription $ctx.subscription -vmSku $webVmSku -simulate:$simulate `
 						-usage $usage `
 						-name $("Deploy-WEB-" + $ctx.GetResourcePostfix($usage)) `
 						-scriptToRun {
+							Write-Host "========>" $simulate $diagStorageAccountName $diagStorageAccountKey 
+
 							$keyVaultName = $newctx.GetKeyVaultName($usage)
 
+							$diagStorageAccountName = $newctx.GetSharedStorageAccountName("diag", $usage)
 							$diagStorageAccountKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DiagStorageAccountKey"
 							$dataDogApiKey = Get-KeyVaultSecret -KeyVaultName $keyVaultName -SecretName "DataDogApiKey"
 
@@ -1629,15 +1674,15 @@ Write-Host "*******>" $webVmSku
 							$fileStgAcctName = $newctx.GetFilesStorageAccountName($usage)
 							$fileShareName = "workspace-file-storage"
 
-							Write-Host "========>" $webVmSku
 							Deploy-Web -ctx $newctx -secondary:$usage `
-									   -diagnosticStorageAccountKey $diagStorageAccountKey `
-									   -dataDogApiKey $dataDogApiKey `
-									   -scaleSetCapacity $using:webScaleSetSize `
-									   -adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateId `
-									   -octoUrl $octoUrl -octoApiKey $octoApiKey `
-									   -fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctName -fileShareName $fileShareName `
-									   -vmSku $vmSku
+									-diagnosticStorageAccountName $diagStorageAccountName -diagnosticStorageAccountKey $diagStorageAccountKey `
+									-dataDogApiKey $dataDogApiKey `
+									-scaleSetCapacity $using:webScaleSetSize `
+									-adminUserName $webAdminUserName -adminPassword $webAdminPassword -sslCertificateUrl $webSslCertificateId `
+									-octoUrl $octoUrl -octoApiKey $octoApiKey `
+									-fileShareKey $fileShareStorageAccountKey -fileStgAcctName $fileStgAcctName -fileShareName $fileShareName `
+									-vmSku $vmSku `
+									-simulate:$simulate
 						}
 			$jobs.Add($job) | Out-Null
 		}
