@@ -1,0 +1,101 @@
+{
+  "Variable": [
+    {
+      "Value": "Workspace!Admin!2018",
+      "Encrypted": false,
+      "Name": "admin-password-default",
+      "LastModified": "2018-03-11 20:58:51Z"
+    },
+    {
+      "Value": "wsadmin",
+      "Encrypted": false,
+      "Name": "admin-username-default",
+      "LastModified": "2018-03-11 20:58:52Z"
+    },
+    {
+      "Value": "API-",
+      "Encrypted": false,
+      "Name": "octo-api-key",
+      "LastModified": "2018-03-11 20:58:52Z"
+    },
+    {
+      "Value": "https://",
+      "Encrypted": false,
+      "Name": "octo-url",
+      "LastModified": "2018-03-11 20:58:53Z"
+    },
+    {
+      "Value": -1.0,
+      "Encrypted": false,
+      "Name": "production-environment-slot-active",
+      "LastModified": "2018-03-11 20:58:56Z"
+    },
+    {
+      "Value": -1.0,
+      "Encrypted": false,
+      "Name": "production-environment-slot-preparing",
+      "LastModified": "2018-03-11 20:58:56Z"
+    },
+    {
+      "Value": -1.0,
+      "Encrypted": false,
+      "Name": "production-environment-slot-previous",
+      "LastModified": "2018-03-11 20:58:58Z"
+    },
+    {
+      "Value": "",
+      "Encrypted": false,
+      "Name": "ssl-certificate-url-default",
+      "LastModified": "2018-03-11 20:58:59Z"
+    },
+    {
+      "Value": "",
+      "Encrypted": false,
+      "Name": "stg-acct-key-diag-primary-default",
+      "LastModified": "2018-03-11 20:59:00Z"
+    },
+    {
+      "Value": "",
+      "Encrypted": false,
+      "Name": "stg-acct-key-diag-secondary-default",
+      "LastModified": "2018-03-11 20:59:00Z"
+    },
+    {
+      "Value": "",
+      "Encrypted": false,
+      "Name": "stg-acct-name-diag-primary-default",
+      "LastModified": "2018-03-11 20:59:02Z"
+    },
+    {
+      "Value": "",
+      "Encrypted": false,
+      "Name": "stg-acct-name-diag-secondary-default",
+      "LastModified": "2018-03-11 20:59:03Z"
+    },
+    {
+      "Value": "",
+      "Encrypted": false,
+      "Name": "stg-acct-name-files-prod-primary",
+      "LastModified": "2018-03-11 20:59:03Z"
+    },
+    {
+      "Value": "https://raw.githubusercontent.com/MHWorkspaceCC/Workspace/master/Deployment-Scripts/ARM/arm-deploy-web-from-image.json",
+      "Encrypted": false,
+      "Name": "template-arm-deploy-web-from-image-url",
+      "LastModified": "2018-03-11 20:59:04Z"
+    },
+    {
+      "Value": "Standard_DS13_v2",
+      "Encrypted": false,
+      "Name": "vm-sku-db",
+      "LastModified": "2018-03-11 20:59:08Z"
+    },
+    {
+      "Value": "Standard_DS2_v2",
+      "Encrypted": false,
+      "Name": "vm-sku-web",
+      "LastModified": "2018-03-11 20:59:09Z"
+    }
+  ],
+  "Certificate": []
+}
